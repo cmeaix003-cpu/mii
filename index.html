@@ -870,7 +870,7 @@ function vPeople(){
   let list=peopleFilter==='全'?all:peopleFilter==='要'?all.filter(x=>x.sc>=40):peopleFilter==='出'?all.filter(x=>{const c=shiftOf(x.p.name,pd);return c!==null&&!isOff(c)}):all.filter(x=>x.p.kind===peopleFilter);
   list.sort((a,b)=>b.sc-a.sc);
   let h=`<h1>PEOPLE</h1>`;
-  if(!D.staff.length)return h+`<div class="empty"><b>まだ名簿がありません。</b><br>エクセルの名簿を貼り付けて一括登録できます。<div style="margin-top:10px"><button class="btn" onclick="openImportModal()">名簿を貼り付ける</button> <button class="btn ghost" onclick="openStaffModal()">1人ずつ登録</button></div></div>`;
+  if(!D.staff.length)return h+`<div class="empty"><b>まだ名簿がありません。</b><br>エクセルファイルを選ぶだけで一括登録できます。<div style="margin-top:10px"><button class="btn" onclick="openImportModal()">名簿を取り込む</button> <button class="btn ghost" onclick="openStaffModal()">1人ずつ登録</button></div></div>`;
   // 日付切替バー
   const hasShift=!!(D.shifts||{})[pd.slice(0,7)];
   const w=workingOn(pd);
@@ -886,7 +886,7 @@ function vPeople(){
   h+=condBar();
   h+=`<h2>今週、お声がけを</h2>`;
   h+=pick.length?`<div class="grid">${pick.map(x=>cardStaff(x.p,true,pd)).join('')}</div>`:`<div class="empty">今週は特に浮上している方はいません。</div>`;
-  h+=`<h2>全員</h2><div class="toolbar"><div class="seg">${['全','要','出',...KINDS].map(k=>`<button class="${peopleFilter===k?'on':''}" onclick="peopleFilter='${k}';render()">${k==='全'?'全員':k==='要'?'要対応':k==='出'?'出勤者':k}</button>`).join('')}</div><span class="sp"></span><button class="btn ghost small" onclick="openImportModal()">名簿を貼り付け</button></div>`;
+  h+=`<h2>全員</h2><div class="toolbar"><div class="seg">${['全','要','出',...KINDS].map(k=>`<button class="${peopleFilter===k?'on':''}" onclick="peopleFilter='${k}';render()">${k==='全'?'全員':k==='要'?'要対応':k==='出'?'出勤者':k}</button>`).join('')}</div><span class="sp"></span><button class="btn ghost small" onclick="openImportModal()">名簿を取り込む</button></div>`;
   h+=`<div class="grid">${list.map(x=>cardStaff(x.p,false,pd)).join('')}</div>`;
   return h;
 }
@@ -1042,19 +1042,137 @@ function saveStaff(id){
 }
 function delStaff(id){if(!confirm('名簿から削除しますか？'))return;D.staff=D.staff.filter(x=>x.id!==id);closeModal();store.save();render()}
 function renewDone(id){const p=D.staff.find(x=>x.id===id);if(!p.renewalDate||!p.cycleMonths){toast('更新日とサイクルを入れてください');return}p.renewalDate=addMonths(p.renewalDate,p.cycleMonths).slice(0,8)+p.renewalDate.slice(8);p.lastContact=today();closeModal();store.save();render();toast('次回更新日を'+p.renewalDate+'にしました')}
+
+/* ===== 名簿：エクセル／CSVから読む ===== */
+const COLDEF=[
+  {k:'name',    label:'氏名',        re:/氏名|名前|スタッフ名|社員名|ｽﾀｯﾌ|name/i},
+  {k:'kind',    label:'区分',        re:/区分|雇用|種別|所属区分|雇用形態|契約区分/i},
+  {k:'dept',    label:'所属',        re:/所属|現場|部署|部門|拠点|事業所|チーム/i},
+  {k:'start',   label:'就業開始日',  re:/入社|就業|開始|着任|配属|勤務開始/i},
+  {k:'renewal', label:'次回更新日',  re:/更新日|次回更新|契約満了|満了|期限|終了日/i},
+  {k:'cycle',   label:'更新サイクル',re:/サイクル|更新周期|契約期間|周期|か月|ヶ月/i},
+  {k:'birth',   label:'誕生日',      re:/誕生|生年|birth/i}
+];
+function rowsToRoster(rows){
+  rows=(rows||[]).map(r=>(r||[]).map(c=>String(c==null?'':c).trim()));
+  // 1) 見出し行を探す（短いラベルが2種類以上そろう行）
+  let headIx=-1,bestScore=1;
+  for(let i=0;i<Math.min(rows.length,15);i++){
+    const hit=new Set();
+    rows[i].forEach(v=>{
+      if(!v||v.length>10)return;
+      for(const d of COLDEF)if(d.re.test(v))hit.add(d.k);
+    });
+    if(hit.size>bestScore){bestScore=hit.size;headIx=i}
+  }
+  // 2) 列の対応づけ
+  const col={};
+  if(headIx>=0){
+    rows[headIx].forEach((v,c)=>{
+      if(!v)return;
+      for(const d of COLDEF){if(col[d.k]===undefined&&d.re.test(v)){col[d.k]=c;return}}
+    });
+  }
+  // 氏名列が見つからなければ、日本語が最も多い列を氏名とみなす
+  if(col.name===undefined){
+    let best=0,bestN=0;
+    const w=Math.max(...rows.map(r=>r.length));
+    for(let c=0;c<Math.min(w,8);c++){
+      let n=0;rows.forEach(r=>{const v=r[c]||'';if(/[ぁ-んァ-ヶ一-龠]/.test(v)&&v.length<=12&&!/^\d/.test(v))n++});
+      if(n>bestN){bestN=n;best=c}
+    }
+    col.name=best;
+  }
+  // 3) データ行
+  const NG=/^(氏名|名前|スタッフ|社員|№|No\.?|合計|計|備考|以上)$/i;
+  const out=[];
+  const start=headIx>=0?headIx+1:0;
+  for(let i=start;i<rows.length;i++){
+    const r=rows[i];
+    const name=(r[col.name]||'').trim();
+    if(!name||NG.test(name)||/^\d+$/.test(name))continue;
+    const g=k=>col[k]!==undefined?(r[col[k]]||'').trim():'';
+    out.push({name,kind:g('kind'),dept:g('dept'),start:g('start'),renewal:g('renewal'),cycle:g('cycle'),birth:g('birth')});
+  }
+  return {rows:out,col,headIx};
+}
+function rosterFile(input){
+  const f=input.files&&input.files[0];if(!f)return;
+  const info=document.getElementById('im-fileinfo');
+  info.textContent='読み込み中…';
+  const isCsv=/\.csv$/i.test(f.name);
+  const rd=new FileReader();
+  rd.onload=()=>{
+    try{
+      let rows;
+      if(isCsv)rows=String(rd.result).split(/\r?\n/).map(l=>l.split(','));
+      else{
+        if(!window.XLSX){info.innerHTML='<span style="color:var(--today)">エクセルを読む部品が見つかりません。CSVで保存するか、貼り付けをお使いください。</span>';return}
+        const wb=XLSX.read(rd.result,{type:'array'});
+        rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:'',raw:false});
+      }
+      const res=rowsToRoster(rows);
+      if(!res.rows.length){info.innerHTML='<span style="color:var(--today)">氏名の列が見つかりませんでした。貼り付けをお試しください。</span>';return}
+      window._imRows=res.rows;
+      const found=COLDEF.filter(d=>res.col[d.k]!==undefined).map(d=>d.label);
+      const miss=COLDEF.filter(d=>res.col[d.k]===undefined).map(d=>d.label);
+      info.innerHTML=`「${esc(f.name)}」から <b>${res.rows.length}名</b> を読み取りました`;
+      document.getElementById('im-prev').innerHTML=
+        `<div class="warn"><b>見つかった列</b>：${found.join('／')||'氏名のみ'}${miss.length?`<br><span class="muted">見つからなかった列：${miss.join('／')}（空欄として登録されます）</span>`:''}</div>`+
+        `<div class="warn"><b>先頭3名</b><br>${res.rows.slice(0,3).map(r=>esc([r.name,r.kind,r.dept,r.start,r.renewal,r.cycle,r.birth].filter(Boolean).join('　'))).join('<br>')}</div>`;
+      document.getElementById('im-text').value=res.rows.map(r=>[r.name,r.kind,r.dept,r.start,r.renewal,r.cycle,r.birth].join('\t')).join('\n');
+    }catch(e){info.innerHTML='<span style="color:var(--today)">読み込めませんでした：'+esc(e.message)+'</span>'}
+  };
+  rd.onerror=()=>{info.textContent='ファイルを読めませんでした'};
+  if(isCsv)rd.readAsText(f);else rd.readAsArrayBuffer(f);
+}
+
 function openImportModal(){
-  openModal(`<h3>名簿を貼り付け</h3><div class="hint">エクセルで列を「氏名／区分／所属／就業開始日／次回更新日／更新サイクル（月）／誕生日」の順に並べ、範囲をコピーして貼り付けてください。日付は 2026/4/1 のような形で構いません。見出し行があっても大丈夫です。</div>
-  <div class="f"><textarea id="im-text" style="min-height:160px" placeholder="山田太郎	派遣	第1現場	2025/4/1	2026/12/31	3	1990/5/10"></textarea></div>
+  openModal(`<h3>名簿を取り込む</h3><div class="hint">エクセルファイルを選ぶか、表を貼り付けてください。見出しの文字から「氏名」「区分」「所属」などの列を自動で見分けます。列の順番は問いません。</div>
+  <div class="f"><label>エクセルファイルから読み込む</label>
+    <input type="file" id="im-file" accept=".xlsx,.xls,.csv" onchange="rosterFile(this)" style="padding:10px">
+    <div id="im-fileinfo" class="small muted" style="margin-top:6px"></div></div>
+  <div id="im-prev"></div>
+  <div class="f"><label>または、貼り付ける（氏名／区分／所属／就業開始日／次回更新日／更新サイクル／誕生日の順）</label>
+    <textarea id="im-text" style="min-height:120px" placeholder="山田太郎	派遣	第1現場	2025/4/1	2026/12/31	3	1990/5/10"></textarea></div>
   <div class="foot"><button class="btn ghost" onclick="closeModal()">やめる</button><button class="btn solid" onclick="doImport()">取り込む</button></div>`);
+  window._imRows=null;
 }
 function normDate(s){s=(s||'').trim();if(!s)return '';const m=s.match(/(\d{4})[\/\-.年](\d{1,2})[\/\-.月](\d{1,2})/);if(!m)return '';return m[1]+'-'+m[2].padStart(2,'0')+'-'+m[3].padStart(2,'0')}
 function doImport(){
-  const lines=document.getElementById('im-text').value.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);let n=0,u=0;
-  lines.forEach(l=>{const c=l.split(/\t|,/).map(x=>x.trim());if(!c[0]||c[0]==='氏名')return;
-    const kind=KINDS.find(k=>(c[1]||'').includes(k))||'派遣';
-    const o={name:c[0],kind,dept:c[2]||'',startDate:normDate(c[3]),renewalDate:normDate(c[4]),cycleMonths:Number(c[5])||'',birthday:normDate(c[6])};
-    const ex=D.staff.find(p=>p.name===o.name);if(ex){Object.assign(ex,o);u++}else{D.staff.push({id:uid(),conditions:[],...o});n++}});
+  let src=window._imRows;
+  if(!src){
+    const parsed=rowsToRoster(document.getElementById('im-text').value.split(/\r?\n/).filter(l=>l.trim()).map(l=>l.split(/\t|,/)));
+    src=parsed.rows.length?parsed.rows:document.getElementById('im-text').value.split(/\r?\n/).filter(l=>l.trim()).map(l=>{
+      const c=l.split(/\t|,/).map(x=>x.trim());
+      return {name:c[0],kind:c[1]||'',dept:c[2]||'',start:c[3]||'',renewal:c[4]||'',cycle:c[5]||'',birth:c[6]||''};
+    });
+  }
+  let n=0,u=0;
+  src.forEach(r=>{
+    if(!r.name||r.name==='氏名')return;
+    const kind=guessKind(r.kind)||KINDS.find(k=>(r.kind||'').trim()===k)||'派遣';
+    const o={name:r.name,kind,dept:r.dept||'',startDate:normDate(r.start),renewalDate:normDate(r.renewal),cycleMonths:normCycle(r.cycle),birthday:normDate(r.birth)};
+    const ex=D.staff.find(p=>p.name===o.name);
+    if(ex){Object.assign(ex,o);u++}else{D.staff.push({id:uid(),conditions:[],...o});n++}
+  });
+  window._imRows=null;
   closeModal();store.save();render();toast(n+'名を追加、'+u+'名を更新しました');
+}
+function guessKind(v){
+  v=String(v||'');
+  if(/派遣|ﾊｹﾝ/.test(v))return '派遣';           // 「派遣社員」を先に判定
+  if(/パート|アルバイト|バイト|ﾊﾟｰﾄ|ｱﾙﾊﾞｲﾄ|非常勤|時給|ﾊﾟ|P|A/.test(v)&&!/正/.test(v))return 'バイト';
+  if(/嘱託|再雇用|シニア|定年後/.test(v))return '嘱託';
+  if(/正社員|正職|常勤|社員|職員/.test(v))return '社員';
+  return '';
+}
+function normCycle(v){
+  const s=String(v||'');
+  const m=s.match(/(\d+)/);if(!m)return '';
+  const n=Number(m[1]);
+  if(/年/.test(s))return n*12;
+  return n;
 }
 
 
