@@ -7,6 +7,8 @@
 <meta name="supported-color-schemes" content="light">
 <meta name="theme-color" content="#D5D2C6">
 <title>しツジの「みー」さん</title>
+<script src="vendor/xlsx.js"></script>
+<script>if(!window.XLSX)document.write('<script src="https:\/\/unpkg.com\/xlsx@0.18.5\/dist\/xlsx.full.min.js"><\/script>');</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DotGothic16&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
@@ -256,6 +258,24 @@ h2{font-family:var(--pix);font-size:12px;color:var(--gray);margin:24px 0 8px;let
 .card.big.iswork{box-shadow:inset 0 0 0 3px var(--person-tint),inset 0 0 0 5px var(--person-deep)}
 .slots{display:flex;flex-wrap:wrap;gap:6px}
 .slots .btn.on{background:var(--person);color:#fff;border-color:var(--person-deep);box-shadow:2px 2px 0 var(--person-deep)}
+/* 個人の月間勤務 */
+.smon{background:var(--panel);border:2px solid var(--rule);padding:8px}
+.smhd{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:4px}
+.smhd span{font-family:var(--pix);font-size:10px;color:var(--gray);text-align:center}
+.smgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+.sc{aspect-ratio:1/1;display:flex;flex-direction:column;align-items:center;justify-content:center;border:1px solid var(--rule);background:var(--panel2);position:relative}
+.sc.other{border:0;background:transparent}
+.sc .sd{font-family:var(--pix);font-size:9px;color:var(--gray);line-height:1}
+.sc .sv{font-size:11px;font-weight:700;line-height:1.2;margin-top:1px}
+.sc.on{background:var(--person-tint);border-color:var(--person);cursor:pointer}
+.sc.on .sv{color:var(--person-deep)}
+.sc.off{background:var(--panel2);opacity:.55}
+.sc.off .sv{color:var(--gray);font-weight:400}
+.sc.past{opacity:.45}
+.sc.today{outline:2px solid var(--ink);outline-offset:-2px}
+.sc .sm{position:absolute;top:2px;right:2px;width:6px;height:6px;background:var(--today)}
+.smft{font-family:var(--pix);font-size:11px;color:var(--gray);margin-top:8px;line-height:1.6}
+.smnote{font-size:10px;color:var(--gray);margin-top:4px}
 /* 勤務表 */
 .shgrp{margin-bottom:12px}
 .shcode{font-family:var(--pix);font-size:12px;background:var(--ink);color:var(--panel);display:inline-block;padding:3px 10px;border-radius:6px}
@@ -707,7 +727,7 @@ function vCal(){
   let h=`<div class="cal-head"><h1>${calTitle()}</h1><div class="seg">${['day','week','month','shift'].map(m=>`<button class="${calMode===m?'on':''}" onclick="calMode='${m}';render()">${{day:'日',week:'週',month:'月',shift:'勤務'}[m]}</button>`).join('')}</div></div>`;
   h+=`<div class="toolbar"><button class="btn ghost small" onclick="calMove(-1)">‹ 前</button><button class="btn ghost small" onclick="calAnchor=today();render()">今日</button><button class="btn ghost small" onclick="calMove(1)">次 ›</button><span class="sp"></span><button class="btn ghost small" onclick="openQuickModal('morning')">まとめて入れる</button><button class="btn ghost small" onclick="store.fetchEvents()">取り込む</button></div>`;
   if(calMode==='shift'){
-    h+=`<div class="toolbar"><span class="small muted">出勤者をタップすると、その日の面談として登録できます</span><span class="sp"></span><button class="btn ghost small" onclick="openShiftModal()">勤務表を貼り付け</button></div>`;
+    h+=`<div class="toolbar"><span class="small muted">出勤者をタップすると、その日の面談として登録できます</span><span class="sp"></span><button class="btn ghost small" onclick="openShiftModal()">勤務表を取り込む</button></div>`;
     h+=`<h2>${fmtMD(calAnchor)} の出勤</h2>`+vShiftDay(calAnchor);
     const ms=shiftMonths();
     if(ms.length)h+=`<p class="small muted" style="margin-top:14px">取り込み済み：${ms.join('／')}</p>`;
@@ -862,7 +882,7 @@ function vPeople(){
     ${pd!==today()?`<button class="btn ghost small" onclick="peopleDate=null;render()">今日へ</button>`:''}
     <span class="wcount">${hasShift?(w?w.length+'名 出勤':''):'勤務表なし'}</span>
   </div>`;
-  if(!hasShift)h+=`<div class="toolbar"><span class="small muted">${pd.slice(0,7)}の勤務表を入れると、出勤状況がカードに出ます</span><span class="sp"></span><button class="btn ghost small" onclick="openShiftModal('${pd.slice(0,7)}')">勤務表を貼り付け</button></div>`;
+  if(!hasShift)h+=`<div class="toolbar"><span class="small muted">${pd.slice(0,7)}の勤務表を入れると、出勤状況がカードに出ます</span><span class="sp"></span><button class="btn ghost small" onclick="openShiftModal('${pd.slice(0,7)}')">勤務表を取り込む</button></div>`;
   h+=condBar();
   h+=`<h2>今週、お声がけを</h2>`;
   h+=pick.length?`<div class="grid">${pick.map(x=>cardStaff(x.p,true,pd)).join('')}</div>`:`<div class="empty">今週は特に浮上している方はいません。</div>`;
@@ -885,6 +905,41 @@ function onCardTap(id,pd){
   const code=shiftOf(p.name,pd);const work=code!==null&&!isOff(code);
   if(work)openMeetingPicker(id,pd);else openStaffDetail(id);
 }
+
+
+/* ===== 個人の月間勤務ビュー ===== */
+function staffMonthShift(name,ym,staffId){
+  const m=(D.shifts||{})[ym];
+  if(!m||!m[name])return `<div class="empty small">${ym} の勤務表がありません。</div>`;
+  const row=m[name];
+  const first=ym+'-01';
+  const lastDay=new Date(Number(ym.slice(0,4)),Number(ym.slice(5,7)),0).getDate();
+  const lead=(parse(first).getDay()+6)%7;
+  const t=today();
+  const prof=shiftProfile(name,ym);
+  let cells='';
+  for(let i=0;i<lead;i++)cells+=`<div class="sc other"></div>`;
+  for(let d=1;d<=lastDay;d++){
+    const date=ym+'-'+String(d).padStart(2,'0');
+    const c=String(row[String(d)]||'').trim();
+    const off=isOff(c);
+    const has=D.events.some(e=>e.date===date&&e.cat==='人'&&(e.staffName===name));
+    cells+=`<div class="sc ${off?'off':'on'} ${date===t?'today':''} ${date<t?'past':''}" ${!off&&date>=t?`onclick="closeModal();openMeetingPicker('${staffId}','${date}')"`:''}>
+      <span class="sd">${d}</span><span class="sv">${off?'休':esc(c||'-')}</span>${has?'<i class="sm"></i>':''}</div>`;
+  }
+  return `<div class="smon">
+    <div class="smhd">${'月火水木金土日'.split('').map(x=>`<span>${x}</span>`).join('')}</div>
+    <div class="smgrid">${cells}</div>
+    <div class="smft">出勤 ${prof.work}日 ／ 休み ${prof.off}日${Object.keys(prof.codes).filter(k=>k!=='休').map(k=>`　${esc(k)} ${prof.codes[k]}`).join('')}</div>
+    <div class="smnote">出勤日をタップすると、その日の面談を登録できます</div>
+  </div>`;
+}
+function shiftMonthNav(id,ym){
+  const ms=shiftMonths();
+  if(!ms.length)return '';
+  return `<div class="seg" style="margin-bottom:8px">${ms.slice(-4).map(m=>`<button class="${m===ym?'on':''}" onclick="staffYm='${m}';openStaffDetail('${id}')">${m.replace('-','/')}</button>`).join('')}</div>`;
+}
+let staffYm=null;
 
 /* ===== 面談の日時を決めてスケジュールへ ===== */
 function openMeetingPicker(id,pd){
@@ -945,7 +1000,9 @@ function openStaffDetail(id){
   <div class="hint">${p.dept?esc(p.dept)+'　':''}就業 ${p.startDate||'未登録'}　${p.renewalDate?'次回更新 '+p.renewalDate+'（'+(p.cycleMonths||'?')+'か月）':''}</div>
   ${staffWhy(p)?`<div class="warn person">${esc(staffWhy(p))}</div>`:''}
   ${(()=>{const s=(shiftSignals()||[]).find(x=>x.p.id===id);return s?`<div class="warn"><b>勤務の変化</b><br>${s.reasons.map(esc).join('<br>')}</div>`:''})()}
-  ${(()=>{const nx=nextWorkDays(p.name,today(),4);if(!nx.length)return '';return `<div class="f"><label>次の出勤日（タップで面談を登録）</label><div class="nextdays">${nx.map(x=>`<button class="btn small person" onclick="closeModal();openEventModal({date:'${x.date}',type:'面談',title:'面談 ${esc(p.name)}',staffName:'${esc(p.name)}'})">${fmtMD(x.date)} ${esc(x.code)}</button>`).join('')}</div></div>`})()}
+  ${(()=>{const nx=nextWorkDays(p.name,today(),4);if(!nx.length)return '';return `<div class="f"><label>次の出勤日（タップで面談を登録）</label><div class="nextdays">${nx.map(x=>`<button class="btn small person" onclick="closeModal();openMeetingPicker('${id}','${x.date}')">${fmtMD(x.date)} ${esc(x.code)}</button>`).join('')}</div></div>`})()}
+  ${(()=>{const ms=shiftMonths();if(!ms.length)return '';const ym=(staffYm&&ms.includes(staffYm))?staffYm:(ms.includes(today().slice(0,7))?today().slice(0,7):ms[ms.length-1]);
+    return `<h2>勤務（${ym.replace('-','年')}月）</h2>${shiftMonthNav(id,ym)}${staffMonthShift(p.name,ym,id)}`})()}
   <h2 style="margin-top:14px">声をかけた・面談した</h2>
   <div class="cond-pick" id="cp">${[1,2,3,4,5].map(v=>`<button class="c${v}" onclick="pickCond(${v})">${v}</button>`).join('')}<span class="small muted" style="align-self:center">1＝良好　5＝要注意</span></div>
   <div class="f"><label>一言メモ・面談内容（任意）</label><textarea id="st-note"></textarea></div>
@@ -1556,16 +1613,111 @@ function shiftMonths(){return Object.keys(D.shifts||{}).sort()}
 
 function openShiftModal(ym0){
   const ym=ym0||(calAnchor||today()).slice(0,7);
-  openModal(`<h3>勤務表を貼り付け</h3>
-  <div class="hint">エクセルの勤務表をそのまま貼り付けてください。<b>1列目に氏名</b>、<b>2列目以降が1日・2日…</b>の並びであれば読み取れます。見出し行があっても大丈夫です。休みは「休」「公」「有」や空欄として扱います。</div>
+  openModal(`<h3>勤務表を取り込む</h3>
+  <div class="hint">エクセルファイルを選ぶか、表をそのまま貼り付けてください。事業所名や見出し行が上にあっても、氏名の列と日付の列を自動で探します。休みは「休」「公」「有」や空欄として扱います。</div>
   <div class="f"><label>対象の月</label><input id="sh-ym" type="month" value="${ym}"></div>
-  <div class="f"><textarea id="sh-text" style="min-height:170px" placeholder="氏名	1	2	3	4	5 ...&#10;山田 太郎	早	早	休	遅	遅&#10;佐藤 花子	日	日	日	休	休"></textarea></div>
+  <div class="f"><label>エクセルファイルから読み込む</label>
+    <input type="file" id="sh-file" accept=".xlsx,.xls,.csv" onchange="shiftFile(this)" style="padding:10px">
+    <div id="sh-fileinfo" class="small muted" style="margin-top:6px"></div></div>
+  <div class="f"><label>または、貼り付ける</label><textarea id="sh-text" style="min-height:130px" placeholder="氏名	1	2	3	4	5 ...&#10;山田 太郎	早	早	休	遅	遅&#10;佐藤 花子	日	日	日	休	休"></textarea></div>
+  <div id="sh-prev"></div>
   <div class="foot"><button class="btn ghost" onclick="closeModal()">やめる</button><button class="btn solid" onclick="doShiftImport()">取り込む</button></div>`);
 }
+
+/* ===== エクセル／CSVから勤務表を読む ===== */
+function shiftFile(input){
+  const f=input.files&&input.files[0];if(!f)return;
+  const info=document.getElementById('sh-fileinfo');
+  info.textContent='読み込み中…';
+  const isCsv=/\.csv$/i.test(f.name);
+  const rd=new FileReader();
+  rd.onload=()=>{
+    try{
+      let rows;
+      if(isCsv){
+        rows=String(rd.result).split(/\r?\n/).map(l=>l.split(','));
+      }else{
+        if(!window.XLSX){info.innerHTML='<span style="color:var(--today)">エクセルを読む部品が見つかりません。CSVで保存するか、貼り付けをお使いください。</span>';return}
+        const wb=XLSX.read(rd.result,{type:'array'});
+        const sh=wb.Sheets[wb.SheetNames[0]];
+        rows=XLSX.utils.sheet_to_json(sh,{header:1,defval:'',raw:false});
+      }
+      const res=rowsToShift(rows);
+      if(!res.lines.length){info.innerHTML='<span style="color:var(--today)">氏名の列が見つかりませんでした。貼り付けをお試しください。</span>';return}
+      document.getElementById('sh-text').value=res.lines.join('\n');
+      // 月の推定
+      if(res.ym)document.getElementById('sh-ym').value=res.ym;
+      info.innerHTML=`「${esc(f.name)}」${wbSheetNote(isCsv)}<br>${res.lines.length}名分を読み取りました${res.ym?'（'+res.ym+'と判定）':''}`;
+      document.getElementById('sh-prev').innerHTML=`<div class="warn"><b>読み取り結果（先頭3名）</b><br>${res.lines.slice(0,3).map(l=>esc(l.split('\t').slice(0,9).join('　')+' …')).join('<br>')}</div>`;
+    }catch(e){info.innerHTML='<span style="color:var(--today)">読み込めませんでした：'+esc(e.message)+'</span>'}
+  };
+  rd.onerror=()=>{info.textContent='ファイルを読めませんでした'};
+  if(isCsv)rd.readAsText(f);else rd.readAsArrayBuffer(f);
+}
+function wbSheetNote(isCsv){return isCsv?'（CSV）':''}
+/** 表の行データから「氏名＋1日〜31日」の形を探し出す */
+function rowsToShift(rows){
+  rows=(rows||[]).map(r=>(r||[]).map(c=>String(c==null?'':c).trim()));
+  // 1) 日付の見出し行を探す（1,2,3… が並ぶ行）
+  let headIx=-1,dayCol=-1;
+  for(let i=0;i<Math.min(rows.length,15);i++){
+    const r=rows[i];
+    for(let c=0;c<Math.min(r.length,8);c++){
+      let ok=0;
+      for(let k=0;k<10;k++){
+        const v=r[c+k];
+        const n=v&&v.match(/^(\d{1,2})/);
+        if(n&&Number(n[1])===k+1)ok++;
+      }
+      if(ok>=8){headIx=i;dayCol=c;break}
+    }
+    if(headIx>=0)break;
+  }
+  // 2) 氏名の列を推定（見出し行より左、または0列目）
+  let nameCol=0;
+  if(dayCol>0){
+    // 日付列の左側で、最も文字が入っている列
+    let best=-1,bestN=0;
+    for(let c=0;c<dayCol;c++){
+      let n=0;
+      rows.forEach(r=>{const v=r[c]||'';if(v&&!/^\d+$/.test(v)&&v.length<=12)n++});
+      if(n>bestN){bestN=n;best=c}
+    }
+    if(best>=0)nameCol=best;
+  }
+  if(dayCol<0)dayCol=nameCol+1;
+  // 3) 月の推定（上部セルから yyyy年m月 / m月 を探す）
+  let ym=null;
+  outer:for(let i=0;i<Math.min(rows.length,10);i++){
+    for(const v of rows[i]){
+      let m=v.match(/(20\d{2})\s*[年\/\-\.]\s*(\d{1,2})/);
+      if(m){ym=m[1]+'-'+String(m[2]).padStart(2,'0');break outer}
+      m=v.match(/^(\d{1,2})\s*月/);
+      if(m){const y=new Date().getFullYear();ym=y+'-'+String(m[1]).padStart(2,'0');break outer}
+    }
+  }
+  // 4) データ行を抽出
+  const NG=/^(氏名|名前|スタッフ|社員|№|No\.?|合計|計|備考|区分)$/i;
+  const lines=[];
+  const start=headIx>=0?headIx+1:0;
+  for(let i=start;i<rows.length;i++){
+    const r=rows[i];
+    const name=(r[nameCol]||'').trim();
+    if(!name||NG.test(name)||/^\d+$/.test(name))continue;
+    const cells=[];
+    for(let d=0;d<31;d++)cells.push((r[dayCol+d]||'').trim());
+    if(cells.filter(Boolean).length<5)continue;
+    lines.push([name,...cells].join('\t'));
+  }
+  return {lines,ym,headIx,nameCol,dayCol};
+}
+
 function doShiftImport(){
   const ym=document.getElementById('sh-ym').value;
   if(!ym){toast('対象の月を選んでください');return}
-  const lines=document.getElementById('sh-text').value.split(/\r?\n/).filter(l=>l.trim());
+  const raw=document.getElementById('sh-text').value.split(/\r?\n/).filter(l=>l.trim());
+  const parsed=rowsToShift(raw.map(l=>l.split(/\t|,/)));
+  const lines=parsed.lines.length?parsed.lines:raw;
   const map={};let n=0,unknown=[];
   lines.forEach(l=>{
     const c=l.split(/\t|,/);
