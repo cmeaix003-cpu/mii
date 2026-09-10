@@ -1404,55 +1404,68 @@ function rowsToShiftPaired(rows,ym,dayCol){
   const M=ym?Number(ym.slice(5,7)):new Date().getMonth()+1;
   const dim=new Date(Y,M,0).getDate();
   const at=(r,d)=>String((rows[r]||[])[dayCol+d-1]||'').trim();       // d=1..dim
-  const hasContent=r=>{for(let d=1;d<=dim;d++)if(at(r,d))return true;return false};
+  const filled=r=>{let k=0;for(let d=1;d<=dim;d++)if(at(r,d))k++;return k};
   const nameOf=r=>String((rows[r]||[])[0]||'').trim();
-  // CGデザイン以降は別部署
-  let cgRow=-1;
-  for(let r=0;r<rows.length;r++)if(/^CGデザイン/.test(nameOf(r))){cgRow=r;break}
-  const scanMax=cgRow>=0?cgRow-1:rows.length-1;
-  // ブロック（名前行 → 次の行がシフト）
-  const blocks=[],baito=[],kenshu=[];
-  for(let r=0;r<=scanMax;r++){
+  const NGNAME=/^(氏名|名前|№|No\.?|合計|総計|小計|計|備考|日付|曜日|人数|以上)$/i;
+  /** その行が日付・曜日の見出しか */
+  const isHeadRow=r=>{
+    let seq=0;for(let d=1;d<=10;d++){const v=at(r,d);const n=v&&v.match(/^(\d{1,2})/);if(n&&Number(n[1])===d)seq++;else break}
+    if(seq>=7)return true;
+    let dow=0;for(let d=1;d<=10;d++)if(/^[月火水木金土日]$/.test(at(r,d)))dow++;
+    return dow>=7;
+  };
+  const map={};
+  const put=(name,d,code)=>{if(!name||NGNAME.test(name))return;map[name]=map[name]||{};if(code)map[name][d]=code};
+  const usedRows=new Set();
+  const baitoRows=[],kenshuRows=[];
+  let cgRow=-1,blocks=0;
+  // 1) 特別な行（アルバイト枠・研修・CG）を先に見つける
+  for(let r=0;r<rows.length;r++){
     const nm=nameOf(r);
     if(!nm)continue;
-    if(/^アルバイト\s*A/.test(nm)){baito.push({r,kind:'A',label:nm});continue}
-    if(/^アルバイト\s*B/.test(nm)){baito.push({r,kind:'B',label:nm});continue}
-    if(/^アルバイト研修|^研修/.test(nm)){kenshu.push(r);continue}
-    if(/^(氏名|名前|№|No\.?|合計|計|備考|日付|曜日)$/i.test(nm))continue;
-    if(r+1<rows.length&&hasContent(r+1))blocks.push({nm,sr:r+1});
+    if(/^CGデザイン/.test(nm)){cgRow=r;usedRows.add(r);continue}
+    if(/^アルバイト\s*A/.test(nm)){baitoRows.push({r,kind:'A'});usedRows.add(r);continue}
+    if(/^アルバイト\s*B/.test(nm)){baitoRows.push({r,kind:'B'});usedRows.add(r);continue}
+    if(/^アルバイト研修|^研修|ぐ[～〜]たく/.test(nm)){kenshuRows.push(r);usedRows.add(r);continue}
   }
-  // 研修の続き行
-  if(kenshu.length){
-    let r=kenshu[kenshu.length-1]+1;
-    while(r<=scanMax&&!nameOf(r)&&hasContent(r)){kenshu.push(r);r++}
+  // 研修枠の続き行（名前が無く中身だけの行）
+  if(kenshuRows.length){
+    let r=kenshuRows[kenshuRows.length-1]+1;
+    while(r<rows.length&&!nameOf(r)&&filled(r)>=1&&!isHeadRow(r)){kenshuRows.push(r);usedRows.add(r);r++}
   }
-  // CGデザイン欄も同じ作り
-  if(cgRow>=0){
-    for(let r=cgRow+1;r+1<rows.length;r++){
-      const nm=nameOf(r);
-      if(!nm||!hasContent(r+1))continue;
-      blocks.push({nm,sr:r+1});
-    }
-  }
-  // 出力：氏名→日→コード
-  const map={};
-  const put=(name,d,code)=>{if(!name)return;map[name]=map[name]||{};map[name][d]=code};
-  blocks.forEach(b=>{
+  // 2) 名前のある行をすべて走査（見出し行の上下を問わない）
+  for(let r=0;r<rows.length;r++){
+    if(usedRows.has(r))continue;
+    const nm=nameOf(r);
+    if(!nm||NGNAME.test(nm))continue;
+    if(/^[\d\.\-\/\s]+$/.test(nm))continue;
+    if(isHeadRow(r))continue;
+    const self=filled(r), next=(r+1<rows.length&&!nameOf(r+1)&&!isHeadRow(r+1))?filled(r+1):0;
+    let sr=-1;
+    if(self>=Math.max(3,dim*0.3))sr=r;            // 同じ行にシフトがある
+    else if(next>=Math.max(3,dim*0.3))sr=r+1;     // 次の行にシフトがある
+    else if(self>=3)sr=r;
+    else if(next>=3)sr=r+1;
+    if(sr<0)continue;
     for(let d=1;d<=dim;d++){
-      const v=at(b.sr,d);
-      put(b.nm,d,isOffX(v)?'休':v);
+      const v=at(sr,d);
+      if(v==='')continue;
+      put(nm,d,isOffX(v)?'休':v);
     }
-  });
-  // アルバイト枠：セルの中身が人名
-  baito.forEach(b=>{
+    blocks++;usedRows.add(r);if(sr!==r)usedRows.add(sr);
+  }
+  // 3) アルバイト枠：セルの中身が人名
+  baitoRows.forEach(b=>{
+    // 枠行そのものに人名がある形と、次の行にある形の両方に対応
+    const src=filled(b.r)>=1?b.r:(b.r+1);
     for(let d=1;d<=dim;d++){
-      const v=at(b.r,d);
+      const v=at(src,d);
       if(!v||v==='★'||isOffX(v))continue;
-      put(v,d,'バイト'+b.kind);
+      v.split(/[\/／・,、\s]+/).filter(Boolean).forEach(nm=>put(nm,d,'バイト'+b.kind));
     }
   });
-  // 研修枠：「☀研:近藤」「夜研:近藤」「Bサブ◯◯」「氏名のみ」
-  kenshu.forEach(r=>{
+  // 4) 研修枠
+  kenshuRows.forEach(r=>{
     for(let d=1;d<=dim;d++){
       const t=at(r,d);
       if(!t||t==='★'||isOffX(t))continue;
@@ -1460,14 +1473,14 @@ function rowsToShiftPaired(rows,ym,dayCol){
       const bs=t.match(/^Bサブ(.+)$/);
       if(m)put(m[2].trim(),d,/夜/.test(m[1])?'バイトB研修':'バイトA研修');
       else if(bs)put(bs[1].trim(),d,'ぐ〜たく');
-      else if(t.length<=4&&!/\d/.test(t))put(t,d,'研修');
+      else if(t.length<=5&&!/\d/.test(t))put(t,d,'研修');
     }
   });
-  const lines=Object.keys(map).map(name=>{
+  const lines=Object.keys(map).filter(n=>Object.keys(map[n]).length).map(name=>{
     const cells=[];for(let d=1;d<=31;d++)cells.push(map[name][d]||'');
     return [name,...cells].join('\t');
   });
-  return {lines,dim,blocks:blocks.length,baito:baito.length,kenshu:kenshu.length,cgRow};
+  return {lines,dim,blocks,baito:baitoRows.length,kenshu:kenshuRows.length,cgRow};
 }
 /** 「1行＝1人」か「名前行＋シフト行」かを自動で見分ける */
 function detectShiftLayout(rows,dayCol){
