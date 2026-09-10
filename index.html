@@ -189,6 +189,13 @@ h2{font-family:var(--pix);font-size:12px;color:var(--gray);margin:24px 0 8px;let
 .week .chip.cat-人 .tm{color:var(--person-tint)}
 .chip .tm{color:var(--gray);display:block;font-family:var(--pix);font-size:10px}
 
+/* 区分の一括変更 */
+.bulklist{display:flex;flex-direction:column;gap:6px;margin:10px 0}
+.bkrow{display:flex;align-items:center;gap:8px;background:var(--panel2);border:2px solid var(--rule);border-radius:8px;padding:7px 9px}
+.bkname{flex:1;min-width:0;font-weight:700;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bkpick{display:flex;gap:3px;flex:none}
+.bkbtn{font-family:var(--pix);font-size:10px;padding:5px 7px;border:2px solid var(--rule);border-radius:6px;background:var(--panel);color:var(--gray);white-space:nowrap}
+.bkbtn.on{background:var(--ink);color:var(--panel);border-color:var(--ink)}
 /* 顔写真 */
 .ava{width:26px;height:26px;border-radius:4px;object-fit:cover;flex:none;border:2px solid var(--rule);background:var(--panel2)}
 .ava.ph{display:inline-flex;align-items:center;justify-content:center;font-family:var(--pix);font-size:13px;color:var(--gray)}
@@ -1084,7 +1091,7 @@ function vPeople(){
   h+=condBar();
   h+=`<h2>今週、お声がけを</h2>`;
   h+=pick.length?`<div class="grid">${pick.map(x=>cardStaff(x.p,true,pd)).join('')}</div>`:`<div class="empty">今週は特に浮上している方はいません。</div>`;
-  h+=`<h2>全員</h2><div class="toolbar"><div class="seg">${['全','要','出',...KINDS].map(k=>`<button class="${peopleFilter===k?'on':''}" onclick="peopleFilter='${k}';render()">${k==='全'?'全員':k==='要'?'要対応':k==='出'?'出勤者':k}</button>`).join('')}</div><span class="sp"></span><button class="btn ghost small" onclick="openImportModal()">名簿を取り込む</button></div>`;
+  h+=`<h2>全員</h2><div class="toolbar"><div class="seg">${['全','要','出',...KINDS].map(k=>`<button class="${peopleFilter===k?'on':''}" onclick="peopleFilter='${k}';render()">${k==='全'?'全員':k==='要'?'要対応':k==='出'?'出勤者':k}</button>`).join('')}</div><span class="sp"></span><button class="btn ghost small" onclick="openBulkKind()">区分を直す</button><button class="btn ghost small" onclick="openImportModal()">名簿を取り込む</button></div>`;
   h+=`<div class="grid">${list.map(x=>cardStaff(x.p,false,pd)).join('')}</div>`;
   return h;
 }
@@ -1475,6 +1482,34 @@ function detectShiftLayout(rows,dayCol){
     else if(a<=2&&b>=6)paired++;
   }
   return paired>same?'paired':'same';
+}
+
+
+/* ===== 区分をまとめて直す ===== */
+let bulkFilter='全';
+function openBulkKind(){
+  const list=D.staff.filter(p=>bulkFilter==='全'||p.kind===bulkFilter)
+    .slice().sort((a,b)=>a.kind.localeCompare(b.kind)||a.name.localeCompare(b.name,'ja'));
+  const count={};KINDS.forEach(k=>count[k]=D.staff.filter(p=>p.kind===k).length);
+  openModal(`<h3>区分をまとめて直す</h3>
+  <div class="hint">名前の右のボタンで切り替えます。押した時点で保存されます。</div>
+  <div class="toolbar"><div class="seg">${['全',...KINDS].map(k=>`<button class="${bulkFilter===k?'on':''}" onclick="bulkFilter='${k}';openBulkKind()">${k==='全'?'全員 '+D.staff.length:k+' '+count[k]}</button>`).join('')}</div></div>
+  ${list.length?`<div class="bulklist">${list.map(p=>bulkRow(p)).join('')}</div>`:'<div class="empty">該当する方がいません。</div>'}
+  <div class="foot"><button class="btn solid" onclick="closeModal()">閉じる</button></div>`);
+}
+function bulkRow(p){
+  return `<div class="bkrow" id="bk-${p.id}">
+    <span class="bkname">${esc(p.name)}</span>
+    <span class="bkpick">${KINDS.map(k=>`<button class="bkbtn ${p.kind===k?'on':''}" onclick="setKind('${p.id}','${k}')">${k}</button>`).join('')}</span>
+  </div>`;
+}
+function setKind(id,k){
+  const p=D.staff.find(x=>x.id===id);if(!p)return;
+  p.kind=k;
+  store.save();
+  const el=document.getElementById('bk-'+id);
+  if(el)el.outerHTML=bulkRow(p);
+  render();
 }
 
 /* ===== 名簿：エクセル／CSVから読む ===== */
