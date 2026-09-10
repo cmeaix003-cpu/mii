@@ -1430,8 +1430,9 @@ function rowsToShiftPaired(rows,ym,dayCol){
   }
   // 研修枠の続き行（名前が無く中身だけの行）
   if(kenshuRows.length){
+    const looksKenshu=n=>{for(let d=1;d<=dim;d++){const v=at(n,d);if(v&&/[研：:]/.test(v))return true}return false};
     let r=kenshuRows[kenshuRows.length-1]+1;
-    while(r<rows.length&&!nameOf(r)&&filled(r)>=1&&!isHeadRow(r)){kenshuRows.push(r);usedRows.add(r);r++}
+    while(r<rows.length&&!nameOf(r)&&filled(r)>=1&&!isHeadRow(r)&&looksKenshu(r)){kenshuRows.push(r);usedRows.add(r);r++}
   }
   // 2) 名前のある行をすべて走査（見出し行の上下を問わない）
   for(let r=0;r<rows.length;r++){
@@ -1440,13 +1441,14 @@ function rowsToShiftPaired(rows,ym,dayCol){
     if(!nm||NGNAME.test(nm))continue;
     if(/^[\d\.\-\/\s]+$/.test(nm))continue;
     if(isHeadRow(r))continue;
-    const self=filled(r), next=(r+1<rows.length&&!nameOf(r+1)&&!isHeadRow(r+1))?filled(r+1):0;
+    // シフト行か補足行かは「休みが入っているか」で見分ける（補足行に休は入らない）
+    const offs=n=>{let k=0;for(let d=1;d<=dim;d++)if(isOffX(at(n,d))&&at(n,d)!=='')k++;return k};
+    const score=n=>(n<0||n>=rows.length)?-1:offs(n)*10+filled(n);
+    const canNext=(r+1<rows.length&&!nameOf(r+1)&&!isHeadRow(r+1));
+    const s0=score(r), s1=canNext?score(r+1):-1;
     let sr=-1;
-    if(self>=Math.max(3,dim*0.3))sr=r;            // 同じ行にシフトがある
-    else if(next>=Math.max(3,dim*0.3))sr=r+1;     // 次の行にシフトがある
-    else if(self>=3)sr=r;
-    else if(next>=3)sr=r+1;
-    if(sr<0)continue;
+    if(s1>s0)sr=r+1; else if(s0>0)sr=r;
+    if(sr<0||filled(sr)<3)continue;
     for(let d=1;d<=dim;d++){
       const v=at(sr,d);
       if(v==='')continue;
@@ -1473,7 +1475,7 @@ function rowsToShiftPaired(rows,ym,dayCol){
       const bs=t.match(/^Bサブ(.+)$/);
       if(m)put(m[2].trim(),d,/夜/.test(m[1])?'バイトB研修':'バイトA研修');
       else if(bs)put(bs[1].trim(),d,'ぐ〜たく');
-      else if(t.length<=5&&!/\d/.test(t))put(t,d,'研修');
+      else if(t.length<=5&&!/\d/.test(t)&&/[ぁ-んァ-ヶ一-龠]/.test(t)&&!/^[Ａ-Ｚａ-ｚA-Za-z]+$/.test(t))put(t,d,'研修');
     }
   });
   const lines=Object.keys(map).filter(n=>Object.keys(map[n]).length).map(name=>{
