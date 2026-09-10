@@ -507,8 +507,8 @@ const store={
       store.save();render();toast(added+'件を取り込み、'+upd+'件を更新しました');
     }catch(e){setSave('err','カレンダー取り込み失敗');toast('取り込みに失敗しました：'+e.message)}
   },
-  async fetchMails(){
-    if(!D.settings.gasUrl){toast('設定でシートの接続先を登録してください');return}
+  async fetchMails(silent){
+    if(!D.settings.gasUrl){if(!silent)toast('設定でシートの接続先を登録してください');return}
     setSave('busy','メール取り込み中');
     try{
       const r=await fetch(D.settings.gasUrl,{method:'POST',redirect:'follow',body:JSON.stringify({action:'fetchMails',settings:D.settings})});
@@ -520,7 +520,7 @@ const store={
         if(ex){ if(ex.status==='ignored')return; Object.assign(ex,m,{status:ex.status==='replied'&&m.needsReply?'open':ex.status}); }
         else{D.mails.push({...m,id:uid(),status:'open'});added++}
       });
-      store.save(); render(); toast(added?added+'件を取り込みました':'新しいメールはありません');
+      store.save(); render(); if(added)toast(added+'件を取り込みました'); else if(!silent)toast('新しいメールはありません');
     }catch(e){setSave('err','取り込み失敗');toast('取り込みに失敗しました：'+e.message)}
   }
 };
@@ -792,7 +792,20 @@ function voice(){
 }
 
 /* ========== 画面 ========== */
-function go(v){view=v;render();window.scrollTo(0,0)}
+function go(v){
+  view=v;render();window.scrollTo(0,0);
+  if(v==='mail')autoFetchMail();
+}
+let mailFetching=false;
+function autoFetchMail(){
+  if(mailFetching)return;
+  if(!D.settings.gasUrl)return;
+  const last=Number(localStorage.getItem('mii-mailfetch')||0);
+  if(Date.now()-last < 10*60*1000)return;   // 10分以内なら見送る
+  mailFetching=true;
+  localStorage.setItem('mii-mailfetch',String(Date.now()));
+  store.fetchMails(true).finally(()=>{mailFetching=false});
+}
 function render(){
   try{const s=shiftSignals();window._sigMap={};if(s)s.forEach(x=>{window._sigMap[x.p.name]=Math.min(45,x.sev)})}catch(e){window._sigMap={}}
   document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===view));
@@ -1003,7 +1016,8 @@ function vMail(){
   const b={reply:[],read:[],other:[]};open.forEach(m=>b[mailBucket(m)].push(m));
   b.reply.sort((a,c)=>mailStaleDays(c)-mailStaleDays(a));b.read.sort((a,c)=>mailScore(c)-mailScore(a));
   const tasked=D.mails.filter(m=>m.status==='tasked');
-  let h=`<h1>MAIL</h1><div class="toolbar"><span class="small muted">${D.settings.gasUrl?'毎朝の自動取り込みに加えて、手動でも取り込めます':'シート接続後、Gmailから自動で取り込めます'}</span><span class="sp"></span><button class="btn small" onclick="store.fetchMails()">いま取り込む</button></div>`;
+  const lastF=Number(localStorage.getItem('mii-mailfetch')||0);
+  let h=`<h1>MAIL</h1><div class="toolbar"><span class="small muted">${D.settings.gasUrl?(lastF?'最終取り込み '+new Date(lastF).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}):'この画面を開くと自動で取り込みます'):'シート接続後、Gmailから自動で取り込めます'}</span><span class="sp"></span><button class="btn small" onclick="localStorage.removeItem('mii-mailfetch');store.fetchMails()">いま取り込む</button></div>`;
   h+=`<div class="tabs"><button class="${mailTab==='reply'?'on':''}" onclick="mailTab='reply';render()">要返信<span class="n">${b.reply.length}</span></button><button class="${mailTab==='read'?'on':''}" onclick="mailTab='read';render()">今日読む<span class="n">${b.read.length}</span></button><button class="${mailTab==='other'?'on':''}" onclick="mailTab='other';render()">その他<span class="n">${b.other.length}</span></button></div>`;
   const list=b[mailTab];
   if(list.length)h+=list.map(m=>rowMail(m)).join('');
