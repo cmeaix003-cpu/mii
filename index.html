@@ -1270,26 +1270,30 @@ function monthFromName(fn){
 function normName(s){
   return String(s||'').normalize('NFKC').replace(/[\s　]/g,'').trim();
 }
-/** 勤務表などの氏名を、名簿の誰かに結び付ける */
+/** 勤務表などの氏名を、名簿の誰かに結び付ける（完全一致か、登録済みの読み替えのみ） */
 function resolveStaff(raw){
   const n=normName(raw);
   if(!n)return null;
+  // 登録済みの読み替え
   const al=(D.settings.nameAliases||{})[n];
   if(al){const p=D.staff.find(x=>normName(x.name)===normName(al));if(p)return p}
-  let p=D.staff.find(x=>normName(x.name)===n);
+  // 完全一致（空白・全角半角の違いは吸収）
+  const p=D.staff.find(x=>normName(x.name)===n);
   if(p)return p;
-  // 姓だけの表記：その姓の人が1人だけなら結び付ける
-  const pre=D.staff.filter(x=>normName(x.name).startsWith(n));
-  if(pre.length===1&&n.length>=2)return pre[0];
-  const suf=D.staff.filter(x=>n.startsWith(normName(x.name)));
-  if(suf.length===1&&normName(suf[0].name).length>=2)return suf[0];
+  // 「石山」と「石山美」、「山下」と「山下智」のような別人がいるため、
+  // 前方一致では自動で結び付けない。候補として照合画面に出す。
   return null;
 }
 /** 候補（同姓など）を返す */
 function staffCandidates(raw){
   const n=normName(raw);
-  const head=n.slice(0,Math.min(2,n.length));
-  return D.staff.filter(x=>normName(x.name).startsWith(head)||n.startsWith(normName(x.name).slice(0,2)));
+  if(!n)return [];
+  const hit=D.staff.filter(x=>{
+    const m=normName(x.name);
+    return m.startsWith(n)||n.startsWith(m)||m.slice(0,2)===n.slice(0,2);
+  });
+  // 名前の近い順（文字数の差が小さい順）
+  return hit.sort((a,b)=>Math.abs(normName(a.name).length-n.length)-Math.abs(normName(b.name).length-n.length));
 }
 function delAlias(k){setAlias(k,null);store.save();render();toast('解除しました')}
 function setAlias(from,toName){
@@ -1308,7 +1312,7 @@ function renderMatch(after){
   const rows=UNK.map((n,i)=>{
     const cand=staffCandidates(n);
     return `<div class="row" style="display:block"><div class="ttl">${esc(n)}</div>
-      <div class="sub" style="margin:6px 0">名簿に見つかりませんでした</div>
+      <div class="sub" style="margin:6px 0">${cand.length>1?`<b>似た名前が${cand.length}名います。</b>別人の可能性にご注意ください`:'名簿に見つかりませんでした'}</div>
       <div class="exits">
         ${cand.slice(0,3).map(p=>`<button class="btn small person" onclick="matchTo(${i},'${esc(p.name).replace(/'/g,"\\\\'")}')">${esc(p.name)} と同じ人</button>`).join('')}
         <select onchange="if(this.value)matchTo(${i},this.value)" style="width:auto;padding:5px 8px;font-size:12px"><option value="">一覧から選ぶ</option>${D.staff.map(p=>`<option>${esc(p.name)}</option>`).join('')}</select>
