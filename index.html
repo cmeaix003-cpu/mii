@@ -1254,7 +1254,7 @@ function renewDone(id){const p=D.staff.find(x=>x.id===id);if(!p.renewalDate||!p.
 
 /** ファイル名から年月を読み取る（202609_勤務表.xlsx / 2026-09 / 9月度 など） */
 function monthFromName(fn){
-  fn=String(fn||'');
+  fn=String(fn||'').normalize('NFKC');
   let m=fn.match(/(20\d{2})[-_.年]?\s*(\d{1,2})\s*月?/);
   if(m&&Number(m[2])>=1&&Number(m[2])<=12)return m[1]+'-'+String(m[2]).padStart(2,'0');
   m=fn.match(/(?:令和|R)\s*(\d{1,2})\s*[年\.\-_]?\s*(\d{1,2})\s*月/);
@@ -1432,19 +1432,23 @@ function rowsToShiftPaired(rows,ym,dayCol){
   if(kenshuRows.length){
     const looksKenshu=n=>{for(let d=1;d<=dim;d++){const v=at(n,d);if(v&&/[研：:]/.test(v))return true}return false};
     let r=kenshuRows[kenshuRows.length-1]+1;
-    while(r<rows.length&&!nameOf(r)&&filled(r)>=1&&!isHeadRow(r)&&looksKenshu(r)){kenshuRows.push(r);usedRows.add(r);r++}
+    const kBase=nameOf(kenshuRows[0]);
+    while(r<rows.length&&(!nameOf(r)||nameOf(r)===kBase)&&filled(r)>=1&&!isHeadRow(r)&&looksKenshu(r)){kenshuRows.push(r);usedRows.add(r);r++}
   }
   // 2) 名前のある行をすべて走査（見出し行の上下を問わない）
+  const seen={};
   for(let r=0;r<rows.length;r++){
     if(usedRows.has(r))continue;
     const nm=nameOf(r);
     if(!nm||NGNAME.test(nm))continue;
     if(/^[\d\.\-\/\s]+$/.test(nm))continue;
     if(isHeadRow(r))continue;
+    if(seen[nm])continue;              // 結合セルで同じ名前が続く場合は最初の1回だけ扱う
     // シフト行か補足行かは「休みが入っているか」で見分ける（補足行に休は入らない）
     const offs=n=>{let k=0;for(let d=1;d<=dim;d++)if(isOffX(at(n,d))&&at(n,d)!=='')k++;return k};
     const score=n=>(n<0||n>=rows.length)?-1:offs(n)*10+filled(n);
-    const canNext=(r+1<rows.length&&!nameOf(r+1)&&!isHeadRow(r+1));
+    const nxName=nameOf(r+1);
+    const canNext=(r+1<rows.length&&(!nxName||nxName===nm)&&!isHeadRow(r+1));
     const s0=score(r), s1=canNext?score(r+1):-1;
     let sr=-1;
     if(s1>s0)sr=r+1; else if(s0>0)sr=r;
@@ -1454,12 +1458,16 @@ function rowsToShiftPaired(rows,ym,dayCol){
       if(v==='')continue;
       put(nm,d,isOffX(v)?'休':v);
     }
-    blocks++;usedRows.add(r);if(sr!==r)usedRows.add(sr);
+    blocks++;seen[nm]=1;usedRows.add(r);if(sr!==r)usedRows.add(sr);
+    // 結合セルで同名が続く行もまとめて使用済みにする
+    for(let k=r+1;k<rows.length&&nameOf(k)===nm;k++)usedRows.add(k);
   }
   // 3) アルバイト枠：セルの中身が人名
   baitoRows.forEach(b=>{
     // 枠行そのものに人名がある形と、次の行にある形の両方に対応
-    const src=filled(b.r)>=1?b.r:(b.r+1);
+    let src=b.r;
+    if(filled(src)<1)src=b.r+1;
+    else{const bn=nameOf(b.r);if(filled(b.r+1)>filled(b.r)&&(!nameOf(b.r+1)||nameOf(b.r+1)===bn))src=b.r+1}
     for(let d=1;d<=dim;d++){
       const v=at(src,d);
       if(!v||v==='★'||isOffX(v))continue;
@@ -1487,15 +1495,30 @@ function rowsToShiftPaired(rows,ym,dayCol){
 /** 「1行＝1人」か「名前行＋シフト行」かを自動で見分ける */
 function detectShiftLayout(rows,dayCol){
   rows=(rows||[]).map(r=>(r||[]).map(c=>String(c==null?'':c).trim()));
-  let same=0,paired=0;
-  for(let r=0;r<rows.length;r++){
-    const nm=String((rows[r]||[])[0]||'').trim();
-    if(!nm||/^\d+$/.test(nm))continue;
-    const cnt=n=>{let k=0;for(let d=1;d<=10;d++)if(String((rows[n]||[])[dayCol+d-1]||'').trim())k++;return k};
-    const a=cnt(r),b=cnt(r+1);
-    if(a>=6)same++;
-    else if(a<=2&&b>=6)paired++;
+  dayCol=(dayCol==null?1:dayCol);
+  const nm=r=>String((rows[r]||[])[0]||'').trim();
+  const cnt=r=>{let k=0;for(let d=1;d<=12;d++)if(String((rows[r]||[])[dayCol+d-1]||'').trim())k++;return k};
+  const off=r=>{let k=0;for(let d=1;d<=12;d++){const v=String((rows[r]||[])[dayCol+d-1]||'').trim();if(v&&isOffX(v))k++}return k};
+  let same=0,paired=0,merged=0;
+  for(let r=0;r<rows.length-1;r++){
+    const a=nm(r);
+    if(!a||/^(氏名|名前|№|No\.?|合計|計|備考|日付|曜日)$/i.test(a))continue;
+    if(/^[\d\.\-\/\s]+$/.test(a))continue;
+    const b=nm(r+1);
+    // 結合セルで同じ名前が続いている → 名前行＋シフト行の形
+    if(b===a){
+      merged++;
+      if(cnt(r+1)>cnt(r)||off(r+1)>off(r))paired++;
+      continue;
+    }
+    const c0=cnt(r), c1=b?0:cnt(r+1);
+    // 自分の行に休みが入っていれば「1行＝1人」
+    if(c0>=6&&off(r)>=1)same++;
+    else if(c1>=6&&off(r+1)>=1)paired++;
+    else if(c0>=6)same++;
+    else if(c1>=6)paired++;
   }
+  if(merged>=3)return 'paired';
   return paired>same?'paired':'same';
 }
 
@@ -2488,7 +2511,8 @@ function rowsToShift(rows,override){
   // 4) 月の推定
   let ym=null;
   outer:for(let i=0;i<Math.min(rows.length,12);i++){
-    for(const v of rows[i]){
+    for(const v0 of rows[i]){
+      const v=String(v0||'').normalize('NFKC');
       let m=v.match(/(20\d{2})\s*[年\/\-\.]\s*(\d{1,2})/);
       if(m){ym=m[1]+'-'+String(m[2]).padStart(2,'0');break outer}
       m=v.match(/(?:令和|R)\s*(\d{1,2})\s*[年\.\/\-]\s*(\d{1,2})\s*月?/);
