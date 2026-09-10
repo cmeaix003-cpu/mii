@@ -342,16 +342,16 @@ details[open] summary::before{content:"▼ "}
 details[open] summary{margin-bottom:10px}
 
 /* modal */
-.modal-bg{position:fixed;inset:0;background:rgba(34,36,31,.5);display:none;align-items:flex-end;justify-content:center;z-index:50}
+.modal-bg{position:fixed;inset:0;background:rgba(34,36,31,.5);display:none;align-items:flex-end;justify-content:center;z-index:120}
 .modal-bg.on{display:flex}
-.modal{background:var(--panel);width:100%;max-width:560px;max-height:92vh;overflow:auto;padding:22px 18px 28px;border:3px solid var(--ink);border-bottom:0;border-radius:14px 14px 0 0;box-shadow:inset 0 0 0 3px var(--panel),inset 0 0 0 5px var(--ink)}
+.modal{background:var(--panel);width:100%;max-width:560px;max-height:88dvh;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:22px 18px calc(28px + env(safe-area-inset-bottom));border:3px solid var(--ink);border-bottom:0;border-radius:14px 14px 0 0;box-shadow:inset 0 0 0 3px var(--panel),inset 0 0 0 5px var(--ink)}
 @media(min-width:900px){.modal-bg{align-items:center}.modal{border-bottom:3px solid var(--ink);border-radius:14px}}
 .modal h3{font-family:var(--pix);font-weight:400;font-size:17px;margin-bottom:8px;letter-spacing:.03em}
 .modal .hint{font-size:12px;color:var(--gray);margin-bottom:8px;line-height:1.7}
 .f{margin:14px 0}
 .f label{display:block;font-family:var(--pix);font-size:11px;color:var(--gray);margin-bottom:5px}
 .f2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.modal .foot{display:flex;gap:8px;justify-content:flex-end;margin-top:22px;flex-wrap:wrap}
+.modal .foot{display:flex;gap:8px;justify-content:flex-end;margin-top:22px;flex-wrap:wrap;position:sticky;bottom:0;background:var(--panel);padding:12px 0 4px;margin-bottom:-4px;box-shadow:0 -8px 12px -6px rgba(34,36,31,.18)}
 .warn{background:var(--panel2);border:2px solid var(--ink);border-radius:8px;padding:10px 12px;font-size:13px;margin:12px 0}
 .warn.person{background:var(--person-tint);border-color:var(--person-deep);color:var(--person-deep)}
 .warnpill{background:var(--today);color:#fff;border-color:var(--today)}
@@ -477,7 +477,14 @@ const store={
           const r=await fetch(D.settings.gasUrl,{method:'POST',redirect:'follow',body:JSON.stringify({action:'save',data:D,baseAt:window._baseAt||0,force:!!window._forceSave})});
           const j=await r.json();
           window._forceSave=false;
-          if(j&&j.conflict){setSave('err','他の端末が先に更新');showConflict(j);return}
+          if(j&&j.conflict){
+            setSave('err','他の端末が先に更新');
+            if(window._silentSave){    // 自動取り込みなどは黙って向こうに合わせる
+              const remote=j.data;
+              if(remote){const gas=D.settings.gasUrl;D={...D,...remote,settings:{...DEFAULT_SETTINGS,...(remote.settings||{}),gasUrl:gas}};window._baseAt=remote.meta?.updatedAt||0;store.local.set(D);render();setSave('ok','最新に更新しました')}
+            }else showConflict(j);
+            return;
+          }
           if(j&&j.ok){window._baseAt=j.updatedAt||D.meta.updatedAt;setSave('ok','シートに保存 '+new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}))}
           else throw new Error(j&&j.error||'unknown');
         }catch(e){setSave('err','シート保存失敗');}
@@ -804,7 +811,8 @@ function autoFetchMail(){
   if(Date.now()-last < 10*60*1000)return;   // 10分以内なら見送る
   mailFetching=true;
   localStorage.setItem('mii-mailfetch',String(Date.now()));
-  store.fetchMails(true).finally(()=>{mailFetching=false});
+  window._silentSave=true;
+  store.fetchMails(true).finally(()=>{mailFetching=false;setTimeout(()=>{window._silentSave=false},3000)});
 }
 function render(){
   try{const s=shiftSignals();window._sigMap={};if(s)s.forEach(x=>{window._sigMap[x.p.name]=Math.min(45,x.sev)})}catch(e){window._sigMap={}}
@@ -2648,8 +2656,8 @@ function importData(){const i=document.createElement('input');i.type='file';i.ac
 function resetData(){if(!confirm('すべてのデータを消します。よろしいですか？'))return;if(!confirm('本当に消しますか？この操作は戻せません。'))return;const gas=D.settings.gasUrl;D={events:[],tasks:[],mails:[],staff:[],shifts:{},duty:{},settings:{...DEFAULT_SETTINGS,gasUrl:gas},meta:{updatedAt:0}};store.save();render()}
 
 /* ========== モーダル ========== */
-function openModal(html){document.getElementById('modal').innerHTML=html;document.getElementById('modal-bg').classList.add('on')}
-function closeModal(){document.getElementById('modal-bg').classList.remove('on')}
+function openModal(html){const m=document.getElementById('modal');m.innerHTML=html;m.scrollTop=0;document.getElementById('modal-bg').classList.add('on');document.getElementById('fab').style.visibility='hidden'}
+function closeModal(){document.getElementById('modal-bg').classList.remove('on');document.getElementById('fab').style.visibility=''}
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal()});
 
 /* ========== 起動 ========== */
