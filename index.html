@@ -189,6 +189,13 @@ h2{font-family:var(--pix);font-size:12px;color:var(--gray);margin:24px 0 8px;let
 .week .chip.cat-人 .tm{color:var(--person-tint)}
 .chip .tm{color:var(--gray);display:block;font-family:var(--pix);font-size:10px}
 
+/* 顔写真 */
+.ava{width:26px;height:26px;border-radius:4px;object-fit:cover;flex:none;border:2px solid var(--rule);background:var(--panel2)}
+.ava.ph{display:inline-flex;align-items:center;justify-content:center;font-family:var(--pix);font-size:13px;color:var(--gray)}
+.ava.big{width:46px;height:46px}
+.nmrow{display:flex;align-items:center;gap:7px;margin-top:8px}
+.nmrow .nm{margin-top:0;font-weight:700;font-size:15px;word-break:break-all}
+.hdrow{display:flex;align-items:center;gap:10px}
 /* staff：カートリッジ風カード */
 .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
 @media(min-width:600px){.grid{grid-template-columns:repeat(4,1fr)}}
@@ -258,6 +265,17 @@ h2{font-family:var(--pix);font-size:12px;color:var(--gray);margin:24px 0 8px;let
 .card.big.iswork{box-shadow:inset 0 0 0 3px var(--person-tint),inset 0 0 0 5px var(--person-deep)}
 .slots{display:flex;flex-wrap:wrap;gap:6px}
 .slots .btn.on{background:var(--person);color:#fff;border-color:var(--person-deep);box-shadow:2px 2px 0 var(--person-deep)}
+/* 取り込みの診断表示 */
+.dbg{background:var(--panel2);border:2px solid var(--rule);padding:10px;margin-top:10px;font-size:12px}
+.dbgwrap{overflow-x:auto;margin-top:6px}
+.dbgt{border-collapse:collapse;font-size:11px;white-space:nowrap}
+.dbgt th,.dbgt td{border:1px solid var(--rule);padding:2px 5px;max-width:110px;overflow:hidden;text-overflow:ellipsis}
+.dbgt th{background:var(--panel);font-family:var(--pix);font-size:10px;color:var(--gray)}
+.dbgt tr:first-child th{position:sticky;top:0}
+.colpick{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.colrow{display:flex;align-items:center;gap:8px}
+.colrow span{width:88px;flex:none;font-size:12px;color:var(--gray)}
+.colrow select{flex:1;padding:5px 8px;font-size:12px}
 /* 個人の月間勤務 */
 .smon{background:var(--panel);border:2px solid var(--rule);padding:8px}
 .smhd{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:4px}
@@ -276,6 +294,12 @@ h2{font-family:var(--pix);font-size:12px;color:var(--gray);margin:24px 0 8px;let
 .sc .sm{position:absolute;top:2px;right:2px;width:6px;height:6px;background:var(--today)}
 .smft{font-family:var(--pix);font-size:11px;color:var(--gray);margin-top:8px;line-height:1.6}
 .smnote{font-size:10px;color:var(--gray);margin-top:4px}
+/* 当番表 */
+.duty{display:flex;flex-direction:column;gap:6px;margin:10px 0}
+.dsec{display:flex;align-items:center;gap:6px;flex-wrap:wrap;background:var(--panel2);border:2px solid var(--rule);border-radius:8px;padding:6px 9px}
+.dsec .dname{font-family:var(--pix);font-size:11px;color:var(--gray);flex:none}
+.dsec .dslot{display:inline-flex;align-items:baseline;gap:5px;background:var(--panel);border:1px solid var(--rule);border-radius:6px;padding:2px 8px;font-size:13px;font-weight:700}
+.dsec .dslot i{font-family:var(--pix);font-style:normal;font-size:10px;color:var(--gray)}
 /* 勤務表 */
 .shgrp{margin-bottom:12px}
 .shcode{font-family:var(--pix);font-size:12px;background:var(--ink);color:var(--panel);display:inline-block;padding:3px 10px;border-radius:6px}
@@ -396,9 +420,9 @@ const TYPES={
   '移動':{cat:'移動',fields:['place']}
 };
 const CATS=['会議','打合せ','人','作業','移動'];
-const DEFAULT_SETTINGS={gasUrl:'',myEmail:'',vip:[],exclude:[],deadlineWords:['至急','本日中','〆切','締切','までに','確認願います','ご確認ください'],calDays:30,icsUrls:[],forwardTo:'',roomTo:'',roomCc:'',roomSubject:'【会議室のお願い】{date} {start}〜{end} 面談',roomBody:'お疲れ様です。\n\n下記のとおり面談を予定しております。会議室のご手配をお願いいたします。\n\n・日時：{date}（{dow}） {start}〜{end}\n・対象：{name} さん\n・場所：{place}\n\nお手数をおかけしますが、よろしくお願いいたします。',weeklyGoal:5,weekGoals:{},fetchDays:2};
+const DEFAULT_SETTINGS={gasUrl:'',myEmail:'',vip:[],exclude:[],deadlineWords:['至急','本日中','〆切','締切','までに','確認願います','ご確認ください'],calDays:30,icsUrls:[],nameAliases:{},forwardTo:'',roomTo:'',roomCc:'',roomSubject:'【会議室のお願い】{date} {start}〜{end} 面談',roomBody:'お疲れ様です。\n\n下記のとおり面談を予定しております。会議室のご手配をお願いいたします。\n\n・日時：{date}（{dow}） {start}〜{end}\n・対象：{name} さん\n・場所：{place}\n\nお手数をおかけしますが、よろしくお願いいたします。',weeklyGoal:5,weekGoals:{},fetchDays:2};
 
-let D={events:[],tasks:[],mails:[],staff:[],shifts:{},settings:{...DEFAULT_SETTINGS},meta:{updatedAt:0}};
+let D={events:[],tasks:[],mails:[],staff:[],shifts:{},duty:{},settings:{...DEFAULT_SETTINGS},meta:{updatedAt:0}};
 let view='today', calMode='week', calAnchor=today(), peopleFilter='全', mailTab='reply', inboxTab='open', peopleDate=null;
 
 const uid=()=>Math.random().toString(36).slice(2,10)+Date.now().toString(36);
@@ -431,6 +455,7 @@ const store={
         if(j&&j.ok&&j.data&&Object.keys(j.data).length){
           const remote=j.data;
           if(!l||(remote.meta?.updatedAt||0)>=(l.meta?.updatedAt||0)){D={...D,...remote,settings:{...D.settings,...(remote.settings||{}),gasUrl:D.settings.gasUrl}};this.local.set(D)}
+          window._baseAt=remote.meta?.updatedAt||0;
         }
         setSave('ok','シートと同期');
       }catch(e){setSave('err','シート読込失敗');}
@@ -445,9 +470,11 @@ const store={
       clearTimeout(this._t);
       this._t=setTimeout(async()=>{
         try{
-          const r=await fetch(D.settings.gasUrl,{method:'POST',redirect:'follow',body:JSON.stringify({action:'save',data:D})});
+          const r=await fetch(D.settings.gasUrl,{method:'POST',redirect:'follow',body:JSON.stringify({action:'save',data:D,baseAt:window._baseAt||0,force:!!window._forceSave})});
           const j=await r.json();
-          if(j&&j.ok)setSave('ok','シートに保存 '+new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}));
+          window._forceSave=false;
+          if(j&&j.conflict){setSave('err','他の端末が先に更新');showConflict(j);return}
+          if(j&&j.ok){window._baseAt=j.updatedAt||D.meta.updatedAt;setSave('ok','シートに保存 '+new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}))}
           else throw new Error(j&&j.error||'unknown');
         }catch(e){setSave('err','シート保存失敗');}
       },600);
@@ -493,6 +520,21 @@ const store={
     }catch(e){setSave('err','取り込み失敗');toast('取り込みに失敗しました：'+e.message)}
   }
 };
+function showConflict(j){
+  const t=j.updatedAt?new Date(j.updatedAt).toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}):'';
+  openModal(`<h3>他の端末で先に更新されています</h3>
+  <div class="hint">別の端末（PCかスマホ）で${t?'<b>'+t+'</b>に':''}保存された内容が、こちらより新しくなっています。どちらを残すか選んでください。</div>
+  <div class="warn"><b>向こうの内容を取り込む</b>（おすすめ）<br>いま画面で編集した内容は失われます。</div>
+  <div class="warn"><b>こちらの内容で上書きする</b><br>向こうの端末で加えた変更が失われます。</div>
+  <div class="foot"><button class="btn ghost" onclick="closeModal()">あとで決める</button><button class="btn" onclick="conflictOverwrite()">こちらで上書き</button><button class="btn solid" onclick="conflictReload()">向こうを取り込む</button></div>`);
+  window._conflictData=j.data;
+}
+function conflictReload(){
+  const remote=window._conflictData;
+  if(remote){const gas=D.settings.gasUrl;D={...D,...remote,settings:{...DEFAULT_SETTINGS,...(remote.settings||{}),gasUrl:gas}};window._baseAt=remote.meta?.updatedAt||0;store.local.set(D)}
+  closeModal();render();setSave('ok','向こうの内容を取り込みました');toast('最新の内容に更新しました');
+}
+function conflictOverwrite(){window._forceSave=true;closeModal();store.save();toast('こちらの内容で上書きします')}
 function setSave(cls,txt){const s=document.getElementById('savestate');s.className=cls;s.querySelector('span').textContent=txt||'未保存'}
 
 /* ========== 計算 ========== */
@@ -597,6 +639,130 @@ function parseLine(line,baseDate){
 }
 function addMin(t0,n){const m0=mins(t0)+n;return String(Math.floor(m0/60)%24).padStart(2,'0')+':'+String(m0%60).padStart(2,'0')}
 
+
+
+
+/* ========== C. 伝言箱（受け皿・スタッフからの声） ========== */
+function inboxNotes(){return (D.notes||[]).slice().sort((a,b)=>(b.at||'').localeCompare(a.at||''))}
+function unreadNotes(){return (D.notes||[]).filter(n=>!n.read)}
+function openNoteModal(id){
+  const n=id?(D.notes||[]).find(x=>x.id===id):null;
+  if(n){
+    const p=n.staffId?D.staff.find(x=>x.id===n.staffId):resolveStaff(n.from);
+    if(!n.read){n.read=true;store.save()}
+    openModal(`<h3>いただいた声</h3>
+    <div class="hint">${n.from?esc(n.from)+'さん':'匿名'}　${n.at?fmtMD(n.at.slice(0,10)):''}${n.via?'　'+esc(n.via):''}</div>
+    <div class="warn" style="white-space:pre-wrap">${esc(n.body)}</div>
+    <div class="foot">${p?`<button class="btn person" onclick="closeModal();openStaffDetail('${p.id}')">${esc(p.name)}さんを開く</button>`:''}<button class="btn ghost" onclick="delNote('${n.id}')">削除</button><button class="btn solid" onclick="closeModal()">閉じる</button></div>`);
+    return;
+  }
+  openModal(`<h3>声を書き留める</h3>
+  <div class="hint">スタッフから聞いた話や、伝言を残しておけます。ここに溜めておくと、面談のときに見返せます。</div>
+  <div class="f"><label>誰から（分かれば）</label><input id="nt-from" list="staff-list" placeholder="匿名でも構いません"><datalist id="staff-list">${D.staff.map(p=>`<option value="${esc(p.name)}">`).join('')}</datalist></div>
+  <div class="f"><label>内容</label><textarea id="nt-body" style="min-height:110px" placeholder="言われたこと、気づいたこと"></textarea></div>
+  <div class="f"><label>どこで聞いたか（任意）</label><input id="nt-via" placeholder="例：現場で立ち話／他のスタッフ経由"></div>
+  <div class="foot"><button class="btn ghost" onclick="closeModal()">やめる</button><button class="btn solid" onclick="saveNote()">残す</button></div>`);
+  setTimeout(()=>document.getElementById('nt-body').focus(),50);
+}
+function saveNote(){
+  const body=document.getElementById('nt-body').value.trim();
+  if(!body){toast('内容を入れてください');return}
+  const from=document.getElementById('nt-from').value.trim();
+  const p=from?resolveStaff(from):null;
+  D.notes=D.notes||[];
+  D.notes.push({id:uid(),from,staffId:p?p.id:'',body,via:document.getElementById('nt-via').value.trim(),at:new Date().toISOString(),read:true});
+  closeModal();store.save();render();toast('お預かりしました');
+}
+function delNote(id){if(!confirm('削除しますか？'))return;D.notes=(D.notes||[]).filter(x=>x.id!==id);closeModal();store.save();render()}
+function notesOf(staffId,name){
+  return (D.notes||[]).filter(n=>n.staffId===staffId||(n.from&&normName(n.from)===normName(name))).sort((a,b)=>(b.at||'').localeCompare(a.at||''));
+}
+function vNotes(){
+  const list=inboxNotes();
+  let h=`<h2>いただいた声</h2><div class="toolbar"><span class="small muted">スタッフから聞いた話を溜めておく場所です</span><span class="sp"></span><button class="btn small" onclick="openNoteModal()">書き留める</button></div>`;
+  if(!list.length)return h+`<div class="empty">まだ何もありません。<br><span class="small">現場で聞いた一言を残しておくと、面談のときに効いてきます。</span></div>`;
+  return h+list.map(n=>`<div class="row ${n.read?'':'due'}" onclick="openNoteModal('${n.id}')"><div class="t"><div class="ttl">${n.read?'':'<span class="pill warnpill">未読</span>'}${esc(n.from||'匿名')}</div><div class="sub">${esc(n.body.slice(0,60))}${n.body.length>60?'…':''}　${n.at?fmtMD(n.at.slice(0,10)):''}</div></div></div>`).join('');
+}
+
+/* ========== E. 顔写真（この端末にだけ保存） ========== */
+const PHOTO_KEY='mii-photos';
+let PHOTOS=null;
+function loadPhotos(){
+  if(PHOTOS)return PHOTOS;
+  try{PHOTOS=JSON.parse(localStorage.getItem(PHOTO_KEY)||'{}')}catch(e){PHOTOS={}}
+  return PHOTOS;
+}
+function savePhotos(){
+  try{localStorage.setItem(PHOTO_KEY,JSON.stringify(PHOTOS||{}));return true}
+  catch(e){toast('写真を保存できませんでした（容量不足かもしれません）');return false}
+}
+function photoOf(id){return loadPhotos()[id]||''}
+/** 画像を96px四方に切り詰めて軽くする */
+function fileToAvatar(file,size){
+  size=size||96;
+  return new Promise((res,rej)=>{
+    const rd=new FileReader();
+    rd.onload=()=>{
+      const img=new Image();
+      img.onload=()=>{
+        const c=document.createElement('canvas');c.width=size;c.height=size;
+        const ctx=c.getContext('2d');
+        const m=Math.min(img.width,img.height);
+        ctx.drawImage(img,(img.width-m)/2,(img.height-m)/2,m,m,0,0,size,size);
+        res(c.toDataURL('image/jpeg',0.78));
+      };
+      img.onerror=rej;img.src=rd.result;
+    };
+    rd.onerror=rej;rd.readAsDataURL(file);
+  });
+}
+function pickPhoto(id){
+  const i=document.createElement('input');i.type='file';i.accept='image/*';
+  i.onchange=async()=>{
+    const f=i.files&&i.files[0];if(!f)return;
+    try{
+      const d=await fileToAvatar(f,96);
+      loadPhotos()[id]=d;
+      if(savePhotos()){render();closeModal();openStaffDetail(id);toast('写真を登録しました')}
+    }catch(e){toast('画像を読み込めませんでした')}
+  };
+  i.click();
+}
+function delPhoto(id){
+  if(!confirm('この写真を削除しますか？'))return;
+  delete loadPhotos()[id];savePhotos();closeModal();openStaffDetail(id);render();
+}
+function avatarTag(p,cls){
+  const src=photoOf(p.id);
+  if(src)return `<img class="ava ${cls||''}" src="${src}" alt="">`;
+  const n=normName(p.name).slice(0,1)||'?';
+  return `<span class="ava ph ${cls||''}">${esc(n)}</span>`;
+}
+
+/* ========== B. 日替わりの一言 ========== */
+const DAY_FACTS={'01-01':'元日','01-07':'七草','02-03':'節分','02-14':'バレンタイン','03-03':'ひなまつり','03-14':'ホワイトデー','04-01':'エイプリルフール','05-05':'こどもの日','06-01':'写真の日','06-10':'時の記念日','07-07':'七夕','08-11':'山の日','09-09':'重陽の節句','09-20':'空の日','10-01':'コーヒーの日','10-31':'ハロウィン','11-01':'紅茶の日','11-03':'文化の日','11-11':'ポッキーの日','11-15':'七五三','12-24':'クリスマスイブ','12-25':'クリスマス','12-31':'大晦日','02-22':'猫の日'};
+const DAILY_TIPS=[
+ '本日もご無理のないように。','水分補給をお忘れなく。','ひと呼吸おいてから、まいりましょう。',
+ '迷ったときは、まず一件片付けてしまうのが早道でございます。','こまめな休息が、集中の元でございます。',
+ '本日のご自身にも、おつかれさまを。','小さな確認が、大きな手戻りを防ぎます。',
+ '任せられることは、任せてしまいましょう。','急がば回れ。丁寧が近道でございます。',
+ '誰かひとりに「ありがとう」を。','背筋をのばして、まいりましょう。','始めよければ半ば成功、と申します。',
+ 'できなかったことより、できたことを。','よい引き継ぎが、よい明日をつくります。'];
+function dailyLine(dateKey,hours){
+  const md=dateKey.slice(5);
+  const n=Number(dateKey.replace(/-/g,''));
+  const tip=DAILY_TIPS[n%DAILY_TIPS.length];
+  const fact=DAY_FACTS[md];
+  const bd=D.staff.filter(p=>p.birthday&&p.birthday.slice(5)===md);
+  const anniv=D.staff.filter(p=>p.startDate&&p.startDate.slice(5)===md&&p.startDate.slice(0,4)!==dateKey.slice(0,4));
+  const out=[];
+  if(bd.length)out.push('本日は'+bd.map(p=>p.name).join('さん、')+'さんのお誕生日でございます。');
+  else if(anniv.length)out.push('本日は'+anniv.map(p=>p.name+'さん（'+(Number(dateKey.slice(0,4))-Number(p.startDate.slice(0,4)))+'年目）').join('、')+'の就業記念日でございます。');
+  else if(fact)out.push('本日は'+fact+'でございます。');
+  out.push(tip);
+  return out.join(' ');
+}
+
 /* ========== みーの言葉 ========== */
 function voice(){
   const h=new Date().getHours();const t=today();
@@ -617,7 +783,8 @@ function voice(){
   if(a.length)L.push(a.join('　'));else L.push('急ぎのものはございません。');
   const cand=D.staff.map(p=>({p,sc:staffScore(p)})).filter(x=>x.sc>=40).sort((a,b)=>b.sc-a.sc).slice(0,2);
   if(cand.length)L.push('今週は'+cand.map(x=>x.p.name.split(' ')[0]+'さん').join('と')+'にお声がけを。');
-  return L.slice(0,4).join('\n');
+  L.push(dailyLine(t));
+  return L.slice(0,5).join('\n');
 }
 
 /* ========== 画面 ========== */
@@ -642,6 +809,7 @@ function vToday(){
   const oi=openTasks().length;const hrs=weekPeopleHours(t),goal=weekGoal(t);const pct=goal?Math.min(100,hrs/goal*100):0;
   let h=`<div class="date-big">${parse(t).getDate()}<small>${(parse(t).getMonth()+1)}月 ${dow(t)}曜日</small></div>`;
   h+=`<div class="bubble">${miiTag()}<p>${esc(voice()).replace(/\n/g,"<br>")}</p></div>`;
+  h+=dutyChips(t);
   const night=new Date().getHours()>=15;
   h+=`<div class="toolbar" style="margin-top:14px">${night?`<button class="btn" onclick="openQuickModal('night')">帰宅メモ（明日のこと）</button><button class="btn ghost small" onclick="openQuickModal('morning')">今日のメモ</button>`:`<button class="btn" onclick="openQuickModal('morning')">今朝のメモを入れる</button><button class="btn ghost small" onclick="openQuickModal('night')">明日のメモ</button>`}</div>`;
   h+=`<h2>本日のご予定</h2>`;
@@ -649,11 +817,14 @@ function vToday(){
   h+=`<h2>本日中</h2>`;
   if(due.length)h+=due.map(d=>d.k==='task'?rowTask(d.x,true):rowMail(d.x,true)).join('');
   else h+=`<div class="empty">本日中の案件はありません。</div>`;
+  h+=`<div class="toolbar"><span class="sp"></span><button class="btn ghost small" onclick="openNoteModal()">聞いた話を書き留める</button></div>`;
   h+=`<h2>DESK</h2><div class="row"><div class="t"><div class="ttl">未処理 ${oi}件</div><div class="sub">${openTasks().filter(x=>staleDays(x)>=3).length}件が3日以上止まっています</div></div><div class="acts"><button class="btn" onclick="go('inbox')">机を見る</button></div></div>`;
   if(parse(t).getDay()===1||weekPeopleHours(t)===0){
     const P0=buildPlan();
     if(P0.picks.length)h+=`<div class="row person" onclick="repTab='plan';go('report')"><div class="t"><div class="ttl">今週の作戦がございます</div><div class="sub">${P0.picks.slice(0,3).map(x=>esc(x.p.name)).join('　')} へのお声がけをご提案しています</div></div><div class="acts"><button class="btn person small">見る</button></div></div>`;
   }
+  const un=unreadNotes();
+  if(un.length)h+=`<h2>いただいた声</h2>`+un.slice(0,2).map(n=>`<div class="row due" onclick="openNoteModal('${n.id}')"><div class="t"><div class="ttl">${esc(n.from||'匿名')}さんから</div><div class="sub">${esc(n.body.slice(0,50))}${n.body.length>50?'…':''}</div></div></div>`).join('');
   const pend=pendingReports();
   if(pend.length){h+=`<h2>面談の記録がまだです</h2>`+pend.slice(0,3).map(e=>`<div class="row person" onclick="openReport('${e.id}')"><div class="time">${fmtMD(e.date).replace(/（.）/,'')}</div><div class="t"><div class="ttl">${esc(e.title)}</div><div class="sub">タップして会話内容と次回の課題を記録</div></div><div class="acts"><button class="btn person small">記録</button></div></div>`).join('')}
   h+=`<h2>人の枠</h2>`;
@@ -727,13 +898,14 @@ function vCal(){
   let h=`<div class="cal-head"><h1>${calTitle()}</h1><div class="seg">${['day','week','month','shift'].map(m=>`<button class="${calMode===m?'on':''}" onclick="calMode='${m}';render()">${{day:'日',week:'週',month:'月',shift:'勤務'}[m]}</button>`).join('')}</div></div>`;
   h+=`<div class="toolbar"><button class="btn ghost small" onclick="calMove(-1)">‹ 前</button><button class="btn ghost small" onclick="calAnchor=today();render()">今日</button><button class="btn ghost small" onclick="calMove(1)">次 ›</button><span class="sp"></span><button class="btn ghost small" onclick="openQuickModal('morning')">まとめて入れる</button><button class="btn ghost small" onclick="store.fetchEvents()">取り込む</button></div>`;
   if(calMode==='shift'){
-    h+=`<div class="toolbar"><span class="small muted">出勤者をタップすると、その日の面談として登録できます</span><span class="sp"></span><button class="btn ghost small" onclick="openShiftModal()">勤務表を取り込む</button></div>`;
+    h+=`<div class="toolbar"><span class="small muted">出勤者をタップすると、その日の面談として登録できます</span><span class="sp"></span><button class="btn ghost small" onclick="openShiftModal()">勤務表を取り込む</button><button class="btn ghost small" onclick="openDutyModal()">当番表</button></div>`;
+    h+=dutyChips(calAnchor);
     h+=`<h2>${fmtMD(calAnchor)} の出勤</h2>`+vShiftDay(calAnchor);
     const ms=shiftMonths();
     if(ms.length)h+=`<p class="small muted" style="margin-top:14px">取り込み済み：${ms.join('／')}</p>`;
     return h;
   }
-  if(calMode==='day'){const ev=eventsOn(calAnchor);h+=ev.length?ev.map(rowEvent).join(''):`<div class="empty">予定はありません。<div style="margin-top:10px"><button class="btn small" onclick="openEventModal({date:'${calAnchor}'})">登録する</button></div></div>`;
+  if(calMode==='day'){const ev=eventsOn(calAnchor);h+=dutyChips(calAnchor);h+=ev.length?ev.map(rowEvent).join(''):`<div class="empty">予定はありません。<div style="margin-top:10px"><button class="btn small" onclick="openEventModal({date:'${calAnchor}'})">登録する</button></div></div>`;
     const w=workingOn(calAnchor);
     if(w&&w.length)h+=`<h2>この日の出勤 ${w.length}名</h2>`+vShiftDay(calAnchor);}
   else if(calMode==='week'){
@@ -898,7 +1070,7 @@ function cardStaff(p,big,pd){
   const code=shiftOf(p.name,pd);const off=code!==null&&isOff(code);const work=code!==null&&!off;
   const dots=[0,1,2].map(i=>{const v=c[i-(3-c.length)];const sz=i===2?14:i===1?10:7;return v?`<i class="c${v.v}" style="width:${sz}px;height:${sz}px"></i>`:`<i style="width:${sz}px;height:${sz}px"></i>`}).join('');
   const shiftTag=code===null?'':(off?`<span class="shbadge off">休</span>`:`<span class="shbadge on">${esc(code)}</span>`);
-  return `<div class="card cond${lc} ${big?'big':''} ${off?'isoff':''} ${work?'iswork':''}" onclick="onCardTap('${p.id}','${pd}')">${ren?`<span class="ren">更新 ${r}日前</span>`:''}<div class="nm">${esc(p.name)}</div><span class="kd">${esc(p.kind)}</span>${shiftTag}<div class="dots">${dots}</div>${condSpark(p)}<div class="last ${gap!==null&&gap>target?'over':''}">${gap===null?'未接触':gap+'日前に接触'}</div>${big?`<div class="why">${esc(staffWhy(p))}</div>`:''}</div>`;
+  return `<div class="card cond${lc} ${big?'big':''} ${off?'isoff':''} ${work?'iswork':''}" onclick="onCardTap('${p.id}','${pd}')">${ren?`<span class="ren">更新 ${r}日前</span>`:''}<div class="nmrow">${avatarTag(p)}<span class="nm">${esc(p.name)}</span></div><span class="kd">${esc(p.kind)}</span>${shiftTag}<div class="dots">${dots}</div>${condSpark(p)}<div class="last ${gap!==null&&gap>target?'over':''}">${gap===null?'未接触':gap+'日前に接触'}</div>${big?`<div class="why">${esc(staffWhy(p))}</div>`:''}</div>`;
 }
 function onCardTap(id,pd){
   const p=D.staff.find(x=>x.id===id);
@@ -996,7 +1168,8 @@ async function sendRoomRequest(v){
 function openStaffDetail(id){
   const p=D.staff.find(x=>x.id===id);const t=today();
   const hist=[...(p.conditions||[])].reverse().slice(0,8);
-  openModal(`<h3>${esc(p.name)}<span class="pill">${esc(p.kind)}</span></h3>
+  openModal(`<h3><span class="hdrow">${avatarTag(p,'big')}<span>${esc(p.name)}<span class="pill">${esc(p.kind)}</span></span></span></h3>
+  <div class="small muted" style="margin:-4px 0 8px">${photoOf(id)?`<button class="btn ghost small" onclick="pickPhoto('${id}')">写真を変える</button> <button class="btn ghost small" onclick="delPhoto('${id}')">写真を消す</button>`:`<button class="btn ghost small" onclick="pickPhoto('${id}')">顔写真を登録</button>`}　<span style="font-size:11px">写真はこの端末にだけ保存され、シートには送られません</span></div>
   <div class="hint">${p.dept?esc(p.dept)+'　':''}就業 ${p.startDate||'未登録'}　${p.renewalDate?'次回更新 '+p.renewalDate+'（'+(p.cycleMonths||'?')+'か月）':''}</div>
   ${staffWhy(p)?`<div class="warn person">${esc(staffWhy(p))}</div>`:''}
   ${(()=>{const s=(shiftSignals()||[]).find(x=>x.p.id===id);return s?`<div class="warn"><b>勤務の変化</b><br>${s.reasons.map(esc).join('<br>')}</div>`:''})()}
@@ -1010,6 +1183,7 @@ function openStaffDetail(id){
   ${p.homework?`<div class="warn">前回の宿題：${esc(p.homework)}</div>`:''}
   <div class="foot"><button class="btn ghost" onclick="openStaffModal('${id}')">情報を編集</button><button class="btn ghost" onclick="toggleFlag('${id}')">${p.flag?'気になる印を外す':'気になる印'}</button><button class="btn solid" onclick="logContact('${id}')">記録する</button></div>
   ${(p.conditions||[]).length>=2?`<h2>コンディションの推移</h2><div class="sparkbig">${condSpark(p,280,72)}<div class="sparkax"><span>良好</span><span>要注意</span></div></div>`:''}
+  ${(()=>{const ns=notesOf(id,p.name).slice(0,3);if(!ns.length)return '';return `<h2>いただいた声</h2>`+ns.map(n=>`<div class="row" onclick="closeModal();openNoteModal('${n.id}')"><div class="time">${n.at?fmtMD(n.at.slice(0,10)).replace(/（.）/,''):''}</div><div class="t"><div class="ttl">${esc(n.body.slice(0,40))}${n.body.length>40?'…':''}</div></div></div>`).join('')})()}
   ${(()=>{const ms=meetingsOf(id).slice(0,6);if(!ms.length)return '';return `<h2>面談の記録</h2>`+ms.map(e=>`<div class="row" onclick="openReport('${e.id}')"><div class="time">${fmtMD(e.date).replace(/（.）/,'')}</div><div class="t"><div class="ttl">${e.report?esc(e.report.slice(0,40))+(e.report.length>40?'…':''):'<span class="muted">未記録</span>'}</div><div class="sub">${e.theme?'テーマ：'+esc(e.theme):''}${e.nextTask?'　→ '+esc(e.nextTask.slice(0,30)):''}</div></div></div>`).join('')})()}
   ${hist.length?`<h2>これまで</h2>${hist.map(c=>`<div class="row"><div class="time">${fmtMD(c.d)}</div><div class="t"><div class="ttl">コンディション ${c.v}</div>${c.note?`<div class="sub">${esc(c.note)}</div>`:''}</div></div>`).join('')}`:''}`);
   window._cond=0;
@@ -1043,54 +1217,310 @@ function saveStaff(id){
 function delStaff(id){if(!confirm('名簿から削除しますか？'))return;D.staff=D.staff.filter(x=>x.id!==id);closeModal();store.save();render()}
 function renewDone(id){const p=D.staff.find(x=>x.id===id);if(!p.renewalDate||!p.cycleMonths){toast('更新日とサイクルを入れてください');return}p.renewalDate=addMonths(p.renewalDate,p.cycleMonths).slice(0,8)+p.renewalDate.slice(8);p.lastContact=today();closeModal();store.save();render();toast('次回更新日を'+p.renewalDate+'にしました')}
 
+
+
+/** ファイル名から年月を読み取る（202609_勤務表.xlsx / 2026-09 / 9月度 など） */
+function monthFromName(fn){
+  fn=String(fn||'');
+  let m=fn.match(/(20\d{2})[-_.年]?\s*(\d{1,2})\s*月?/);
+  if(m&&Number(m[2])>=1&&Number(m[2])<=12)return m[1]+'-'+String(m[2]).padStart(2,'0');
+  m=fn.match(/(?:令和|R)\s*(\d{1,2})\s*[年\.\-_]?\s*(\d{1,2})\s*月/);
+  if(m)return (2018+Number(m[1]))+'-'+String(m[2]).padStart(2,'0');
+  m=fn.match(/(\d{1,2})\s*月/);
+  if(m&&Number(m[1])>=1&&Number(m[1])<=12){
+    const y=new Date().getFullYear();return y+'-'+String(m[1]).padStart(2,'0');
+  }
+  return '';
+}
+
+/* ===== 名前の照合 ===== */
+function normName(s){
+  return String(s||'').normalize('NFKC').replace(/[\s　]/g,'').trim();
+}
+/** 勤務表などの氏名を、名簿の誰かに結び付ける */
+function resolveStaff(raw){
+  const n=normName(raw);
+  if(!n)return null;
+  const al=(D.settings.nameAliases||{})[n];
+  if(al){const p=D.staff.find(x=>normName(x.name)===normName(al));if(p)return p}
+  let p=D.staff.find(x=>normName(x.name)===n);
+  if(p)return p;
+  // 姓だけの表記：その姓の人が1人だけなら結び付ける
+  const pre=D.staff.filter(x=>normName(x.name).startsWith(n));
+  if(pre.length===1&&n.length>=2)return pre[0];
+  const suf=D.staff.filter(x=>n.startsWith(normName(x.name)));
+  if(suf.length===1&&normName(suf[0].name).length>=2)return suf[0];
+  return null;
+}
+/** 候補（同姓など）を返す */
+function staffCandidates(raw){
+  const n=normName(raw);
+  const head=n.slice(0,Math.min(2,n.length));
+  return D.staff.filter(x=>normName(x.name).startsWith(head)||n.startsWith(normName(x.name).slice(0,2)));
+}
+function delAlias(k){setAlias(k,null);store.save();render();toast('解除しました')}
+function setAlias(from,toName){
+  D.settings.nameAliases=D.settings.nameAliases||{};
+  if(toName)D.settings.nameAliases[normName(from)]=toName;
+  else delete D.settings.nameAliases[normName(from)];
+}
+/* 照合できなかった名前を片付ける画面 */
+let UNK=[];
+function openMatchModal(names,after){
+  UNK=names.slice();
+  renderMatch(after);
+}
+function renderMatch(after){
+  if(!UNK.length){closeModal();store.save();render();toast('照合が完了しました');if(after)after();return}
+  const rows=UNK.map((n,i)=>{
+    const cand=staffCandidates(n);
+    return `<div class="row" style="display:block"><div class="ttl">${esc(n)}</div>
+      <div class="sub" style="margin:6px 0">名簿に見つかりませんでした</div>
+      <div class="exits">
+        ${cand.slice(0,3).map(p=>`<button class="btn small person" onclick="matchTo(${i},'${esc(p.name).replace(/'/g,"\\\\'")}')">${esc(p.name)} と同じ人</button>`).join('')}
+        <select onchange="if(this.value)matchTo(${i},this.value)" style="width:auto;padding:5px 8px;font-size:12px"><option value="">一覧から選ぶ</option>${D.staff.map(p=>`<option>${esc(p.name)}</option>`).join('')}</select>
+        <button class="btn small" onclick="matchNew(${i})">新しく登録</button>
+        <button class="btn ghost small" onclick="matchSkip(${i})">今回は無視</button>
+      </div></div>`;
+  }).join('');
+  openModal(`<h3>名前の照合</h3><div class="hint">勤務表にあって名簿にない名前が <b>${UNK.length}件</b> あります。同じ人であれば結び付けてください。一度決めれば次回から自動で照合します。</div>${rows}
+  <div class="foot"><button class="btn ghost" onclick="UNK=[];renderMatch()">残りは無視して閉じる</button></div>`);
+}
+function matchTo(i,name){setAlias(UNK[i],name);UNK.splice(i,1);renderMatch()}
+function matchNew(i){
+  const n=UNK[i];
+  D.staff.push({id:uid(),name:n,kind:'バイト',conditions:[]});
+  UNK.splice(i,1);store.save();renderMatch();
+}
+function matchSkip(i){UNK.splice(i,1);renderMatch()}
+
+/* ===== ファイル読み取りの共通処理 ===== */
+function decodeAuto(buf){
+  const u=new Uint8Array(buf);
+  try{return new TextDecoder('utf-8',{fatal:true}).decode(u)}       // 厳密UTF-8
+  catch(e){
+    try{return new TextDecoder('shift-jis').decode(u)}              // エクセル既定のSJIS
+    catch(e2){return new TextDecoder('utf-8').decode(u)}
+  }
+}
+function readTable(file,cb){
+  const isCsv=/\.csv|\.txt$/i.test(file.name);
+  const rd=new FileReader();
+  rd.onerror=()=>cb({error:'ファイルを読めませんでした'});
+  rd.onload=()=>{
+    try{
+      if(isCsv){
+        let txt=decodeAuto(rd.result).replace(/^\uFEFF/,'');
+        const sep=(txt.split('\t').length>txt.split(',').length)?'\t':',';
+        const rows=txt.split(/\r?\n/).map(l=>splitCsv(l,sep));
+        cb({rows,sheets:['(CSV)'],sheet:'(CSV)'});
+      }else{
+        if(!window.XLSX)return cb({error:'エクセルを読む部品が読み込めていません。ネット接続を確認するか、CSVで保存してお試しください。'});
+        const wb=XLSX.read(rd.result,{type:'array',cellDates:false});
+        cb({wb,sheets:wb.SheetNames,sheet:wb.SheetNames[0],rows:sheetRows(wb,wb.SheetNames[0])});
+      }
+    }catch(e){cb({error:e.message})}
+  };
+  rd.readAsArrayBuffer(file);
+}
+function sheetRows(wb,name){
+  const sh=wb.Sheets[name];
+  if(!sh)return [];
+  // 結合セルを展開（左上の値を範囲全体に複写）
+  const rows=XLSX.utils.sheet_to_json(sh,{header:1,defval:'',raw:false,blankrows:true});
+  (sh['!merges']||[]).forEach(m=>{
+    const v=(rows[m.s.r]||[])[m.s.c];
+    if(v===''||v==null)return;
+    for(let r=m.s.r;r<=m.e.r;r++){rows[r]=rows[r]||[];for(let c=m.s.c;c<=m.e.c;c++)if(!rows[r][c])rows[r][c]=v}
+  });
+  return rows.map(r=>(r||[]).map(c=>String(c==null?'':c).replace(/\u3000/g,' ').trim()));
+}
+function splitCsv(line,sep){
+  const out=[];let cur='',q=false;
+  for(let i=0;i<line.length;i++){
+    const ch=line[i];
+    if(q){ if(ch==='"'){ if(line[i+1]==='"'){cur+='"';i++} else q=false } else cur+=ch }
+    else { if(ch==='"')q=true; else if(ch===sep){out.push(cur);cur=''} else cur+=ch }
+  }
+  out.push(cur);return out.map(s=>s.replace(/\u3000/g,' ').trim());
+}
+/** シートの中身を人が見て分かる形で表示 */
+function tablePreview(rows,note){
+  const max=Math.min(rows.length,8);
+  const wide=Math.min(Math.max(...rows.slice(0,max).map(r=>r.length),1),12);
+  let h=`<div class="dbg"><b>シートの中身（先頭${max}行）</b>${note?'　'+note:''}<div class="dbgwrap"><table class="dbgt"><tr><th></th>${Array.from({length:wide},(_,c)=>`<th>${String.fromCharCode(65+c)}</th>`).join('')}</tr>`;
+  for(let i=0;i<max;i++){
+    h+=`<tr><th>${i+1}</th>${Array.from({length:wide},(_,c)=>`<td>${esc((rows[i]||[])[c]||'')}</td>`).join('')}</tr>`;
+  }
+  h+=`</table></div><div class="small muted" style="margin-top:6px">全${rows.length}行 × 最大${Math.max(...rows.map(r=>r.length),0)}列</div></div>`;
+  return h;
+}
+
+
+/* ===== 「名前行＋シフト行」形式の勤務表を読む（勤務ボードと同じ方式） ===== */
+const OFF_X=new Set(['休','休み','★','有','有休','夏季有休','ぐ～休','ぐ〜休','CUE','cue','Cue','公','公休','年休','×','x','X','ー','-','―','']);
+function isOffX(v){return OFF_X.has(String(v||'').trim())}
+/**
+ * 行の作り：A列に氏名 → その「次の行」に1日〜月末のシフト、さらに次に補足行が入ることがある。
+ * アルバイトA／B／研修の行は、セルの中身が「その日に入る人の名前」。
+ */
+function rowsToShiftPaired(rows,ym,dayCol){
+  rows=(rows||[]).map(r=>(r||[]).map(c=>String(c==null?'':c).replace(/\u3000/g,' ').trim()));
+  dayCol=(dayCol==null?1:dayCol);
+  const Y=ym?Number(ym.slice(0,4)):new Date().getFullYear();
+  const M=ym?Number(ym.slice(5,7)):new Date().getMonth()+1;
+  const dim=new Date(Y,M,0).getDate();
+  const at=(r,d)=>String((rows[r]||[])[dayCol+d-1]||'').trim();       // d=1..dim
+  const hasContent=r=>{for(let d=1;d<=dim;d++)if(at(r,d))return true;return false};
+  const nameOf=r=>String((rows[r]||[])[0]||'').trim();
+  // CGデザイン以降は別部署
+  let cgRow=-1;
+  for(let r=0;r<rows.length;r++)if(/^CGデザイン/.test(nameOf(r))){cgRow=r;break}
+  const scanMax=cgRow>=0?cgRow-1:rows.length-1;
+  // ブロック（名前行 → 次の行がシフト）
+  const blocks=[],baito=[],kenshu=[];
+  for(let r=0;r<=scanMax;r++){
+    const nm=nameOf(r);
+    if(!nm)continue;
+    if(/^アルバイト\s*A/.test(nm)){baito.push({r,kind:'A',label:nm});continue}
+    if(/^アルバイト\s*B/.test(nm)){baito.push({r,kind:'B',label:nm});continue}
+    if(/^アルバイト研修|^研修/.test(nm)){kenshu.push(r);continue}
+    if(/^(氏名|名前|№|No\.?|合計|計|備考|日付|曜日)$/i.test(nm))continue;
+    if(r+1<rows.length&&hasContent(r+1))blocks.push({nm,sr:r+1});
+  }
+  // 研修の続き行
+  if(kenshu.length){
+    let r=kenshu[kenshu.length-1]+1;
+    while(r<=scanMax&&!nameOf(r)&&hasContent(r)){kenshu.push(r);r++}
+  }
+  // CGデザイン欄も同じ作り
+  if(cgRow>=0){
+    for(let r=cgRow+1;r+1<rows.length;r++){
+      const nm=nameOf(r);
+      if(!nm||!hasContent(r+1))continue;
+      blocks.push({nm,sr:r+1});
+    }
+  }
+  // 出力：氏名→日→コード
+  const map={};
+  const put=(name,d,code)=>{if(!name)return;map[name]=map[name]||{};map[name][d]=code};
+  blocks.forEach(b=>{
+    for(let d=1;d<=dim;d++){
+      const v=at(b.sr,d);
+      put(b.nm,d,isOffX(v)?'休':v);
+    }
+  });
+  // アルバイト枠：セルの中身が人名
+  baito.forEach(b=>{
+    for(let d=1;d<=dim;d++){
+      const v=at(b.r,d);
+      if(!v||v==='★'||isOffX(v))continue;
+      put(v,d,'バイト'+b.kind);
+    }
+  });
+  // 研修枠：「☀研:近藤」「夜研:近藤」「Bサブ◯◯」「氏名のみ」
+  kenshu.forEach(r=>{
+    for(let d=1;d<=dim;d++){
+      const t=at(r,d);
+      if(!t||t==='★'||isOffX(t))continue;
+      const m=t.match(/(.+?)[：:](.+)/);
+      const bs=t.match(/^Bサブ(.+)$/);
+      if(m)put(m[2].trim(),d,/夜/.test(m[1])?'バイトB研修':'バイトA研修');
+      else if(bs)put(bs[1].trim(),d,'ぐ〜たく');
+      else if(t.length<=4&&!/\d/.test(t))put(t,d,'研修');
+    }
+  });
+  const lines=Object.keys(map).map(name=>{
+    const cells=[];for(let d=1;d<=31;d++)cells.push(map[name][d]||'');
+    return [name,...cells].join('\t');
+  });
+  return {lines,dim,blocks:blocks.length,baito:baito.length,kenshu:kenshu.length,cgRow};
+}
+/** 「1行＝1人」か「名前行＋シフト行」かを自動で見分ける */
+function detectShiftLayout(rows,dayCol){
+  rows=(rows||[]).map(r=>(r||[]).map(c=>String(c==null?'':c).trim()));
+  let same=0,paired=0;
+  for(let r=0;r<rows.length;r++){
+    const nm=String((rows[r]||[])[0]||'').trim();
+    if(!nm||/^\d+$/.test(nm))continue;
+    const cnt=n=>{let k=0;for(let d=1;d<=10;d++)if(String((rows[n]||[])[dayCol+d-1]||'').trim())k++;return k};
+    const a=cnt(r),b=cnt(r+1);
+    if(a>=6)same++;
+    else if(a<=2&&b>=6)paired++;
+  }
+  return paired>same?'paired':'same';
+}
+
 /* ===== 名簿：エクセル／CSVから読む ===== */
 const COLDEF=[
-  {k:'name',    label:'氏名',        re:/氏名|名前|スタッフ名|社員名|ｽﾀｯﾌ|name/i},
-  {k:'kind',    label:'区分',        re:/区分|雇用|種別|所属区分|雇用形態|契約区分/i},
-  {k:'dept',    label:'所属',        re:/所属|現場|部署|部門|拠点|事業所|チーム/i},
-  {k:'start',   label:'就業開始日',  re:/入社|就業|開始|着任|配属|勤務開始/i},
-  {k:'renewal', label:'次回更新日',  re:/更新日|次回更新|契約満了|満了|期限|終了日/i},
-  {k:'cycle',   label:'更新サイクル',re:/サイクル|更新周期|契約期間|周期|か月|ヶ月/i},
+  {k:'name',    label:'氏名',        re:/氏名|名前|スタッフ名|社員名|ｽﾀｯﾌ|従業員名|従業員|name/i, ng:/フリガナ|ふりがな|ﾌﾘｶﾞﾅ|カナ|ｶﾅ|kana/i},
+  {k:'kind',    label:'区分',        re:/区分|雇用|形態|種別|契約区分|身分|職種|資格/i},
+  {k:'dept',    label:'所属',        re:/所属|現場|部署|部門|拠点|事業所|チーム|課|グループ|配属/i},
+  {k:'start',   label:'就業開始日',  re:/入社|就業|着任|配属日|勤務開始|開始日|採用/i},
+  {k:'renewal', label:'次回更新日',  re:/更新日|次回更新|契約満了|満了|期限|終了日|契約終了/i},
+  {k:'cycle',   label:'更新サイクル',re:/サイクル|更新周期|契約期間|周期|か月|ヶ月|期間/i},
   {k:'birth',   label:'誕生日',      re:/誕生|生年|birth/i}
 ];
-function rowsToRoster(rows){
-  rows=(rows||[]).map(r=>(r||[]).map(c=>String(c==null?'':c).trim()));
+function rowsToRoster(rows,override){
+  rows=(rows||[]).map(r=>(r||[]).map(c=>String(c==null?'':c).replace(/\u3000/g,' ').trim()));
   // 1) 見出し行を探す（短いラベルが2種類以上そろう行）
   let headIx=-1,bestScore=1;
-  for(let i=0;i<Math.min(rows.length,15);i++){
+  for(let i=0;i<Math.min(rows.length,20);i++){
     const hit=new Set();
     rows[i].forEach(v=>{
-      if(!v||v.length>10)return;
-      for(const d of COLDEF)if(d.re.test(v))hit.add(d.k);
+      if(!v||v.length>12)return;
+      for(const d of COLDEF){if(d.ng&&d.ng.test(v))continue;if(d.re.test(v))hit.add(d.k)}
     });
     if(hit.size>bestScore){bestScore=hit.size;headIx=i}
   }
-  // 2) 列の対応づけ
+  // 2) 列の対応づけ（見出しが2行に分かれている場合は上の行と連結）
   const col={};
+  if(headIx>0){
+    const merged=(rows[headIx]||[]).map((v,c)=>((rows[headIx-1]||[])[c]||'')+v);
+    merged.forEach((v,c)=>{
+      if(!v||v.length>14)return;
+      for(const d of COLDEF){if(d.ng&&d.ng.test(v))continue;if(col[d.k]===undefined&&d.re.test(v)){col[d.k]=c;return}}
+    });
+  }
   if(headIx>=0){
     rows[headIx].forEach((v,c)=>{
       if(!v)return;
-      for(const d of COLDEF){if(col[d.k]===undefined&&d.re.test(v)){col[d.k]=c;return}}
+      for(const d of COLDEF){if(d.ng&&d.ng.test(v))continue;if(col[d.k]===undefined&&d.re.test(v)){col[d.k]=c;return}}
     });
   }
-  // 氏名列が見つからなければ、日本語が最も多い列を氏名とみなす
+  // 3) 見出しから氏名列が取れないときは中身から推定
   if(col.name===undefined){
-    let best=0,bestN=0;
-    const w=Math.max(...rows.map(r=>r.length));
-    for(let c=0;c<Math.min(w,8);c++){
-      let n=0;rows.forEach(r=>{const v=r[c]||'';if(/[ぁ-んァ-ヶ一-龠]/.test(v)&&v.length<=12&&!/^\d/.test(v))n++});
+    const w=Math.max(...rows.map(r=>r.length),1);
+    let best=-1,bestN=0;
+    for(let c=0;c<Math.min(w,10);c++){
+      let n=0;
+      rows.forEach((r,i)=>{
+        if(i===headIx)return;
+        const v=r[c]||'';
+        if(!v||v.length>14)return;
+        if(/^\d/.test(v))return;                    // 数字始まりは除外
+        if(/^[\d\/\-\.]+$/.test(v))return;          // 日付は除外
+        if(/[ぁ-んァ-ヶ一-龠]/.test(v)||/^[A-Za-z\s]+$/.test(v))n++;
+      });
       if(n>bestN){bestN=n;best=c}
     }
-    col.name=best;
+    if(best>=0&&bestN>=2)col.name=best;
   }
-  // 3) データ行
-  const NG=/^(氏名|名前|スタッフ|社員|№|No\.?|合計|計|備考|以上)$/i;
+  if(col.name===undefined)col.name=0;
+  // 4) 手動指定で上書き
+  if(override)Object.keys(override).forEach(k=>{
+    if(override[k]===null)delete col[k];else col[k]=override[k];
+  });
+  // 5) データ行
+  const NG=/^(氏名|名前|スタッフ|スタッフ名|社員|社員名|従業員|№|No\.?|備考|以上|区分|所属|部署|課|部|フリガナ|ふりがな|ﾌﾘｶﾞﾅ|カナ)$/i;
+  const NGP=/^\s*(合計|総計|小計|計|人数|以上|備考)/;
   const out=[];
   const start=headIx>=0?headIx+1:0;
   for(let i=start;i<rows.length;i++){
     const r=rows[i];
-    const name=(r[col.name]||'').trim();
-    if(!name||NG.test(name)||/^\d+$/.test(name))continue;
+    let name=(r[col.name]||'').trim();
+    if(!name||NG.test(name)||NGP.test(name))continue;
+    if(/^[\d\.\-\/\s]+$/.test(name))continue;       // 数字・日付だけの行は除外
     const g=k=>col[k]!==undefined?(r[col[k]]||'').trim():'';
     out.push({name,kind:g('kind'),dept:g('dept'),start:g('start'),renewal:g('renewal'),cycle:g('cycle'),birth:g('birth')});
   }
@@ -1100,31 +1530,50 @@ function rosterFile(input){
   const f=input.files&&input.files[0];if(!f)return;
   const info=document.getElementById('im-fileinfo');
   info.textContent='読み込み中…';
-  const isCsv=/\.csv$/i.test(f.name);
-  const rd=new FileReader();
-  rd.onload=()=>{
-    try{
-      let rows;
-      if(isCsv)rows=String(rd.result).split(/\r?\n/).map(l=>l.split(','));
-      else{
-        if(!window.XLSX){info.innerHTML='<span style="color:var(--today)">エクセルを読む部品が見つかりません。CSVで保存するか、貼り付けをお使いください。</span>';return}
-        const wb=XLSX.read(rd.result,{type:'array'});
-        rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:'',raw:false});
-      }
-      const res=rowsToRoster(rows);
-      if(!res.rows.length){info.innerHTML='<span style="color:var(--today)">氏名の列が見つかりませんでした。貼り付けをお試しください。</span>';return}
-      window._imRows=res.rows;
-      const found=COLDEF.filter(d=>res.col[d.k]!==undefined).map(d=>d.label);
-      const miss=COLDEF.filter(d=>res.col[d.k]===undefined).map(d=>d.label);
-      info.innerHTML=`「${esc(f.name)}」から <b>${res.rows.length}名</b> を読み取りました`;
-      document.getElementById('im-prev').innerHTML=
-        `<div class="warn"><b>見つかった列</b>：${found.join('／')||'氏名のみ'}${miss.length?`<br><span class="muted">見つからなかった列：${miss.join('／')}（空欄として登録されます）</span>`:''}</div>`+
-        `<div class="warn"><b>先頭3名</b><br>${res.rows.slice(0,3).map(r=>esc([r.name,r.kind,r.dept,r.start,r.renewal,r.cycle,r.birth].filter(Boolean).join('　'))).join('<br>')}</div>`;
-      document.getElementById('im-text').value=res.rows.map(r=>[r.name,r.kind,r.dept,r.start,r.renewal,r.cycle,r.birth].join('\t')).join('\n');
-    }catch(e){info.innerHTML='<span style="color:var(--today)">読み込めませんでした：'+esc(e.message)+'</span>'}
-  };
-  rd.onerror=()=>{info.textContent='ファイルを読めませんでした'};
-  if(isCsv)rd.readAsText(f);else rd.readAsArrayBuffer(f);
+  readTable(f,res=>{
+    if(res.error){info.innerHTML='<span style="color:var(--today)">'+esc(res.error)+'</span>';return}
+    window._imFile={...res,name:f.name};
+    rosterAnalyze();
+  });
+}
+function rosterSheet(sel){
+  const F=window._imFile;if(!F||!F.wb)return;
+  F.sheet=sel.value;F.rows=sheetRows(F.wb,F.sheet);
+  rosterAnalyze();
+}
+function rosterAnalyze(){
+  const F=window._imFile;if(!F)return;
+  const info=document.getElementById('im-fileinfo');
+  const res=rowsToRoster(F.rows);
+  window._imRows=res.rows;window._imCol=res.col;window._imHead=res.headIx;
+  const sheetSel=F.sheets.length>1?`<div class="f" style="margin:8px 0"><label>シートを選ぶ</label><select onchange="rosterSheet(this)">${F.sheets.map(s=>`<option ${s===F.sheet?'selected':''}>${esc(s)}</option>`).join('')}</select></div>`:'';
+  const found=COLDEF.filter(d=>res.col[d.k]!==undefined);
+  const colPick=COLDEF.map(d=>{
+    const w=Math.max(...F.rows.slice(0,30).map(r=>r.length),1);
+    return `<div class="colrow"><span>${d.label}</span><select onchange="rosterSetCol('${d.k}',this.value)">
+      <option value="">（なし）</option>
+      ${Array.from({length:Math.min(w,20)},(_,c)=>`<option value="${c}" ${res.col[d.k]===c?'selected':''}>${String.fromCharCode(65+c)}列${res.headIx>=0&&(F.rows[res.headIx]||[])[c]?'：'+esc(String((F.rows[res.headIx]||[])[c]).slice(0,10)):''}</option>`).join('')}
+    </select></div>`;
+  }).join('');
+  info.innerHTML=`「${esc(F.name)}」${F.sheet!=='(CSV)'?'／シート「'+esc(F.sheet)+'」':''}<br>`+
+    (res.rows.length?`<b>${res.rows.length}名</b>を読み取りました（見出し行：${res.headIx>=0?res.headIx+1+'行目':'なし'}）`
+      :`<span style="color:var(--today)">氏名の列を見つけられませんでした。下の「列を手で指定」で選んでください。</span>`);
+  document.getElementById('im-prev').innerHTML=
+    sheetSel+
+    tablePreview(F.rows)+
+    `<details style="margin-top:10px"><summary>列を手で指定する</summary><div class="colpick">${colPick}</div></details>`+
+    (res.rows.length?`<div class="warn"><b>読み取り結果（先頭3名）</b><br>${res.rows.slice(0,3).map(r=>esc([r.name,r.kind,r.dept,r.start,r.renewal,r.cycle,r.birth].filter(Boolean).join('　'))).join('<br>')}</div>`:'');
+  document.getElementById('im-text').value=res.rows.map(r=>[r.name,r.kind,r.dept,r.start,r.renewal,r.cycle,r.birth].join('\t')).join('\n');
+}
+function rosterSetCol(k,v){
+  const F=window._imFile;if(!F)return;
+  window._imColOverride=window._imColOverride||{};
+  if(v==='')window._imColOverride[k]=null;else window._imColOverride[k]=Number(v);
+  const res=rowsToRoster(F.rows,window._imColOverride);
+  window._imRows=res.rows;
+  document.getElementById('im-text').value=res.rows.map(r=>[r.name,r.kind,r.dept,r.start,r.renewal,r.cycle,r.birth].join('\t')).join('\n');
+  const info=document.getElementById('im-fileinfo');
+  info.innerHTML=`<b>${res.rows.length}名</b>を読み取りました（手動指定）`;
 }
 
 function openImportModal(){
@@ -1133,12 +1582,37 @@ function openImportModal(){
     <input type="file" id="im-file" accept=".xlsx,.xls,.csv" onchange="rosterFile(this)" style="padding:10px">
     <div id="im-fileinfo" class="small muted" style="margin-top:6px"></div></div>
   <div id="im-prev"></div>
-  <div class="f"><label>または、貼り付ける（氏名／区分／所属／就業開始日／次回更新日／更新サイクル／誕生日の順）</label>
-    <textarea id="im-text" style="min-height:120px" placeholder="山田太郎	派遣	第1現場	2025/4/1	2026/12/31	3	1990/5/10"></textarea></div>
+  <details style="margin-top:12px"><summary>または、表を貼り付ける</summary>
+    <div class="small muted" style="margin:6px 0">氏名／区分／所属／就業開始日／次回更新日／更新サイクル／誕生日 の順</div>
+    <div class="f"><textarea id="im-text" style="min-height:110px" placeholder="山田太郎	派遣	第1現場	2025/4/1	2026/12/31	3	1990/5/10"></textarea></div></details>
   <div class="foot"><button class="btn ghost" onclick="closeModal()">やめる</button><button class="btn solid" onclick="doImport()">取り込む</button></div>`);
   window._imRows=null;
 }
-function normDate(s){s=(s||'').trim();if(!s)return '';const m=s.match(/(\d{4})[\/\-.年](\d{1,2})[\/\-.月](\d{1,2})/);if(!m)return '';return m[1]+'-'+m[2].padStart(2,'0')+'-'+m[3].padStart(2,'0')}
+function normDate(s){
+  s=String(s==null?'':s).trim();if(!s)return '';
+  // エクセルの日付シリアル値
+  if(/^\d{5}$/.test(s)){const n=Number(s);if(n>20000&&n<80000){const d=new Date(Date.UTC(1899,11,30)+n*86400000);return ymd(new Date(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate()))}}
+  // ISO/スラッシュ/ドット/漢数字区切り
+  let m=s.match(/(\d{4})\s*[\/\-\.年]\s*(\d{1,2})\s*[\/\-\.月]\s*(\d{1,2})/);
+  if(m)return m[1]+'-'+String(m[2]).padStart(2,'0')+'-'+String(m[3]).padStart(2,'0');
+  // 8桁（20260401）
+  m=s.match(/^(\d{4})(\d{2})(\d{2})$/);
+  if(m)return m[1]+'-'+m[2]+'-'+m[3];
+  // 和暦（令和6年4月1日 / R6.4.1）
+  m=s.match(/(?:令和|R)\s*(\d{1,2})\s*[年\.\/\-]\s*(\d{1,2})\s*[月\.\/\-]\s*(\d{1,2})/);
+  if(m)return (2018+Number(m[1]))+'-'+String(m[2]).padStart(2,'0')+'-'+String(m[3]).padStart(2,'0');
+  m=s.match(/(?:平成|H)\s*(\d{1,2})\s*[年\.\/\-]\s*(\d{1,2})\s*[月\.\/\-]\s*(\d{1,2})/);
+  if(m)return (1988+Number(m[1]))+'-'+String(m[2]).padStart(2,'0')+'-'+String(m[3]).padStart(2,'0');
+  m=s.match(/(?:昭和|S)\s*(\d{1,2})\s*[年\.\/\-]\s*(\d{1,2})\s*[月\.\/\-]\s*(\d{1,2})/);
+  if(m)return (1925+Number(m[1]))+'-'+String(m[2]).padStart(2,'0')+'-'+String(m[3]).padStart(2,'0');
+  // 年なし（4/1）→ 今年
+  m=s.match(/^(\d{1,2})\s*[\/\-\.月]\s*(\d{1,2})/);
+  if(m)return new Date().getFullYear()+'-'+String(m[1]).padStart(2,'0')+'-'+String(m[2]).padStart(2,'0');
+  // Date が解釈できる形
+  const d=new Date(s);
+  if(!isNaN(d.getTime())&&d.getFullYear()>1900&&d.getFullYear()<2100)return ymd(d);
+  return '';
+}
 function doImport(){
   let src=window._imRows;
   if(!src){
@@ -1329,9 +1803,9 @@ function vReview(){
 let repTab='plan';
 function vReport(){
   let h=`<h1>REVIEW</h1>`;
-  const TABS=[['plan','作戦'],['review','先週'],['sub','引き算'],['silence','沈黙'],['signal','予兆'],['bias','偏り'],['time','時間'],['audit','会議'],['effect','効き目']];
+  const TABS=[['plan','作戦'],['review','先週'],['sub','引き算'],['silence','沈黙'],['signal','予兆'],['bias','偏り'],['time','時間'],['audit','会議'],['effect','効き目'],['notes','声']];
   h+=`<div class="tabs wrap">${TABS.map(([k,l])=>`<button class="${repTab===k?'on':''}" onclick="repTab='${k}';render()">${l}</button>`).join('')}</div>`;
-  h+=({plan:vPlan,review:vReview,sub:vSubtract,silence:vSilence,signal:vSignal,bias:vBias,time:vRoutine,audit:vAudit,effect:vEffect}[repTab]||vPlan)();
+  h+=({plan:vPlan,review:vReview,sub:vSubtract,silence:vSilence,signal:vSignal,bias:vBias,time:vRoutine,audit:vAudit,effect:vEffect,notes:vNotes}[repTab]||vPlan)();
   return h;
 }
 
@@ -1396,6 +1870,8 @@ function buildPlan(ws){
   })();
   const stale=openTasks().filter(x=>staleDays(x)>=3);
   const mailStale=D.mails.filter(m=>m.status==='open'&&mailBucket(m)==='reply'&&mailStaleDays(m)>=3);
+  const un=unreadNotes();
+  if(un.length)h+=`<h2>いただいた声</h2>`+un.slice(0,2).map(n=>`<div class="row due" onclick="openNoteModal('${n.id}')"><div class="t"><div class="ttl">${esc(n.from||'匿名')}さんから</div><div class="sub">${esc(n.body.slice(0,50))}${n.body.length>50?'…':''}</div></div></div>`).join('');
   const pend=pendingReports();
   const zero=D.staff.filter(p=>!p.lastContact||diffDays(p.lastContact,today())>=120);
   const sig=(shiftSignals()||[]).filter(s=>s.sev>=50);
@@ -1705,13 +2181,104 @@ function pendingReports(){
   return D.events.filter(e=>e.cat==='人'&&e.type==='面談'&&!e.report&&(e.date<t||(e.date===t&&mins(e.end||e.start||'23:59')<=now))).sort((a,b)=>b.date.localeCompare(a.date));
 }
 
+
+/* ========== 当番表（他セクションの当番を取り込んで表示） ========== */
+function dutyOn(date){
+  const out=[];
+  Object.keys(D.duty||{}).forEach(sec=>{
+    const d=(D.duty[sec]||{})[date];
+    if(!d)return;
+    const slots=Object.keys(d).filter(k=>d[k]);
+    if(slots.length)out.push({sec,slots:slots.map(k=>({k,v:d[k]}))});
+  });
+  return out;
+}
+function dutyChips(date,compact){
+  const list=dutyOn(date);
+  if(!list.length)return '';
+  return `<div class="duty">${list.map(x=>`<div class="dsec"><span class="dname">${esc(x.sec)}</span>${x.slots.map(s=>`<span class="dslot"><i>${esc(s.k)}</i>${esc(s.v)}</span>`).join('')}</div>`).join('')}</div>`;
+}
+function openDutyModal(){
+  const secs=Object.keys(D.duty||{});
+  openModal(`<h3>当番表を取り込む</h3>
+  <div class="hint">他のセクションの当番表を取り込むと、その日の担当者がTODAYと予定画面に表示されます。名簿には登録されません。<br>
+  1列目が日付、2列目以降が枠（朝・昼・夜など）です。1行目の見出しがそのまま枠の名前になります。</div>
+  <div class="f"><label>セクション名（表示に使います）</label><input id="dt-sec" placeholder="例：校閲" list="dt-secs"><datalist id="dt-secs">${secs.map(s=>`<option value="${esc(s)}">`).join('')}</datalist></div>
+  <div class="f"><label>ファイルから読み込む</label>
+    <input type="file" id="dt-file" accept=".csv,.xlsx,.xls" onchange="dutyFile(this)" style="padding:10px">
+    <div id="dt-fileinfo" class="small muted" style="margin-top:6px"></div></div>
+  <div id="dt-prev"></div>
+  <details style="margin-top:12px"><summary>または、表を貼り付ける</summary>
+    <div class="f"><textarea id="dt-text" style="min-height:110px" placeholder="日付,朝,昼&#10;2026/9/1,中村,吉村&#10;2026/9/2,,佐々木"></textarea></div></details>
+  ${secs.length?`<h2>取り込み済み</h2>${secs.map(s=>`<div class="row"><div class="t"><div class="ttl">${esc(s)}</div><div class="sub">${Object.keys(D.duty[s]).length}日分</div></div><div class="acts"><button class="btn ghost small" onclick="delDuty('${esc(s)}')">削除</button></div></div>`).join('')}`:''}
+  <div class="foot"><button class="btn ghost" onclick="closeModal()">やめる</button><button class="btn solid" onclick="doDutyImport()">取り込む</button></div>`);
+  window._dtRows=null;
+}
+function dutyFile(input){
+  const f=input.files&&input.files[0];if(!f)return;
+  const info=document.getElementById('dt-fileinfo');
+  info.textContent='読み込み中…';
+  readTable(f,res=>{
+    if(res.error){info.innerHTML='<span style="color:var(--today)">'+esc(res.error)+'</span>';return}
+    window._dtRows=res.rows;
+    const sec=document.getElementById('dt-sec');
+    if(!sec.value){const m=String(f.name).replace(/\.[^.]+$/,'').replace(/[\d\-_.年月日]/g,'').trim();if(m)sec.value=m}
+    const p=rowsToDuty(res.rows);
+    info.innerHTML=`「${esc(f.name)}」から <b>${p.count}日分</b>を読み取りました（枠：${p.slots.join('／')||'なし'}）`;
+    document.getElementById('dt-prev').innerHTML=tablePreview(res.rows);
+  });
+}
+function rowsToDuty(rows){
+  rows=(rows||[]).map(r=>(r||[]).map(c=>String(c==null?'':c).trim()));
+  // 見出し行＝日付らしい語を含む行、なければ1行目
+  let head=0;
+  for(let i=0;i<Math.min(rows.length,5);i++){if((rows[i][0]||'').match(/日付|日にち|date/i)){head=i;break}}
+  const labels=(rows[head]||[]).slice(1).map((v,i)=>v||('枠'+(i+1)));
+  const map={};let count=0;
+  for(let i=head+1;i<rows.length;i++){
+    const r=rows[i];const key=normDate(r[0]);
+    if(!key)continue;
+    const o={};let any=false;
+    labels.forEach((lb,j)=>{const v=(r[j+1]||'').trim();if(v){o[lb]=v;any=true}});
+    if(any){map[key]=o;count++}
+  }
+  return {map,count,slots:labels.filter(Boolean)};
+}
+function doDutyImport(){
+  const sec=(document.getElementById('dt-sec').value||'').trim();
+  if(!sec){toast('セクション名を入れてください');return}
+  let rows=window._dtRows;
+  if(!rows){
+    const txt=document.getElementById('dt-text').value;
+    if(!txt.trim()){toast('ファイルを選ぶか、表を貼り付けてください');return}
+    rows=txt.split(/\r?\n/).filter(l=>l.trim()).map(l=>l.split(/\t|,/));
+  }
+  const p=rowsToDuty(rows);
+  if(!p.count){toast('日付を読み取れませんでした');return}
+  D.duty=D.duty||{};
+  D.duty[sec]=Object.assign(D.duty[sec]||{},p.map);
+  closeModal();store.save();render();toast(sec+'の当番を'+p.count+'日分 取り込みました');
+}
+function delDuty(sec){if(!confirm(sec+'の当番表を削除しますか？'))return;delete D.duty[sec];store.save();closeModal();render()}
+
 /* ========== 勤務表（ホワイトボード） ========== */
-const OFF_CODES=['休','公','公休','有','有休','年休','×','x','X','ー','-','―','','法','明'];
+const OFF_CODES=['休','休み','★','有','有休','夏季有休','ぐ～休','ぐ〜休','CUE','cue','Cue','公','公休','年休','×','x','X','ー','-','―','','法','明'];
 function isOff(code){const c=String(code||'').trim();return !c||OFF_CODES.includes(c)}
 function shiftOf(name,date){
   const ym=date.slice(0,7);const d=String(Number(date.slice(8,10)));
   const m=(D.shifts||{})[ym];if(!m)return null;
-  const row=m[name];if(!row)return null;
+  let row=m[name];
+  if(!row){
+    const n=normName(name);
+    const key=Object.keys(m).find(k=>normName(k)===n);
+    if(key)row=m[key];
+    else{
+      const al=D.settings.nameAliases||{};
+      const src=Object.keys(al).find(k=>normName(al[k])===n);
+      if(src){const k2=Object.keys(m).find(k=>normName(k)===src);if(k2)row=m[k2]}
+    }
+  }
+  if(!row)return null;
   return row[d]??null;
 }
 function workingOn(date){
@@ -1737,8 +2304,9 @@ function openShiftModal(ym0){
   <div class="f"><label>エクセルファイルから読み込む</label>
     <input type="file" id="sh-file" accept=".xlsx,.xls,.csv" onchange="shiftFile(this)" style="padding:10px">
     <div id="sh-fileinfo" class="small muted" style="margin-top:6px"></div></div>
-  <div class="f"><label>または、貼り付ける</label><textarea id="sh-text" style="min-height:130px" placeholder="氏名	1	2	3	4	5 ...&#10;山田 太郎	早	早	休	遅	遅&#10;佐藤 花子	日	日	日	休	休"></textarea></div>
   <div id="sh-prev"></div>
+  <details style="margin-top:12px"><summary>または、表を貼り付ける</summary>
+    <div class="f"><textarea id="sh-text" style="min-height:110px" placeholder="氏名	1	2	3	4	5 ...&#10;山田 太郎	早	早	休	遅	遅"></textarea></div></details>
   <div class="foot"><button class="btn ghost" onclick="closeModal()">やめる</button><button class="btn solid" onclick="doShiftImport()">取り込む</button></div>`);
 }
 
@@ -1747,84 +2315,125 @@ function shiftFile(input){
   const f=input.files&&input.files[0];if(!f)return;
   const info=document.getElementById('sh-fileinfo');
   info.textContent='読み込み中…';
-  const isCsv=/\.csv$/i.test(f.name);
-  const rd=new FileReader();
-  rd.onload=()=>{
-    try{
-      let rows;
-      if(isCsv){
-        rows=String(rd.result).split(/\r?\n/).map(l=>l.split(','));
-      }else{
-        if(!window.XLSX){info.innerHTML='<span style="color:var(--today)">エクセルを読む部品が見つかりません。CSVで保存するか、貼り付けをお使いください。</span>';return}
-        const wb=XLSX.read(rd.result,{type:'array'});
-        const sh=wb.Sheets[wb.SheetNames[0]];
-        rows=XLSX.utils.sheet_to_json(sh,{header:1,defval:'',raw:false});
-      }
-      const res=rowsToShift(rows);
-      if(!res.lines.length){info.innerHTML='<span style="color:var(--today)">氏名の列が見つかりませんでした。貼り付けをお試しください。</span>';return}
-      document.getElementById('sh-text').value=res.lines.join('\n');
-      // 月の推定
-      if(res.ym)document.getElementById('sh-ym').value=res.ym;
-      info.innerHTML=`「${esc(f.name)}」${wbSheetNote(isCsv)}<br>${res.lines.length}名分を読み取りました${res.ym?'（'+res.ym+'と判定）':''}`;
-      document.getElementById('sh-prev').innerHTML=`<div class="warn"><b>読み取り結果（先頭3名）</b><br>${res.lines.slice(0,3).map(l=>esc(l.split('\t').slice(0,9).join('　')+' …')).join('<br>')}</div>`;
-    }catch(e){info.innerHTML='<span style="color:var(--today)">読み込めませんでした：'+esc(e.message)+'</span>'}
-  };
-  rd.onerror=()=>{info.textContent='ファイルを読めませんでした'};
-  if(isCsv)rd.readAsText(f);else rd.readAsArrayBuffer(f);
+  readTable(f,res=>{
+    if(res.error){info.innerHTML='<span style="color:var(--today)">'+esc(res.error)+'</span>';return}
+    window._shFile={...res,name:f.name};
+    const fn=monthFromName(f.name);
+    if(fn)document.getElementById('sh-ym').value=fn;
+    shiftAnalyze(!!fn);
+  });
 }
-function wbSheetNote(isCsv){return isCsv?'（CSV）':''}
+function shiftSheet(sel){
+  const F=window._shFile;if(!F||!F.wb)return;
+  F.sheet=sel.value;F.rows=sheetRows(F.wb,F.sheet);
+  window._shOverride=null;
+  shiftAnalyze();
+}
+function shiftSetCol(k,v){
+  window._shOverride=window._shOverride||{};
+  window._shOverride[k]=v===''?null:Number(v);
+  shiftAnalyze(true);
+}
+function shiftAnalyze(keep){
+  const F=window._shFile;if(!F)return;
+  const info=document.getElementById('sh-fileinfo');
+  const base=rowsToShift(F.rows,window._shOverride);
+  const mode=window._shMode||detectShiftLayout(F.rows,base.dayCol);
+  window._shMode=mode;
+  const ymNow=document.getElementById('sh-ym')?.value||base.ym||today().slice(0,7);
+  const res=mode==='paired'
+    ? {...rowsToShiftPaired(F.rows,base.ym||ymNow,base.dayCol),ym:base.ym,headIx:base.headIx,nameCol:0,dayCol:base.dayCol}
+    : base;
+  const sheetSel=F.sheets.length>1?`<div class="f" style="margin:8px 0"><label>シートを選ぶ</label><select onchange="shiftSheet(this)">${F.sheets.map(s=>`<option ${s===F.sheet?'selected':''}>${esc(s)}</option>`).join('')}</select></div>`:'';
+  const w=Math.max(...F.rows.map(r=>r.length),1);
+  const opts=(sel)=>Array.from({length:Math.min(w,40)},(_,c)=>`<option value="${c}" ${sel===c?'selected':''}>${colName(c)}列</option>`).join('');
+  const colPick=`<div class="colpick">
+    <div class="colrow"><span>氏名の列</span><select onchange="shiftSetCol('nameCol',this.value)">${opts(res.nameCol)}</select></div>
+    <div class="colrow"><span>1日の列</span><select onchange="shiftSetCol('dayCol',this.value)">${opts(res.dayCol)}</select></div>
+    <div class="colrow"><span>見出し行</span><select onchange="shiftSetCol('headIx',this.value)"><option value="">（なし）</option>${Array.from({length:Math.min(F.rows.length,20)},(_,i)=>`<option value="${i}" ${res.headIx===i?'selected':''}>${i+1}行目</option>`).join('')}</select></div>
+  </div>`;
+  const modePick=`<div class="f" style="margin:8px 0"><label>表の形式</label><select onchange="window._shMode=this.value;shiftAnalyze(true)">
+    <option value="same" ${mode==='same'?'selected':''}>1行＝1人（同じ行にシフト）</option>
+    <option value="paired" ${mode==='paired'?'selected':''}>名前行＋シフト行（次の行にシフト）</option>
+  </select><div class="small muted" style="margin-top:4px">${mode==='paired'?'名前の下の行からシフトを読み、アルバイト枠のセルは人名として扱います':'名前と同じ行からシフトを読みます'}</div></div>`;
+  if(res.ym&&!keep)document.getElementById('sh-ym').value=res.ym;
+  document.getElementById('sh-text').value=res.lines.join('\n');
+  info.innerHTML=`「${esc(F.name)}」${F.sheet!=='(CSV)'?'／シート「'+esc(F.sheet)+'」':''}<br>`+
+    (res.lines.length?`<b>${res.lines.length}名分</b>を読み取りました（${mode==='paired'?'名前行＋シフト行':'1行＝1人'}／1日＝${colName(res.dayCol)}列${res.ym?'／'+res.ym:''}${res.baito?'／アルバイト枠'+res.baito+'件':''}）`
+      :`<span style="color:var(--today)">読み取れませんでした。下で列を指定してください。</span>`);
+  document.getElementById('sh-prev').innerHTML=
+    sheetSel+modePick+tablePreview(F.rows)+
+    `<details style="margin-top:10px" open><summary>列を手で指定する</summary>${colPick}</details>`+
+    (res.lines.length?`<div class="warn"><b>読み取り結果（先頭3名）</b><br>${res.lines.slice(0,3).map(l=>esc(l.split('\t').slice(0,10).join('　')+' …')).join('<br>')}</div>`:'');
+}
+function colName(c){return c<26?String.fromCharCode(65+c):String.fromCharCode(64+Math.floor(c/26))+String.fromCharCode(65+c%26)}
 /** 表の行データから「氏名＋1日〜31日」の形を探し出す */
-function rowsToShift(rows){
-  rows=(rows||[]).map(r=>(r||[]).map(c=>String(c==null?'':c).trim()));
-  // 1) 日付の見出し行を探す（1,2,3… が並ぶ行）
-  let headIx=-1,dayCol=-1;
-  for(let i=0;i<Math.min(rows.length,15);i++){
+function rowsToShift(rows,override){
+  rows=(rows||[]).map(r=>(r||[]).map(c=>String(c==null?'':c).replace(/\u3000/g,' ').trim()));
+  // 1) 日付の見出し行を探す（1,2,3… が並ぶ行。1〜31の連番であればよい）
+  let headIx=-1,dayCol=-1,bestRun=0;
+  for(let i=0;i<Math.min(rows.length,20);i++){
     const r=rows[i];
-    for(let c=0;c<Math.min(r.length,8);c++){
+    for(let c=0;c<Math.min(r.length,10);c++){
       let ok=0;
-      for(let k=0;k<10;k++){
-        const v=r[c+k];
-        const n=v&&v.match(/^(\d{1,2})/);
-        if(n&&Number(n[1])===k+1)ok++;
+      for(let k=0;k<12;k++){
+        const v=r[c+k];if(v===undefined)break;
+        const n=String(v).match(/(\d{1,2})/);
+        if(n&&Number(n[1])===k+1)ok++;else break;
       }
-      if(ok>=8){headIx=i;dayCol=c;break}
+      if(ok>bestRun&&ok>=7){bestRun=ok;headIx=i;dayCol=c}
     }
-    if(headIx>=0)break;
   }
-  // 2) 氏名の列を推定（見出し行より左、または0列目）
+  // 2) 氏名の列を推定
   let nameCol=0;
-  if(dayCol>0){
-    // 日付列の左側で、最も文字が入っている列
+  {
+    const limit=dayCol>0?dayCol:Math.min(6,Math.max(...rows.map(r=>r.length),1));
     let best=-1,bestN=0;
-    for(let c=0;c<dayCol;c++){
+    for(let c=0;c<limit;c++){
       let n=0;
-      rows.forEach(r=>{const v=r[c]||'';if(v&&!/^\d+$/.test(v)&&v.length<=12)n++});
+      rows.forEach((r,i)=>{
+        if(i===headIx)return;
+        const v=r[c]||'';
+        if(!v||v.length>14)return;
+        if(/^[\d\.\-\/\s]+$/.test(v))return;
+        if(/[ぁ-んァ-ヶ一-龠]/.test(v)||/^[A-Za-z\s]+$/.test(v))n++;
+      });
       if(n>bestN){bestN=n;best=c}
     }
-    if(best>=0)nameCol=best;
+    if(best>=0&&bestN>=2)nameCol=best;
   }
   if(dayCol<0)dayCol=nameCol+1;
-  // 3) 月の推定（上部セルから yyyy年m月 / m月 を探す）
+  // 3) 手動指定で上書き
+  if(override){
+    if(override.nameCol!=null)nameCol=override.nameCol;
+    if(override.dayCol!=null)dayCol=override.dayCol;
+    if(override.headIx!==undefined)headIx=override.headIx===null?-1:override.headIx;
+  }
+  // 4) 月の推定
   let ym=null;
-  outer:for(let i=0;i<Math.min(rows.length,10);i++){
+  outer:for(let i=0;i<Math.min(rows.length,12);i++){
     for(const v of rows[i]){
       let m=v.match(/(20\d{2})\s*[年\/\-\.]\s*(\d{1,2})/);
       if(m){ym=m[1]+'-'+String(m[2]).padStart(2,'0');break outer}
+      m=v.match(/(?:令和|R)\s*(\d{1,2})\s*[年\.\/\-]\s*(\d{1,2})\s*月?/);
+      if(m){ym=(2018+Number(m[1]))+'-'+String(m[2]).padStart(2,'0');break outer}
       m=v.match(/^(\d{1,2})\s*月/);
       if(m){const y=new Date().getFullYear();ym=y+'-'+String(m[1]).padStart(2,'0');break outer}
     }
   }
-  // 4) データ行を抽出
-  const NG=/^(氏名|名前|スタッフ|社員|№|No\.?|合計|計|備考|区分)$/i;
+  // 5) データ行を抽出
+  const NG=/^(氏名|名前|スタッフ|社員|従業員|№|No\.?|備考|区分|所属|曜日|日付)$/i;
+  const NGP=/^\s*(合計|総計|小計|計|人数|以上)/;
   const lines=[];
   const start=headIx>=0?headIx+1:0;
   for(let i=start;i<rows.length;i++){
     const r=rows[i];
     const name=(r[nameCol]||'').trim();
-    if(!name||NG.test(name)||/^\d+$/.test(name))continue;
+    if(!name||NG.test(name)||NGP.test(name))continue;
+    if(/^[\d\.\-\/\s]+$/.test(name))continue;
     const cells=[];
     for(let d=0;d<31;d++)cells.push((r[dayCol+d]||'').trim());
-    if(cells.filter(Boolean).length<5)continue;
+    if(cells.filter(Boolean).length<3)continue;
     lines.push([name,...cells].join('\t'));
   }
   return {lines,ym,headIx,nameCol,dayCol};
@@ -1844,12 +2453,25 @@ function doShiftImport(){
     const row={};
     for(let i=1;i<c.length&&i<=31;i++)row[String(i)]=(c[i]||'').trim();
     map[name]=row;n++;
-    if(!D.staff.some(p=>p.name===name))unknown.push(name);
+    if(!resolveStaff(name))unknown.push(name);
   });
   if(!n){toast('読み取れる行がありませんでした');return}
-  D.shifts=D.shifts||{};D.shifts[ym]=map;
-  closeModal();store.save();render();
-  toast(n+'名分を取り込みました'+(unknown.length?'（名簿にない方が'+unknown.length+'名）':''));
+  // 名簿と照合して、可能なものは名簿の表記に揃える
+  const fixed={},unresolved=[];
+  Object.keys(map).forEach(k=>{
+    const p=resolveStaff(k);
+    if(p)fixed[p.name]=Object.assign(fixed[p.name]||{},map[k]);
+    else{fixed[k]=map[k];unresolved.push(k)}
+  });
+  D.shifts=D.shifts||{};D.shifts[ym]=fixed;
+  store.save();render();
+  if(unresolved.length){toast(n+'名分を取り込みました');openMatchModal(unresolved,()=>{
+    // 別名が決まったら、その月のデータを名簿の表記に付け替える
+    const m2=D.shifts[ym],out={};
+    Object.keys(m2).forEach(k=>{const p=resolveStaff(k);out[p?p.name:k]=Object.assign(out[p?p.name:k]||{},m2[k])});
+    D.shifts[ym]=out;store.save();render();
+  });}
+  else{closeModal();toast(n+'名分を取り込みました');}
 }
 
 function vShiftDay(date){
@@ -1955,6 +2577,10 @@ function vSetting(){
   <div class="f"><label>転送の受け皿アドレス（Outlookからここへ転送したものを最優先で拾います）</label><input id="s-fwd" value="${esc(s.forwardTo||'')}" placeholder="例：yourname+mii@gmail.com"></div>
   <div class="f"><label>期限を示す語句（1行に1つ）</label><textarea id="s-dw">${esc(s.deadlineWords.join('\n'))}</textarea></div>
   <div class="f2"><div class="f"><label>メール：過去何日分</label><input id="s-fd" type="number" value="${s.fetchDays}"></div><div class="f"><label>カレンダー：先何日分</label><input id="s-cd2" type="number" value="${s.calDays||30}"></div></div>
+  <h2>名前の読み替え</h2>
+  ${(()=>{const al=D.settings.nameAliases||{};const ks=Object.keys(al);
+    return ks.length?ks.map(k=>`<div class="row"><div class="t"><div class="ttl">${esc(k)} → ${esc(al[k])}</div><div class="sub">勤務表の「${esc(k)}」を、名簿の「${esc(al[k])}」として扱います</div></div><div class="acts"><button class="btn ghost small" onclick="delAlias('${esc(k)}')">解除</button></div></div>`).join('')
+      :'<p class="small muted">まだ登録はありません。勤務表の取り込み時に、名簿にない名前が出たら結び付けられます。</p>'})()}
   <h2>面談の会議室依頼メール</h2>
   <div class="f"><label>依頼先アドレス（空欄なら送りません）</label><input id="s-rto" value="${esc(s.roomTo||'')}" placeholder="soumu@example.co.jp"></div>
   <div class="f"><label>CC（任意）</label><input id="s-rcc" value="${esc(s.roomCc||'')}"></div>
@@ -1979,7 +2605,7 @@ function saveSettings(){
 }
 function exportData(){const b=new Blob([JSON.stringify(D,null,1)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='mii-'+today()+'.json';a.click()}
 function importData(){const i=document.createElement('input');i.type='file';i.accept='.json';i.onchange=()=>{const f=i.files[0];const r=new FileReader();r.onload=()=>{try{const j=JSON.parse(r.result);D={...D,...j,settings:{...DEFAULT_SETTINGS,...(j.settings||{})}};store.save();render();toast('読み込みました')}catch(e){toast('読み込めませんでした')}};r.readAsText(f)};i.click()}
-function resetData(){if(!confirm('すべてのデータを消します。よろしいですか？'))return;if(!confirm('本当に消しますか？この操作は戻せません。'))return;const gas=D.settings.gasUrl;D={events:[],tasks:[],mails:[],staff:[],shifts:{},settings:{...DEFAULT_SETTINGS,gasUrl:gas},meta:{updatedAt:0}};store.save();render()}
+function resetData(){if(!confirm('すべてのデータを消します。よろしいですか？'))return;if(!confirm('本当に消しますか？この操作は戻せません。'))return;const gas=D.settings.gasUrl;D={events:[],tasks:[],mails:[],staff:[],shifts:{},duty:{},settings:{...DEFAULT_SETTINGS,gasUrl:gas},meta:{updatedAt:0}};store.save();render()}
 
 /* ========== モーダル ========== */
 function openModal(html){document.getElementById('modal').innerHTML=html;document.getElementById('modal-bg').classList.add('on')}
