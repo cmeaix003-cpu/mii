@@ -301,14 +301,18 @@ h2{font-family:var(--pix);font-size:12px;color:var(--gray);margin:24px 0 8px;let
 .dsec .dslot{display:inline-flex;align-items:baseline;gap:5px;background:var(--panel);border:1px solid var(--rule);border-radius:6px;padding:2px 8px;font-size:13px;font-weight:700}
 .dsec .dslot i{font-family:var(--pix);font-style:normal;font-size:10px;color:var(--gray)}
 /* 勤務表 */
-.shgrp{margin-bottom:12px}
-.shcode{font-family:var(--pix);font-size:12px;background:var(--ink);color:var(--panel);display:inline-block;padding:3px 10px;border-radius:6px}
-.shcode span{font-size:10px;margin-left:8px;opacity:.7}
-.shnames{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
-.shname{background:var(--panel);border:2px solid var(--rule);border-radius:8px;padding:6px 10px;font-size:13px;font-weight:700}
-.shname:active{transform:translate(1px,1px)}
-.shname.over{background:var(--person-tint);border-color:var(--person)}
-.shname i{font-family:var(--pix);font-style:normal;font-size:10px;color:var(--person-deep);margin-left:6px}
+.wgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:7px;margin-bottom:6px}
+@media(min-width:600px){.wgrid{grid-template-columns:repeat(4,1fr)}}
+.wchip{display:flex;align-items:center;gap:6px;background:var(--panel);border:2px solid var(--rule);border-radius:8px;padding:8px 9px;text-align:left;min-width:0}
+.wchip:active{transform:translate(1px,1px)}
+.wchip.over{background:var(--person-tint);border-color:var(--person)}
+.wchip .wn{font-weight:700;font-size:13px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wchip .wc{font-family:var(--pix);font-size:9px;color:var(--gray);background:var(--panel2);border-radius:4px;padding:1px 5px;flex:none;max-width:64px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wchip.over .wc{background:#fff;color:var(--person-deep)}
+.wchip .wg{font-family:var(--pix);font-size:9px;color:#fff;background:var(--person);border-radius:4px;padding:1px 4px;flex:none}
+.wgrp{margin-bottom:10px}
+.wghd{font-family:var(--pix);font-size:11px;color:var(--gray);margin-bottom:5px;border-bottom:2px solid var(--rule);padding-bottom:3px}
+.wghd span{margin-left:7px;font-size:10px}
 .nextdays{display:flex;flex-wrap:wrap;gap:6px}
 /* コンディション可視化 */
 .condbox{background:var(--panel);border:3px solid var(--ink);border-radius:10px;box-shadow:inset 0 0 0 3px var(--panel),inset 0 0 0 4px var(--rule);padding:12px;margin:10px 0 4px}
@@ -896,9 +900,9 @@ function delTask(id){if(!confirm('削除しますか？'))return;D.tasks=D.tasks
 /* --- 予定 --- */
 function vCal(){
   let h=`<div class="cal-head"><h1>${calTitle()}</h1><div class="seg">${['day','week','month','shift'].map(m=>`<button class="${calMode===m?'on':''}" onclick="calMode='${m}';render()">${{day:'日',week:'週',month:'月',shift:'勤務'}[m]}</button>`).join('')}</div></div>`;
-  h+=`<div class="toolbar"><button class="btn ghost small" onclick="calMove(-1)">‹ 前</button><button class="btn ghost small" onclick="calAnchor=today();render()">今日</button><button class="btn ghost small" onclick="calMove(1)">次 ›</button><span class="sp"></span><button class="btn ghost small" onclick="openQuickModal('morning')">まとめて入れる</button><button class="btn ghost small" onclick="store.fetchEvents()">取り込む</button></div>`;
+  h+=`<div class="toolbar"><button class="btn ghost small" onclick="calMove(-1)">‹ 前</button><button class="btn ghost small" onclick="calAnchor=today();render()">今日</button><button class="btn ghost small" onclick="calMove(1)">次 ›</button><span class="sp"></span><button class="btn ghost small" onclick="openQuickModal('morning')">まとめて</button><button class="btn ghost small" onclick="store.fetchEvents()">取り込む</button></div>`;
   if(calMode==='shift'){
-    h+=`<div class="toolbar"><span class="small muted">出勤者をタップすると、その日の面談として登録できます</span><span class="sp"></span><button class="btn ghost small" onclick="openShiftModal()">勤務表を取り込む</button><button class="btn ghost small" onclick="openDutyModal()">当番表</button></div>`;
+    h+=`<div class="toolbar"><button class="btn ghost small" onclick="openShiftModal()">勤務表</button><button class="btn ghost small" onclick="openDutyModal()">当番表</button><span class="sp"></span><span class="small muted">タップで面談を登録</span></div>`;
     h+=dutyChips(calAnchor);
     h+=`<h2>${fmtMD(calAnchor)} の出勤</h2>`+vShiftDay(calAnchor);
     const ms=shiftMonths();
@@ -2474,15 +2478,35 @@ function doShiftImport(){
   else{closeModal();toast(n+'名分を取り込みました');}
 }
 
+let shiftView='pri';
 function vShiftDay(date){
   const w=workingOn(date);
-  if(w===null)return `<div class="empty">${date.slice(0,7)}の勤務表がまだありません。<div style="margin-top:10px"><button class="btn small" onclick="openShiftModal()">勤務表を貼り付ける</button></div></div>`;
+  if(w===null)return `<div class="empty">${date.slice(0,7)}の勤務表がまだありません。<div style="margin-top:10px"><button class="btn small" onclick="openShiftModal()">勤務表を取り込む</button></div></div>`;
   if(!w.length)return `<div class="empty">この日の出勤者はいません。</div>`;
-  const byCode={};w.forEach(x=>{(byCode[x.code]=byCode[x.code]||[]).push(x.p)});
-  return Object.keys(byCode).sort().map(code=>`<div class="shgrp"><div class="shcode">${esc(code)}<span>${byCode[code].length}名</span></div><div class="shnames">${byCode[code].map(p=>{
-    const gap=p.lastContact?diffDays(p.lastContact,today()):null;const target=p.contactDays||KIND_DAYS[p.kind]||90;
-    const over=gap===null||gap>target;
-    return `<button class="shname ${over?'over':''}" onclick="openEventModal({date:'${date}',type:'面談',title:'面談 ${esc(p.name)}',staffName:'${esc(p.name)}'})">${esc(p.name)}${over?`<i>${gap===null?'未':gap+'日'}</i>`:''}</button>`}).join('')}</div></div>`).join('');
+  const t=today();
+  const info=x=>{
+    const gap=x.p.lastContact?diffDays(x.p.lastContact,t):null;
+    const target=x.p.contactDays||KIND_DAYS[x.p.kind]||90;
+    return {gap,over:gap===null||gap>target,sc:staffScore(x.p)};
+  };
+  const list=w.map(x=>({...x,...info(x)}));
+  const over=list.filter(x=>x.over).length;
+  let h=`<div class="toolbar"><span class="small muted">${w.length}名 出勤${over?`／<b style="color:var(--person-deep)">${over}名</b>はしばらく話せていません`:''}</span><span class="sp"></span>
+    <div class="seg"><button class="${shiftView==='pri'?'on':''}" onclick="shiftView='pri';render()">優先順</button><button class="${shiftView==='code'?'on':''}" onclick="shiftView='code';render()">区分順</button></div></div>`;
+  const chip=x=>`<button class="wchip ${x.over?'over':''}" onclick="onCardTap('${x.p.id}','${date}')">
+    <span class="wn">${esc(x.p.name)}</span>
+    <span class="wc">${esc(x.code)}</span>
+    ${x.over?`<span class="wg">${x.gap===null?'未':x.gap+'日'}</span>`:''}
+  </button>`;
+  if(shiftView==='pri'){
+    list.sort((a,b)=>b.sc-a.sc);
+    h+=`<div class="wgrid">${list.map(chip).join('')}</div>`;
+  }else{
+    const by={};list.forEach(x=>{(by[x.code]=by[x.code]||[]).push(x)});
+    h+=Object.keys(by).sort((a,b)=>by[b].length-by[a].length||a.localeCompare(b))
+      .map(code=>`<div class="wgrp"><div class="wghd">${esc(code)}<span>${by[code].length}</span></div><div class="wgrid">${by[code].map(chip).join('')}</div></div>`).join('');
+  }
+  return h;
 }
 
 /* ========== コンディションの見える化 ========== */
