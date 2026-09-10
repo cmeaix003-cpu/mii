@@ -424,7 +424,7 @@ const TYPES={
   '移動':{cat:'移動',fields:['place']}
 };
 const CATS=['会議','打合せ','人','作業','移動'];
-const DEFAULT_SETTINGS={gasUrl:'',myEmail:'',vip:[],exclude:[],deadlineWords:['至急','本日中','〆切','締切','までに','確認願います','ご確認ください'],calDays:30,icsUrls:[],nameAliases:{},forwardTo:'',roomTo:'',roomCc:'',roomSubject:'【会議室のお願い】{date} {start}〜{end} 面談',roomBody:'お疲れ様です。\n\n下記のとおり面談を予定しております。会議室のご手配をお願いいたします。\n\n・日時：{date}（{dow}） {start}〜{end}\n・対象：{name} さん\n・場所：{place}\n\nお手数をおかけしますが、よろしくお願いいたします。',weeklyGoal:5,weekGoals:{},fetchDays:2};
+const DEFAULT_SETTINGS={gasUrl:'',myEmail:'',vip:[],exclude:[],deadlineWords:['至急','本日中','〆切','締切','までに','確認願います','ご確認ください'],calDays:30,icsUrls:[],nameAliases:{},forwardTo:'',forwardLabel:'',roomTo:'',roomCc:'',roomSubject:'【会議室のお願い】{date} {start}〜{end} 面談',roomBody:'お疲れ様です。\n\n下記のとおり面談を予定しております。会議室のご手配をお願いいたします。\n\n・日時：{date}（{dow}） {start}〜{end}\n・対象：{name} さん\n・場所：{place}\n\nお手数をおかけしますが、よろしくお願いいたします。',weeklyGoal:5,weekGoals:{},fetchDays:2};
 
 let D={events:[],tasks:[],mails:[],staff:[],shifts:{},duty:{},settings:{...DEFAULT_SETTINGS},meta:{updatedAt:0}};
 let view='today', calMode='week', calAnchor=today(), peopleFilter='全', mailTab='reply', inboxTab='open', peopleDate=null;
@@ -2599,6 +2599,8 @@ function vSetting(){
   <div class="f"><label>重要送信者（1行に1つ。名前の一部やドメインでも可）</label><textarea id="s-vip">${esc(s.vip.join('\n'))}</textarea></div>
   <div class="f"><label>除外する送信者（1行に1つ）</label><textarea id="s-ex">${esc(s.exclude.join('\n'))}</textarea></div>
   <div class="f"><label>転送の受け皿アドレス（Outlookからここへ転送したものを最優先で拾います）</label><input id="s-fwd" value="${esc(s.forwardTo||'')}" placeholder="例：yourname+mii@gmail.com"></div>
+  <div class="f"><label>優先して拾うラベル（Gmailのフィルタで付けたラベル名）</label><input id="s-flabel" value="${esc(s.forwardLabel||'')}" placeholder="例：なんでも///ひとことBOX"></div>
+  <p class="small muted">投稿ボックスの通知など、Gmailのフィルタでラベルを付けたメールを最上位で拾います。転送できない場合はこちらをお使いください。</p>
   <div class="f"><label>期限を示す語句（1行に1つ）</label><textarea id="s-dw">${esc(s.deadlineWords.join('\n'))}</textarea></div>
   <div class="f2"><div class="f"><label>メール：過去何日分</label><input id="s-fd" type="number" value="${s.fetchDays}"></div><div class="f"><label>カレンダー：先何日分</label><input id="s-cd2" type="number" value="${s.calDays||30}"></div></div>
   <h2>名前の読み替え</h2>
@@ -2624,7 +2626,7 @@ function vSetting(){
 }
 function saveSettings(){
   const g=i=>document.getElementById(i).value;const lines=i=>g(i).split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
-  Object.assign(D.settings,{gasUrl:g('s-gas').trim(),myEmail:g('s-me').trim(),vip:lines('s-vip'),exclude:lines('s-ex'),deadlineWords:lines('s-dw'),icsUrls:lines('s-ics'),forwardTo:g('s-fwd').trim(),roomTo:g('s-rto').trim(),roomCc:g('s-rcc').trim(),roomSubject:g('s-rsub'),roomBody:g('s-rbody'),fetchDays:Number(g('s-fd'))||2,calDays:Number(g('s-cd2'))||30,weeklyGoal:Number(g('s-goal'))||0});
+  Object.assign(D.settings,{gasUrl:g('s-gas').trim(),myEmail:g('s-me').trim(),vip:lines('s-vip'),exclude:lines('s-ex'),deadlineWords:lines('s-dw'),icsUrls:lines('s-ics'),forwardTo:g('s-fwd').trim(),forwardLabel:g('s-flabel').trim(),roomTo:g('s-rto').trim(),roomCc:g('s-rcc').trim(),roomSubject:g('s-rsub'),roomBody:g('s-rbody'),fetchDays:Number(g('s-fd'))||2,calDays:Number(g('s-cd2'))||30,weeklyGoal:Number(g('s-goal'))||0});
   store.save();
 }
 function exportData(){const b=new Blob([JSON.stringify(D,null,1)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='mii-'+today()+'.json';a.click()}
