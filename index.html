@@ -92,7 +92,7 @@ h2{font-family:var(--pix);font-size:12px;color:var(--gray);margin:24px 0 8px;let
 /* みーの窓＝ゲームボーイの画面 */
 .bubble{display:flex;gap:14px;align-items:flex-start;margin:16px 0 8px;background:var(--win);padding:18px 16px;
   border:3px solid var(--win-line);border-radius:12px;box-shadow:inset 0 0 0 3px var(--win),inset 0 0 0 5px var(--win-line)}
-.bubble img{width:56px;height:56px;flex:none;margin-top:2px}
+.bubble img{width:56px;height:56px;flex:none;margin-top:2px;transition:none}
 .bubble p{font-family:var(--pix);font-size:14px;line-height:2.05;color:var(--win-line);max-width:30em;letter-spacing:.04em}
 
 /* rows */
@@ -443,6 +443,195 @@ details[open] summary{margin-bottom:10px}
 
 <script>
 /* ========== 基盤 ========== */
+
+/* ===== みーの仮アニメーション（画像を用意するまでの代役） ===== */
+const MII_PAL={H:'#5C6150',F:'#E8E6D8',E:'#14150F',B:'#6E7360',W:'#F0F0E6',T:'#7FA34A',S:'#3D4235'};
+/* 12x14 のコマ。. は透明 */
+const MII_FRAMES={
+  /* 通常：まばたきと小さな上下 */
+  idle:[
+`..HHHHHHHH..
+.HHHHHHHHHH.
+.HFFFFFFFFH.
+.HFEFFFFEFH.
+.HFFFFFFFFH.
+..FFFFFFFF..
+...FFFFFF...
+..BBWWWWBB..
+.BBBWTTWBBB.
+.BBBWWWWBBB.
+.BBBBWWBBBB.
+.BBBBBBBBBB.
+..BB....BB..
+..BB....BB..`,
+`............
+..HHHHHHHH..
+.HHHHHHHHHH.
+.HFFFFFFFFH.
+.HFFFFFFFFH.
+.HFFFFFFFFH.
+..FFFFFFFF..
+...FFFFFF...
+..BBWWWWBB..
+.BBBWTTWBBB.
+.BBBWWWWBBB.
+.BBBBWWBBBB.
+.BBBBBBBBBB.
+..BB....BB..`],
+  /* 平穏：お辞儀 */
+  happy:[
+`..HHHHHHHH..
+.HHHHHHHHHH.
+.HFFFFFFFFH.
+.HFEFFFFEFH.
+.HFFFFFFFFH.
+..FFFFFFFF..
+...FFFFFF...
+..BBWWWWBB..
+.BBBWTTWBBB.
+.BBBWWWWBBB.
+.BBBBWWBBBB.
+.BBBBBBBBBB.
+..BB....BB..
+..BB....BB..`,
+`............
+............
+..HHHHHHHH..
+.HHHHHHHHHH.
+.HFFFFFFFFH.
+.HFEFFFFEFH.
+.HFFFFFFFFH.
+..FFFFFFFF..
+..BBWWWWBB..
+.BBBWTTWBBB.
+.BBBWWWWBBB.
+.BBBBBBBBBB.
+..BB....BB..
+..BB....BB..`],
+  /* 多忙：左右に揺れる */
+  busy:[
+`.HHHHHHHH...
+HHHHHHHHHH..
+HFFFFFFFFH..
+HFEFFFFEFH..
+HFFFFFFFFH..
+.FFFFFFFF...
+..FFFFFF....
+.BBWWWWBB...
+BBBWTTWBBB..
+BBBWWWWBBB..
+BBBBWWBBBB..
+BBBBBBBBBB..
+.BB....BB...
+.BB....BB...`,
+`...HHHHHHHH.
+..HHHHHHHHHH
+..HFFFFFFFFH
+..HFEFFFFEFH
+..HFFFFFFFFH
+...FFFFFFFF.
+....FFFFFF..
+...BBWWWWBB.
+..BBBWTTWBBB
+..BBBWWWWBBB
+..BBBBWWBBBB
+..BBBBBBBBBB
+...BB....BB.
+...BB....BB.`],
+  /* 警戒：目を見開いて小刻みに */
+  alert:[
+`..HHHHHHHH..
+.HHHHHHHHHH.
+.HFFFFFFFFH.
+.HFSFFFFSFH.
+.HFFFFFFFFH.
+..FFFSSFFF..
+...FFFFFF...
+..BBWWWWBB..
+.BBBWTTWBBB.
+.BBBWWWWBBB.
+.BBBBWWBBBB.
+.BBBBBBBBBB.
+..BB....BB..
+..BB....BB..`,
+`..HHHHHHHH..
+.HHHHHHHHHH.
+.HFFFFFFFFH.
+.HFSFFFFSFH.
+.HFFFFFFFFH.
+..FFSSSSFF..
+...FFFFFF...
+..BBWWWWBB..
+.BBBWTTWBBB.
+.BBBWWWWBBB.
+.BBBBWWBBBB.
+.BBBBBBBBBB.
+.BBB....BBB.
+..BB....BB..`],
+  /* 人の日：手を挙げて挨拶 */
+  people:[
+`..HHHHHHHH..
+.HHHHHHHHHH.
+.HFFFFFFFFH.
+.HFEFFFFEFH.
+.HFFFFFFFFH.
+..FFFFFFFF..
+...FFFFFF...
+..BBWWWWBB.F
+.BBBWTTWBBBF
+.BBBWWWWBBB.
+.BBBBWWBBBB.
+.BBBBBBBBBB.
+..BB....BB..
+..BB....BB..`,
+`..HHHHHHHH.F
+.HHHHHHHHHHF
+.HFFFFFFFFH.
+.HFEFFFFEFH.
+.HFFFFFFFFH.
+..FFFFFFFF..
+...FFFFFF...
+..BBWWWWBBB.
+.BBBWTTWBBB.
+.BBBWWWWBBB.
+.BBBBWWBBBB.
+.BBBBBBBBBB.
+..BB....BB..
+..BB....BB..`]
+};
+function frameSvg(txt){
+  const rows=txt.split('\n');
+  let px='';
+  rows.forEach((row,j)=>{
+    for(let i=0;i<row.length;i++){
+      const c=row[i];
+      if(c==='.')continue;
+      px+=`<rect x="${i}" y="${j}" width="1" height="1" fill="${MII_PAL[c]||'#888'}"/>`;
+    }
+  });
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="-1 -1 14 16" shape-rendering="crispEdges">${px}</svg>`;
+}
+let MII_TIMER=null, MII_STEP=0;
+function startMiiAnim(){
+  if(MII_TIMER)clearInterval(MII_TIMER);
+  MII_TIMER=setInterval(()=>{
+    const els=document.querySelectorAll('img.mii-anim');
+    if(!els.length)return;
+    MII_STEP++;
+    els.forEach(el=>{
+      const set=MII_FRAMES[el.dataset.state]||MII_FRAMES.idle;
+      // 通常はときどきしか動かさない（まばたき）
+      let i;
+      if(el.dataset.state==='idle'||el.dataset.state==='happy')i=(MII_STEP%8===0)?1:0;
+      else i=MII_STEP%set.length;
+      if(el.dataset.i!==String(i)){
+        el.dataset.i=String(i);
+        el.src='data:image/svg+xml;utf8,'+encodeURIComponent(frameSvg(set[i]));
+      }
+    });
+  },420);
+}
+
 function miiState(){
   const t=today();
   const due=openTasks().filter(x=>x.due&&x.due<=t).length;
@@ -458,13 +647,21 @@ const MII_ORDER={alert:['mii-alert.gif','mii-alert.png'],busy:['mii-busy.gif','m
 function miiFall(img){
   const list=JSON.parse(img.dataset.list||'[]');
   if(list.length){img.src=list.shift();img.dataset.list=JSON.stringify(list);return}
-  img.onerror=null;img.src='data:image/svg+xml;utf8,'+encodeURIComponent(MII_FALLBACK);
+  // 画像が無ければ、内蔵のコマ送りで動かす
+  img.onerror=null;
+  const st=img.dataset.state||'idle';
+  const set=MII_FRAMES[st]||MII_FRAMES.idle;
+  img.classList.add('mii-anim');
+  img.dataset.i='0';
+  img.src='data:image/svg+xml;utf8,'+encodeURIComponent(frameSvg(set[0]));
+  startMiiAnim();
 }
 function miiTag(cls){
   const st=miiState();
   const list=[...(MII_ORDER[st]||[]),'mii.gif','mii.png'];
   const first=list.shift();
-  return `<img class="${cls||'mii'} mii-${st}" src="${first}" alt="みー" data-list='${JSON.stringify(list)}' onerror="miiFall(this)">`;
+  const animState=({alert:'alert',busy:'busy',people:'people',happy:'happy'})[st]||'idle';
+  return `<img class="${cls||'mii'} mii-${st}" src="${first}" alt="みー" data-state="${animState}" data-list='${JSON.stringify(list)}' onerror="miiFall(this)">`;
 }
 const MII_IMG='';
 const MII_FALLBACK=`<svg xmlns='http://www.w3.org/2000/svg' viewBox='-1 -1 14 16' shape-rendering='crispEdges'><rect x='2' y='0' width='1' height='1' fill='#5C6150'/><rect x='3' y='0' width='1' height='1' fill='#5C6150'/><rect x='4' y='0' width='1' height='1' fill='#5C6150'/><rect x='5' y='0' width='1' height='1' fill='#5C6150'/><rect x='6' y='0' width='1' height='1' fill='#5C6150'/><rect x='7' y='0' width='1' height='1' fill='#5C6150'/><rect x='8' y='0' width='1' height='1' fill='#5C6150'/><rect x='9' y='0' width='1' height='1' fill='#5C6150'/><rect x='1' y='1' width='1' height='1' fill='#5C6150'/><rect x='2' y='1' width='1' height='1' fill='#5C6150'/><rect x='3' y='1' width='1' height='1' fill='#5C6150'/><rect x='4' y='1' width='1' height='1' fill='#5C6150'/><rect x='5' y='1' width='1' height='1' fill='#5C6150'/><rect x='6' y='1' width='1' height='1' fill='#5C6150'/><rect x='7' y='1' width='1' height='1' fill='#5C6150'/><rect x='8' y='1' width='1' height='1' fill='#5C6150'/><rect x='9' y='1' width='1' height='1' fill='#5C6150'/><rect x='10' y='1' width='1' height='1' fill='#5C6150'/><rect x='1' y='2' width='1' height='1' fill='#5C6150'/><rect x='2' y='2' width='1' height='1' fill='#E8E6D8'/><rect x='3' y='2' width='1' height='1' fill='#E8E6D8'/><rect x='4' y='2' width='1' height='1' fill='#E8E6D8'/><rect x='5' y='2' width='1' height='1' fill='#E8E6D8'/><rect x='6' y='2' width='1' height='1' fill='#E8E6D8'/><rect x='7' y='2' width='1' height='1' fill='#E8E6D8'/><rect x='8' y='2' width='1' height='1' fill='#E8E6D8'/><rect x='9' y='2' width='1' height='1' fill='#E8E6D8'/><rect x='10' y='2' width='1' height='1' fill='#5C6150'/><rect x='1' y='3' width='1' height='1' fill='#5C6150'/><rect x='2' y='3' width='1' height='1' fill='#E8E6D8'/><rect x='3' y='3' width='1' height='1' fill='#14150F'/><rect x='4' y='3' width='1' height='1' fill='#E8E6D8'/><rect x='5' y='3' width='1' height='1' fill='#E8E6D8'/><rect x='6' y='3' width='1' height='1' fill='#E8E6D8'/><rect x='7' y='3' width='1' height='1' fill='#E8E6D8'/><rect x='8' y='3' width='1' height='1' fill='#14150F'/><rect x='9' y='3' width='1' height='1' fill='#E8E6D8'/><rect x='10' y='3' width='1' height='1' fill='#5C6150'/><rect x='1' y='4' width='1' height='1' fill='#5C6150'/><rect x='2' y='4' width='1' height='1' fill='#E8E6D8'/><rect x='3' y='4' width='1' height='1' fill='#E8E6D8'/><rect x='4' y='4' width='1' height='1' fill='#E8E6D8'/><rect x='5' y='4' width='1' height='1' fill='#E8E6D8'/><rect x='6' y='4' width='1' height='1' fill='#E8E6D8'/><rect x='7' y='4' width='1' height='1' fill='#E8E6D8'/><rect x='8' y='4' width='1' height='1' fill='#E8E6D8'/><rect x='9' y='4' width='1' height='1' fill='#E8E6D8'/><rect x='10' y='4' width='1' height='1' fill='#5C6150'/><rect x='2' y='5' width='1' height='1' fill='#E8E6D8'/><rect x='3' y='5' width='1' height='1' fill='#E8E6D8'/><rect x='4' y='5' width='1' height='1' fill='#E8E6D8'/><rect x='5' y='5' width='1' height='1' fill='#E8E6D8'/><rect x='6' y='5' width='1' height='1' fill='#E8E6D8'/><rect x='7' y='5' width='1' height='1' fill='#E8E6D8'/><rect x='8' y='5' width='1' height='1' fill='#E8E6D8'/><rect x='9' y='5' width='1' height='1' fill='#E8E6D8'/><rect x='3' y='6' width='1' height='1' fill='#E8E6D8'/><rect x='4' y='6' width='1' height='1' fill='#E8E6D8'/><rect x='5' y='6' width='1' height='1' fill='#E8E6D8'/><rect x='6' y='6' width='1' height='1' fill='#E8E6D8'/><rect x='7' y='6' width='1' height='1' fill='#E8E6D8'/><rect x='8' y='6' width='1' height='1' fill='#E8E6D8'/><rect x='2' y='7' width='1' height='1' fill='#6E7360'/><rect x='3' y='7' width='1' height='1' fill='#6E7360'/><rect x='4' y='7' width='1' height='1' fill='#F0F0E6'/><rect x='5' y='7' width='1' height='1' fill='#F0F0E6'/><rect x='6' y='7' width='1' height='1' fill='#F0F0E6'/><rect x='7' y='7' width='1' height='1' fill='#F0F0E6'/><rect x='8' y='7' width='1' height='1' fill='#6E7360'/><rect x='9' y='7' width='1' height='1' fill='#6E7360'/><rect x='1' y='8' width='1' height='1' fill='#6E7360'/><rect x='2' y='8' width='1' height='1' fill='#6E7360'/><rect x='3' y='8' width='1' height='1' fill='#6E7360'/><rect x='4' y='8' width='1' height='1' fill='#F0F0E6'/><rect x='5' y='8' width='1' height='1' fill='#7FA34A'/><rect x='6' y='8' width='1' height='1' fill='#7FA34A'/><rect x='7' y='8' width='1' height='1' fill='#F0F0E6'/><rect x='8' y='8' width='1' height='1' fill='#6E7360'/><rect x='9' y='8' width='1' height='1' fill='#6E7360'/><rect x='10' y='8' width='1' height='1' fill='#6E7360'/><rect x='1' y='9' width='1' height='1' fill='#6E7360'/><rect x='2' y='9' width='1' height='1' fill='#6E7360'/><rect x='3' y='9' width='1' height='1' fill='#6E7360'/><rect x='4' y='9' width='1' height='1' fill='#F0F0E6'/><rect x='5' y='9' width='1' height='1' fill='#F0F0E6'/><rect x='6' y='9' width='1' height='1' fill='#F0F0E6'/><rect x='7' y='9' width='1' height='1' fill='#F0F0E6'/><rect x='8' y='9' width='1' height='1' fill='#6E7360'/><rect x='9' y='9' width='1' height='1' fill='#6E7360'/><rect x='10' y='9' width='1' height='1' fill='#6E7360'/><rect x='1' y='10' width='1' height='1' fill='#6E7360'/><rect x='2' y='10' width='1' height='1' fill='#6E7360'/><rect x='3' y='10' width='1' height='1' fill='#6E7360'/><rect x='4' y='10' width='1' height='1' fill='#6E7360'/><rect x='5' y='10' width='1' height='1' fill='#F0F0E6'/><rect x='6' y='10' width='1' height='1' fill='#F0F0E6'/><rect x='7' y='10' width='1' height='1' fill='#6E7360'/><rect x='8' y='10' width='1' height='1' fill='#6E7360'/><rect x='9' y='10' width='1' height='1' fill='#6E7360'/><rect x='10' y='10' width='1' height='1' fill='#6E7360'/><rect x='1' y='11' width='1' height='1' fill='#6E7360'/><rect x='2' y='11' width='1' height='1' fill='#6E7360'/><rect x='3' y='11' width='1' height='1' fill='#6E7360'/><rect x='4' y='11' width='1' height='1' fill='#6E7360'/><rect x='5' y='11' width='1' height='1' fill='#6E7360'/><rect x='6' y='11' width='1' height='1' fill='#6E7360'/><rect x='7' y='11' width='1' height='1' fill='#6E7360'/><rect x='8' y='11' width='1' height='1' fill='#6E7360'/><rect x='9' y='11' width='1' height='1' fill='#6E7360'/><rect x='10' y='11' width='1' height='1' fill='#6E7360'/><rect x='2' y='12' width='1' height='1' fill='#6E7360'/><rect x='3' y='12' width='1' height='1' fill='#6E7360'/><rect x='8' y='12' width='1' height='1' fill='#6E7360'/><rect x='9' y='12' width='1' height='1' fill='#6E7360'/><rect x='2' y='13' width='1' height='1' fill='#6E7360'/><rect x='3' y='13' width='1' height='1' fill='#6E7360'/><rect x='8' y='13' width='1' height='1' fill='#6E7360'/><rect x='9' y='13' width='1' height='1' fill='#6E7360'/></svg>`;
@@ -1805,16 +2002,26 @@ function rowsToShiftPaired(rows,ym,dayCol){
       v.split(/[\/／・,、\s]+/).filter(Boolean).forEach(nm=>put(nm,d,['バイト'+b.kind,bs2,''].join('|')));
     }
   });
-  // 4) 研修枠
+  // 4) 研修枠（勤務ボードと同じ規則：日曜は「ぐ～たく（Bサブ）」、それ以外は研修）
   kenshuRows.forEach(r=>{
     for(let d=1;d<=dim;d++){
       const t=at(r,d);
-      if(!t||t==='★'||isOffX(t))continue;
+      if(!t)continue;
+      const date=ymDate?ymDate+'-'+String(d).padStart(2,'0'):null;
+      const sun=date?parse(date).getDay()===0:false;
+      const sat=date?parse(date).getDay()===6:false;
+      if(t==='★')continue;                                   // 欠員は誰も入っていない
       const m=t.match(/(.+?)[：:](.+)/);
       const bs=t.match(/^Bサブ(.+)$/);
-      if(m)put(m[2].trim(),d,[(/夜/.test(m[1])?'バイトB':'バイトA'),'','研修'].join('|'));
-      else if(bs)put(bs[1].trim(),d,['ぐ〜たく','',''].join('|'));
-      else if(t.length<=5&&!/\d/.test(t)&&/[ぁ-んァ-ヶ一-龠]/.test(t)&&!/^[Ａ-Ｚａ-ｚA-Za-z]+$/.test(t))put(t,d,['研修','',''].join('|'));
+      if(m){                                                 // 「☀研：中根」「夜研：近藤翔」
+        const yoru=/夜/.test(m[1]);
+        put(m[2].trim(),d,['バイト'+(yoru?'B':'A'),yoru?'16:30':(sat||sun?'10:00':'17:00'),'研修'].join('|'));
+      }
+      else if(bs)put(bs[1].trim(),d,['ぐ～たく','16:30',''].join('|'));
+      else if(t.length<=6&&!/\d/.test(t)&&/[ぁ-んァ-ヶ一-龠]/.test(t)&&!/^[Ａ-Ｚａ-ｚA-Za-z]+$/.test(t)){
+        if(sun)put(t,d,['ぐ～たく','16:30',''].join('|'));    // 日曜＝ぐ～たく（Bサブ）
+        else put(t,d,['バイトA',(sat?'10:00':'17:00'),'研修'].join('|'));
+      }
     }
   });
   const lines=Object.keys(map).filter(n=>Object.keys(map[n]).length).map(name=>{
@@ -3075,7 +3282,8 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal()});
 
 /* ========== 起動 ========== */
 const miiHdr=document.getElementById('mii-hdr');
-miiHdr.onerror=()=>{miiHdr.onerror=null;miiHdr.src='data:image/svg+xml;utf8,'+encodeURIComponent(MII_FALLBACK)};
+miiHdr.dataset.state='idle';
+miiHdr.onerror=()=>{miiHdr.dataset.list='[]';miiFall(miiHdr)};
 miiHdr.src='mii.png';
 (async()=>{render();await store.load();render();})();
 </script>
