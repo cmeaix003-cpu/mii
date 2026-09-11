@@ -292,6 +292,7 @@ h2{font-family:var(--pix);font-size:12px;color:var(--gray);margin:24px 0 8px;let
 .sc.other{border:0;background:transparent}
 .sc .sd{font-family:var(--pix);font-size:9px;color:var(--gray);line-height:1}
 .sc .sv{font-size:11px;font-weight:700;line-height:1.2;margin-top:1px}
+.sc .st{font-family:var(--pix);font-size:8px;color:var(--gray);line-height:1}
 .sc.on{background:var(--person-tint);border-color:var(--person);cursor:pointer}
 .sc.on .sv{color:var(--person-deep)}
 .sc.off{background:var(--panel2);opacity:.55}
@@ -313,7 +314,12 @@ h2{font-family:var(--pix);font-size:12px;color:var(--gray);margin:24px 0 8px;let
 .wchip{display:flex;align-items:center;gap:6px;background:var(--panel);border:2px solid var(--rule);border-radius:8px;padding:8px 9px;text-align:left;min-width:0}
 .wchip:active{transform:translate(1px,1px)}
 .wchip.over{background:var(--person-tint);border-color:var(--person)}
-.wchip .wn{font-weight:700;font-size:13px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wchip .wtxt{flex:1;min-width:0}
+.wchip .wn{display:block;font-weight:700;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wchip .wp{display:block;font-size:10px;color:var(--gray);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wchip.over .wp{color:var(--person-deep)}
+.wchip .wcol{display:flex;flex-direction:column;align-items:flex-end;gap:2px;flex:none}
+.wchip .ws{font-family:var(--pix);font-size:9px;color:var(--gray)}
 .wchip .wc{font-family:var(--pix);font-size:9px;color:var(--gray);background:var(--panel2);border-radius:4px;padding:1px 5px;flex:none;max-width:64px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .wchip.over .wc{background:#fff;color:var(--person-deep)}
 .wchip .wg{font-family:var(--pix);font-size:9px;color:#fff;background:var(--person);border-radius:4px;padding:1px 4px;flex:none}
@@ -1126,11 +1132,12 @@ function staffMonthShift(name,ym,staffId){
   for(let i=0;i<lead;i++)cells+=`<div class="sc other"></div>`;
   for(let d=1;d<=lastDay;d++){
     const date=ym+'-'+String(d).padStart(2,'0');
-    const c=String(row[String(d)]||'').trim();
+    const cell=splitCell(String(row[String(d)]||'').trim());
+    const c=cell.l;
     const off=isOff(c);
     const has=D.events.some(e=>e.date===date&&e.cat==='人'&&(e.staffName===name));
     cells+=`<div class="sc ${off?'off':'on'} ${date===t?'today':''} ${date<t?'past':''}" ${!off&&date>=t?`onclick="closeModal();openMeetingPicker('${staffId}','${date}')"`:''}>
-      <span class="sd">${d}</span><span class="sv">${off?'休':esc(c||'-')}</span>${has?'<i class="sm"></i>':''}</div>`;
+      <span class="sd">${d}</span><span class="sv">${off?'休':esc(c||'-')}</span>${!off&&cell.s?`<span class="st">${esc(cell.s)}</span>`:''}${has?'<i class="sm"></i>':''}</div>`;
   }
   return `<div class="smon">
     <div class="smhd">${'月火水木金土日'.split('').map(x=>`<span>${x}</span>`).join('')}</div>
@@ -1394,6 +1401,48 @@ function tablePreview(rows,note){
 }
 
 
+
+/* ===== 勤務コードの解釈（勤務ボードと同じ規則） ===== */
+function z2hX(s){return String(s||'').replace(/[〜～]/g,'-').replace(/時/g,'').replace(/Ｆ/g,'F').replace(/ＮＳ/g,'NS')}
+function classifyShift(t){
+  t=String(t||'').trim();
+  if(isOffX(t))return null;
+  const n=z2hX(t);
+  if(/^9-1[89]$/.test(n))       return {s:'9:00', l:'メイン', p:''};
+  if(/^10(:00)*$/.test(n))      return {s:'10:00',l:'メイン', p:''};
+  if(n==='13-22'||n==='13-19')  return {s:'13:00',l:'メイン', p:''};
+  if(n.startsWith('22-31'))     return {s:'22:00',l:'メイン', p:''};
+  if(n.startsWith('23-32'))     return {s:'23:00',l:'メイン', p:''};
+  if(n==='11-20')               return {s:'10:00',l:'メイン', p:''};
+  if(/^NS研/.test(n))           return {s:'10:00',l:'NS',     p:'研修'};
+  if(n==='NS')                  return {s:'10:00',l:'NS',     p:''};
+  if(n==='N')                   return {s:'10:00',l:'N',      p:''};
+  if(t==='夜勤')                return {s:'16:00',l:'夜勤',   p:''};
+  if(/^A?F$/.test(n))           return {s:'',     l:'フリー', p:''};
+  if(t==='早朝')                return {s:'4:00', l:'早朝',   p:''};
+  if(t==='Viz'||t==='バ')       return {s:'10:00',l:'バーチャル',p:''};
+  if(t==='出中')                return {s:'10:00',l:'出中',   p:''};
+  return {s:'10:00',l:'編集室',p:t};
+}
+/** アルバイトの開始時刻（土日／平日で変わる） */
+function baitoStart(date,kind){
+  const w=parse(date).getDay();
+  const wknd=(w===0||w===6);
+  return wknd?(kind==='A'?'10:00':'16:30'):'17:00';
+}
+/** 保存値「場所|開始|番組」を分解 */
+function splitCell(v){
+  const s=String(v==null?'':v);
+  if(s.indexOf('|')<0)return {l:s,s:'',p:''};
+  const a=s.split('|');
+  return {l:a[0]||'',s:a[1]||'',p:a[2]||''};
+}
+function shiftInfo(name,date){
+  const raw=shiftRaw(name,date);
+  if(raw===null)return null;
+  return splitCell(raw);
+}
+
 /* ===== 「名前行＋シフト行」形式の勤務表を読む（勤務ボードと同じ方式） ===== */
 const OFF_X=new Set(['休','休み','★','有','有休','夏季有休','ぐ～休','ぐ〜休','CUE','cue','Cue','公','公休','年休','×','x','X','ー','-','―','']);
 function isOffX(v){return OFF_X.has(String(v||'').trim())}
@@ -1407,6 +1456,7 @@ function rowsToShiftPaired(rows,ym,dayCol){
   const Y=ym?Number(ym.slice(0,4)):new Date().getFullYear();
   const M=ym?Number(ym.slice(5,7)):new Date().getMonth()+1;
   const dim=new Date(Y,M,0).getDate();
+  const ymDate=ym||null;
   const at=(r,d)=>String((rows[r]||[])[dayCol+d-1]||'').trim();       // d=1..dim
   const filled=r=>{let k=0;for(let d=1;d<=dim;d++)if(at(r,d))k++;return k};
   const nameOf=r=>String((rows[r]||[])[0]||'').trim();
@@ -1420,6 +1470,15 @@ function rowsToShiftPaired(rows,ym,dayCol){
   };
   const map={};
   const put=(name,d,code)=>{if(!name||NGNAME.test(name))return;map[name]=map[name]||{};if(code)map[name][d]=code};
+  const putCell=(name,d,info,detail)=>{
+    if(!info){put(name,d,'休');return}
+    let prog=info.p;
+    if(detail){
+      if(info.l==='編集室')prog=(info.p?info.p+' ':'')+detail;
+      else prog=prog?prog+' '+detail:detail;
+    }
+    put(name,d,[info.l,info.s,prog].join('|'));
+  };
   const usedRows=new Set();
   const baitoRows=[],kenshuRows=[];
   let cgRow=-1,blocks=0;
@@ -1457,11 +1516,21 @@ function rowsToShiftPaired(rows,ym,dayCol){
     let sr=-1;
     if(s1>s0)sr=r+1; else if(s0>0)sr=r;
     if(sr<0||filled(sr)<3)continue;
+    // シフト行の下が業務内容の補足行なら、番組名としてまとめる
+    let dr=-1;
+    {
+      const k=sr+1;
+      if(k<rows.length&&!isHeadRow(k)&&(!nameOf(k)||nameOf(k)===nm)&&!usedRows.has(k)){
+        const o=offs(k);
+        if(o===0&&filled(k)>=1)dr=k;
+      }
+    }
     for(let d=1;d<=dim;d++){
       const v=at(sr,d);
       if(v==='')continue;
-      put(nm,d,isOffX(v)?'休':v);
+      putCell(nm,d,classifyShift(v),dr>=0?at(dr,d):'');
     }
+    if(dr>=0)usedRows.add(dr);
     blocks++;seen[nm]=1;usedRows.add(r);if(sr!==r)usedRows.add(sr);
     // 結合セルで同名が続く行もまとめて使用済みにする
     for(let k=r+1;k<rows.length&&nameOf(k)===nm;k++)usedRows.add(k);
@@ -1475,7 +1544,8 @@ function rowsToShiftPaired(rows,ym,dayCol){
     for(let d=1;d<=dim;d++){
       const v=at(src,d);
       if(!v||v==='★'||isOffX(v))continue;
-      v.split(/[\/／・,、\s]+/).filter(Boolean).forEach(nm=>put(nm,d,'バイト'+b.kind));
+      const bs2=ymDate?baitoStart(ymDate+'-'+String(d).padStart(2,'0'),b.kind):'';
+      v.split(/[\/／・,、\s]+/).filter(Boolean).forEach(nm=>put(nm,d,['バイト'+b.kind,bs2,''].join('|')));
     }
   });
   // 4) 研修枠
@@ -1485,9 +1555,9 @@ function rowsToShiftPaired(rows,ym,dayCol){
       if(!t||t==='★'||isOffX(t))continue;
       const m=t.match(/(.+?)[：:](.+)/);
       const bs=t.match(/^Bサブ(.+)$/);
-      if(m)put(m[2].trim(),d,/夜/.test(m[1])?'バイトB研修':'バイトA研修');
-      else if(bs)put(bs[1].trim(),d,'ぐ〜たく');
-      else if(t.length<=5&&!/\d/.test(t)&&/[ぁ-んァ-ヶ一-龠]/.test(t)&&!/^[Ａ-Ｚａ-ｚA-Za-z]+$/.test(t))put(t,d,'研修');
+      if(m)put(m[2].trim(),d,[(/夜/.test(m[1])?'バイトB':'バイトA'),'','研修'].join('|'));
+      else if(bs)put(bs[1].trim(),d,['ぐ〜たく','',''].join('|'));
+      else if(t.length<=5&&!/\d/.test(t)&&/[ぁ-んァ-ヶ一-龠]/.test(t)&&!/^[Ａ-Ｚａ-ｚA-Za-z]+$/.test(t))put(t,d,['研修','',''].join('|'));
     }
   });
   const lines=Object.keys(map).filter(n=>Object.keys(map[n]).length).map(name=>{
@@ -2034,7 +2104,7 @@ function shiftProfile(name,ym){
   const m=(D.shifts||{})[ym];if(!m||!m[name])return null;
   const row=m[name];const codes={};let work=0,off=0,days=0;
   Object.keys(row).forEach(d=>{
-    const c=String(row[d]||'').trim();
+    const c=splitCell(String(row[d]||'')).l.trim();
     if(!c)return;
     days++;
     if(isOff(c)){off++;codes['休']=(codes['休']||0)+1}
@@ -2367,7 +2437,7 @@ function delDuty(sec){if(!confirm(sec+'の当番表を削除しますか？'))re
 /* ========== 勤務表（ホワイトボード） ========== */
 const OFF_CODES=['休','休み','★','有','有休','夏季有休','ぐ～休','ぐ〜休','CUE','cue','Cue','公','公休','年休','×','x','X','ー','-','―','','法','明'];
 function isOff(code){const c=String(code||'').trim();return !c||OFF_CODES.includes(c)}
-function shiftOf(name,date){
+function shiftRaw(name,date){
   const ym=date.slice(0,7);const d=String(Number(date.slice(8,10)));
   const m=(D.shifts||{})[ym];if(!m)return null;
   let row=m[name];
@@ -2383,6 +2453,12 @@ function shiftOf(name,date){
   }
   if(!row)return null;
   return row[d]??null;
+}
+/** 表示や休み判定に使う値（場所） */
+function shiftOf(name,date){
+  const v=shiftRaw(name,date);
+  if(v===null)return null;
+  return splitCell(v).l;
 }
 function workingOn(date){
   const ym=date.slice(0,7);if(!(D.shifts||{})[ym])return null;
@@ -2593,11 +2669,13 @@ function vShiftDay(date){
   const over=list.filter(x=>x.over).length;
   let h=`<div class="toolbar"><span class="small muted">${w.length}名 出勤${over?`／<b style="color:var(--person-deep)">${over}名</b>はしばらく話せていません`:''}</span><span class="sp"></span>
     <div class="seg"><button class="${shiftView==='pri'?'on':''}" onclick="shiftView='pri';render()">優先順</button><button class="${shiftView==='code'?'on':''}" onclick="shiftView='code';render()">区分順</button></div></div>`;
-  const chip=x=>`<button class="wchip ${x.over?'over':''}" onclick="onCardTap('${x.p.id}','${date}')">
-    <span class="wn">${esc(x.p.name)}</span>
-    <span class="wc">${esc(x.code)}</span>
+  const chip=x=>{
+    const inf=shiftInfo(x.p.name,date)||{l:x.code,s:'',p:''};
+    return `<button class="wchip ${x.over?'over':''}" onclick="onCardTap('${x.p.id}','${date}')">
+    <span class="wtxt"><span class="wn">${esc(x.p.name)}</span>${inf.p?`<span class="wp">${esc(inf.p)}</span>`:''}</span>
+    <span class="wcol"><span class="wc">${esc(inf.l||x.code)}</span>${inf.s?`<span class="ws">${esc(inf.s)}</span>`:''}</span>
     ${x.over?`<span class="wg">${x.gap===null?'未':x.gap+'日'}</span>`:''}
-  </button>`;
+  </button>`};
   if(shiftView==='pri'){
     list.sort((a,b)=>b.sc-a.sc);
     h+=`<div class="wgrid">${list.map(chip).join('')}</div>`;
