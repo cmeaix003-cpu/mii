@@ -1470,8 +1470,10 @@ function rowsToShiftPaired(rows,ym,dayCol){
   };
   const map={};
   const put=(name,d,code)=>{if(!name||NGNAME.test(name))return;map[name]=map[name]||{};if(code)map[name][d]=code};
-  const putCell=(name,d,info,detail)=>{
+  const putCell=(name,d,info,detail,raw)=>{
     if(!info){put(name,d,'休');return}
+    // 結合セルの複写で、補足がシフトと同じ値になることがある
+    if(detail&&(detail===raw||detail===info.p||detail===info.l))detail='';
     let prog=info.p;
     if(detail){
       if(info.l==='編集室')prog=(info.p?info.p+' ':'')+detail;
@@ -1520,15 +1522,14 @@ function rowsToShiftPaired(rows,ym,dayCol){
     let dr=-1;
     {
       const k=sr+1;
-      if(k<rows.length&&!isHeadRow(k)&&(!nameOf(k)||nameOf(k)===nm)&&!usedRows.has(k)){
-        const o=offs(k);
-        if(o===0&&filled(k)>=1)dr=k;
-      }
+      // 補足行にも「休」が入ることがあるので、休の有無では判定しない。
+      // シフト行として選ばれなかった次の行＝業務内容の行とみなす。
+      if(k<rows.length&&!isHeadRow(k)&&(!nameOf(k)||nameOf(k)===nm)&&!usedRows.has(k)&&filled(k)>=1&&score(k)<=score(sr))dr=k;
     }
     for(let d=1;d<=dim;d++){
       const v=at(sr,d);
       if(v==='')continue;
-      putCell(nm,d,classifyShift(v),dr>=0?at(dr,d):'');
+      putCell(nm,d,classifyShift(v),dr>=0?at(dr,d):'',v);
     }
     if(dr>=0)usedRows.add(dr);
     blocks++;seen[nm]=1;usedRows.add(r);if(sr!==r)usedRows.add(sr);
