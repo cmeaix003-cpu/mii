@@ -302,6 +302,49 @@ h2{font-family:var(--pix);font-size:12px;color:var(--gray);margin:24px 0 8px;let
 .sc .sm{position:absolute;top:2px;right:2px;width:6px;height:6px;background:var(--today)}
 .smft{font-family:var(--pix);font-size:11px;color:var(--gray);margin-top:8px;line-height:1.6}
 .smnote{font-size:10px;color:var(--gray);margin-top:4px}
+/* 済んだ予定 */
+.row.evfin{opacity:.5}
+.row.evfin .ttl{text-decoration:line-through;text-decoration-thickness:1px}
+.wrow.evfin{opacity:.45}
+.wrow.evfin .wn{text-decoration:line-through}
+.btn.evdone{border-color:var(--person);color:var(--person-deep);box-shadow:2px 2px 0 var(--person)}
+.btn.evdone:hover{background:var(--person);color:#fff}
+.row.evfin .btn.evdone{border-color:var(--rule);color:var(--gray);box-shadow:2px 2px 0 var(--rule)}
+/* 先週との比較 */
+.trow{display:flex;align-items:baseline;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px solid var(--rule)}
+.trow:last-child{border-bottom:0}
+.trow .tl{font-size:13px;color:var(--gray)}
+.trow .tv{font-family:var(--pix);font-size:12px;color:var(--gray);white-space:nowrap}
+.trow .tv b{font-size:15px;color:var(--ink)}
+.trow i{font-style:normal;font-size:11px;margin-left:3px}
+.trow i.up{color:var(--person)}.trow i.down{color:var(--today)}
+/* 気分バー（TODAY） */
+.mood{display:flex;align-items:center;gap:11px;background:var(--panel);border:3px solid var(--ink);border-radius:10px;box-shadow:inset 0 0 0 3px var(--panel),inset 0 0 0 4px var(--rule);padding:11px 13px;margin:12px 0;cursor:pointer}
+.mood .mgauge{width:52px;height:8px;flex:none;background:var(--panel2);border:2px solid var(--rule);display:block}
+.mood .mgauge i{display:block;height:100%}
+.mood.calm .mgauge i{background:var(--c1)}
+.mood.ok   .mgauge i{background:var(--c2)}
+.mood.busy .mgauge i{background:var(--c4)}
+.mood.hard .mgauge i{background:var(--c5)}
+.mood .mtxt{flex:1;min-width:0}
+.mood .mtxt b{display:block;font-size:14px}
+.mood .mtxt span{display:block;font-size:11px;color:var(--gray);margin-top:2px}
+.mood .marrow{font-family:var(--pix);font-size:18px;color:var(--gray);flex:none}
+.mood.busy{background:#FBF1E8}
+.mood.hard{background:var(--today-tint);border-color:var(--today)}
+.mood.calm{background:var(--person-tint);border-color:var(--person-deep)}
+.pnote{font-size:11px;color:var(--gray);margin:-2px 0 9px 40px;line-height:1.5}
+/* いまの状態 */
+.status{background:var(--panel);border:3px solid var(--ink);border-radius:10px;box-shadow:inset 0 0 0 3px var(--panel),inset 0 0 0 4px var(--rule);padding:11px 13px;margin:12px 0}
+.sthd{display:flex;align-items:baseline;justify-content:space-between;font-family:var(--pix);font-size:11px;color:var(--gray);margin-bottom:8px}
+.sthd b{font-size:22px;color:var(--ink)}
+.prow{display:flex;align-items:center;gap:8px;margin-bottom:5px}
+.prow:last-child{margin-bottom:0}
+.plab{width:32px;flex:none;font-family:var(--pix);font-size:11px;color:var(--gray)}
+.ptrack{flex:1;height:10px;background:var(--panel2);border:2px solid var(--rule);display:block}
+.pfill{display:block;height:100%}
+.pfill.g{background:var(--c1)}.pfill.y{background:var(--c3)}.pfill.o{background:var(--c4)}.pfill.r{background:var(--c5)}
+.pval{width:24px;flex:none;text-align:right;font-family:var(--pix);font-size:12px;color:var(--gray)}
 /* 当番表 */
 .duty{display:flex;flex-direction:column;gap:6px;margin:10px 0}
 .dsec{display:flex;align-items:center;gap:6px;flex-wrap:wrap;background:var(--panel2);border:2px solid var(--rule);border-radius:8px;padding:6px 9px}
@@ -787,28 +830,225 @@ function dailyLine(dateKey,hours){
   return out.join(' ');
 }
 
+
+
+/* ========== この1週間のふりかえり（傾向の分析） ========== */
+function weekStats(ws){
+  const we=addDays(ws,6);
+  const inR=d=>d>=ws&&d<=we;
+  const pe=D.events.filter(e=>e.cat==='人'&&inR(e.date));
+  const mt=pe.filter(e=>e.type==='面談');
+  const meet=D.events.filter(e=>(e.cat==='会議'||e.cat==='打合せ')&&inR(e.date));
+  const doneT=D.tasks.filter(t=>t.status==='done'&&t.doneAt&&inR(t.doneAt));
+  const madeT=D.tasks.filter(t=>t.createdAt&&inR(t.createdAt.slice(0,10)));
+  const deleg=D.tasks.filter(t=>t.status==='delegated'&&t.createdAt&&inR(t.createdAt.slice(0,10)));
+  const doneE=D.events.filter(e=>e.done&&inR(e.date));
+  const allE=D.events.filter(e=>inR(e.date)&&e.date<=today());
+  return {
+    ws,we,
+    peopleH:pe.reduce((a,e)=>a+durH(e),0),
+    met:new Set(pe.map(e=>e.staffName).filter(Boolean)).size,
+    mt:mt.length, reported:mt.filter(e=>e.report).length,
+    meetH:meet.reduce((a,e)=>a+durH(e),0), meetN:meet.length,
+    done:doneT.length, made:madeT.length, deleg:deleg.length,
+    doneRate:allE.length?Math.round(doneE.length/allE.length*100):null
+  };
+}
+/** 先週と今週を比べて、みーが気づいたことを述べる */
+function trendComment(){
+  const thisW=weekStart(today()), lastW=addDays(thisW,-7);
+  const a=weekStats(lastW), b=weekStats(thisW);
+  const dow=(parse(today()).getDay()+6)%7;         // 月=0
+  const prog=(dow+1)/7;                            // 今週の進み具合
+  const out=[];
+  // ① 人に使えた時間
+  const paceH=b.peopleH-a.peopleH*prog;
+  if(a.peopleH>0||b.peopleH>0){
+    if(paceH>=0.5)out.push({w:3,s:'先週より人に時間を使えております。よい流れでございます。'});
+    else if(paceH<=-1)out.push({w:5,s:'先週に比べ、人に使う時間が減っております。'});
+  }
+  // ② 話せた人数
+  if(a.met||b.met){
+    if(b.met> a.met*prog+0.5)out.push({w:2,s:'お話しできた方が増えております。'});
+    else if(a.met>=3&&b.met<=a.met*prog-1)out.push({w:4,s:'今週はまだ'+b.met+'名。先週は'+a.met+'名でした。'});
+  }
+  // ③ 案件の増減（入ってくる量と片付ける量）
+  if(b.made||b.done){
+    if(b.made-b.done>=4)out.push({w:5,s:'今週は入ってくる案件が'+b.made+'件、片付いたのが'+b.done+'件。溜まりつつあります。'});
+    else if(b.done>=b.made&&b.done>=3)out.push({w:2,s:'入ってくる分をきちんと捌けております。'});
+  }
+  // ④ 予定の消化率
+  if(b.doneRate!==null&&b.doneRate<50&&(parse(today()).getDay()>=4||dow>=3))
+    out.push({w:3,s:'今週のご予定の消化は'+b.doneRate+'％。残りに無理がないか、ご確認を。'});
+  // ⑤ 会議の量
+  if(a.meetH>=1&&b.meetH>a.meetH*prog+1.5)out.push({w:4,s:'会議が先週より増えております（今週'+b.meetH.toFixed(1)+'時間）。'});
+  // ⑥ 面談の記録
+  if(a.mt&&a.reported<a.mt)out.push({w:4,s:'先週の面談'+a.mt+'件のうち'+(a.mt-a.reported)+'件が未記録でございます。'});
+  // ⑦ 人に振れているか
+  if(b.deleg===0&&b.made>=5)out.push({w:2,s:'今週はまだどなたにもお任せしておりません。'});
+  if(!out.length)return '';
+  out.sort((x,y)=>y.w-x.w);
+  return out[0].s;
+}
+function vTrend(){
+  const thisW=weekStart(today()), lastW=addDays(thisW,-7);
+  const a=weekStats(lastW), b=weekStats(thisW);
+  const ar=(x,y)=>x>y?'<i class="up">▲</i>':x<y?'<i class="down">▼</i>':'<i>―</i>';
+  const c=trendComment();
+  let h='';
+  if(c)h+=`<div class="bubble">${miiTag()}<p>${esc(c)}</p></div>`;
+  h+=`<h2>先週と今週</h2><div class="condbox">
+    <div class="trow"><span class="tl">人に使えた時間</span><span class="tv">${a.peopleH.toFixed(1)}h → <b>${b.peopleH.toFixed(1)}h</b> ${ar(b.peopleH,a.peopleH)}</span></div>
+    <div class="trow"><span class="tl">お話しできた方</span><span class="tv">${a.met}名 → <b>${b.met}名</b> ${ar(b.met,a.met)}</span></div>
+    <div class="trow"><span class="tl">面談</span><span class="tv">${a.mt}件 → <b>${b.mt}件</b> ${ar(b.mt,a.mt)}</span></div>
+    <div class="trow"><span class="tl">会議の時間</span><span class="tv">${a.meetH.toFixed(1)}h → <b>${b.meetH.toFixed(1)}h</b> ${ar(a.meetH,b.meetH)}</span></div>
+    <div class="trow"><span class="tl">片付けた案件</span><span class="tv">${a.done}件 → <b>${b.done}件</b> ${ar(b.done,a.done)}</span></div>
+    <div class="trow"><span class="tl">入ってきた案件</span><span class="tv">${a.made}件 → <b>${b.made}件</b> ${ar(a.made,b.made)}</span></div>
+    <div class="trow"><span class="tl">人にお任せした数</span><span class="tv">${a.deleg}件 → <b>${b.deleg}件</b> ${ar(b.deleg,a.deleg)}</span></div>
+    ${b.doneRate!==null?`<div class="trow"><span class="tl">ご予定の消化</span><span class="tv"><b>${b.doneRate}％</b></span></div>`:''}
+  </div>
+  <p class="small muted" style="margin-top:10px">▲は増、▼は減。会議と案件の増加は▼が望ましい向きです。</p>`;
+  return h;
+}
+
+/* ========== 今の状態（4つのパラメータ） ========== */
+function statusParams(){
+  const t=today(), ws=weekStart(t);
+  const n=Math.max(1,D.staff.length);
+  // ① 人：30日で話せた割合＋長期沈黙の重み
+  const from30=addDays(t,-29);
+  const met=new Set(D.events.filter(e=>e.cat==='人'&&e.date>=from30&&e.date<=t&&e.staffName).map(e=>e.staffName)).size;
+  const long=D.staff.filter(p=>!p.lastContact||diffDays(p.lastContact,t)>=90).length;
+  const goal=weekGoal(t), hrs=weekPeopleHours(t);
+  let people=D.staff.length? Math.round( (met/n)*60 + (1-Math.min(1,long/n))*25 + Math.min(1,goal?hrs/goal:0)*15 ) : 50;
+  // ② 捌き：未処理と停滞
+  const open=openTasks(), stale=open.filter(x=>staleDays(x)>=3), old=open.filter(x=>staleDays(x)>=14);
+  let desk=100 - Math.min(40,open.length*3) - Math.min(35,stale.length*7) - Math.min(25,old.length*10);
+  // ③ 返信：要返信と放置日数
+  const rep=D.mails.filter(m=>m.status==='open'&&mailBucket(m)==='reply');
+  const repOld=rep.filter(m=>mailStaleDays(m)>=3), rep7=rep.filter(m=>mailStaleDays(m)>=7);
+  let mail=100 - Math.min(35,rep.length*6) - Math.min(35,repOld.length*10) - Math.min(30,rep7.length*15);
+  // ④ 余裕：今週の会議・作業の重さ
+  const we=addDays(ws,6);
+  const mh=D.events.filter(e=>(e.cat==='会議'||e.cat==='打合せ')&&e.date>=ws&&e.date<=we).reduce((a,e)=>a+durH(e),0);
+  const all=D.events.filter(e=>e.date>=ws&&e.date<=we).reduce((a,e)=>a+durH(e),0);
+  let room=100 - Math.min(50,Math.round(mh*4)) - Math.min(30,Math.max(0,Math.round((all-30)*2)));
+  const cl=v=>Math.max(0,Math.min(100,Math.round(v)));
+  return {
+    people:cl(people), desk:cl(desk), mail:cl(mail), room:cl(room),
+    raw:{met,n,long,hrs,goal,open:open.length,stale:stale.length,rep:rep.length,repOld:repOld.length,mh:Math.round(mh*10)/10}
+  };
+}
+function statusTotal(s){return Math.round((s.people*2+s.desk+s.mail+s.room)/5)}
+/** みーの所見（低い順に1つだけ、具体的な次の一手つき） */
+function statusVoice(s){
+  const r=s.raw;
+  const items=[
+    {k:'people',v:s.people,say:()=>{
+      if(r.n<=1)return '名簿を入れていただければ、人の状況も見てまいります。';
+      if(s.people>=75)return 'よく回っております。この調子でまいりましょう。';
+      if(r.long>0)return r.long+'名と3か月以上お話しできておりません。今週おひとりだけでも、いかがでしょう。';
+      return 'この30日でお話しできたのは'+r.met+'／'+r.n+'名。少し偏りが出てまいりました。';
+    }},
+    {k:'desk',v:s.desk,say:()=>{
+      if(s.desk>=75)return '机の上は片付いております。';
+      if(r.stale)return '机に'+r.stale+'件、3日以上止まっております。出口を決めてしまいましょう。';
+      return '未処理が'+r.open+'件。溜める前に、ひとつずつ。';
+    }},
+    {k:'mail',v:s.mail,say:()=>{
+      if(s.mail>=75)return '返信の滞りはございません。';
+      if(r.repOld)return '要返信のうち'+r.repOld+'件が3日以上動いておりません。';
+      return '要返信が'+r.rep+'件ございます。';
+    }},
+    {k:'room',v:s.room,say:()=>{
+      if(s.room>=75)return '今週は動ける余白がございます。人に使われてはいかがでしょう。';
+      return '今週の会議は'+r.mh+'時間。ひとつ削れるものはございませんか。';
+    }}
+  ];
+  const worst=items.slice().sort((a,b)=>a.v-b.v)[0];
+  const tot=statusTotal(s);
+  const head=tot>=80?'順調でございます。':tot>=60?'おおむね整っております。':tot>=40?'少し立て込んでまいりました。':'だいぶ詰まっております。まずはひとつずつ。';
+  return head+' '+worst.say();
+}
+/** 忙しさの度合い（詳しい内訳はREVIEWで） */
+function busyLevel(){
+  const s=statusParams();
+  const tot=statusTotal(s);
+  if(tot>=78)return {k:'calm', t:'ゆとりがあります', s:'いまのうちに、人に時間を',  v:tot,p:s};
+  if(tot>=58)return {k:'ok',   t:'落ち着いています', s:'この調子でまいりましょう',  v:tot,p:s};
+  if(tot>=38)return {k:'busy', t:'立て込んでいます', s:'ひとつずつ片付けてまいりましょう',v:tot,p:s};
+  return         {k:'hard', t:'だいぶお忙しいご様子', s:'まずは今日の一件だけ、と考えて',v:tot,p:s};
+}
+function statusBar(){
+  const b=busyLevel();
+  return `<div class="mood ${b.k}" onclick="repTab='status';go('report')">
+    <span class="mgauge"><i style="width:${b.v}%"></i></span>
+    <span class="mtxt"><b>${b.t}</b><span>${b.s}</span></span>
+    <span class="marrow">›</span>
+  </div>`;
+}
+/** REVIEW用：4つの内訳 */
+function vStatus(){
+  const s=statusParams(), tot=statusTotal(s), r=s.raw, b=busyLevel();
+  const row=(label,v,note)=>{
+    const lv=v>=75?'g':v>=50?'y':v>=25?'o':'r';
+    return `<div class="prow"><span class="plab">${label}</span>
+      <span class="ptrack"><span class="pfill ${lv}" style="width:${v}%"></span></span>
+      <span class="pval">${v}</span></div><div class="pnote">${note}</div>`;
+  };
+  let h=`<h2>いまの状態</h2>`;
+  h+=`<div class="status"><div class="sthd"><span>${esc(b.t)}</span><b>${tot}</b></div>
+    ${row('人',s.people, r.n>1?`この30日でお話しできたのは ${r.met}／${r.n}名${r.long?`　90日以上お話しできていない方 ${r.long}名`:''}`:'名簿がまだありません')}
+    ${row('捌き',s.desk, `未処理 ${r.open}件${r.stale?`　うち3日以上止まっているもの ${r.stale}件`:''}`)}
+    ${row('返信',s.mail, `要返信 ${r.rep}件${r.repOld?`　うち3日以上 ${r.repOld}件`:''}`)}
+    ${row('余裕',s.room, `今週の会議 ${r.mh}時間　人に使えた時間 ${r.hrs.toFixed(1)}／${r.goal}h`)}
+  </div>`;
+  h+=`<p class="small muted" style="margin-top:10px">総合点は「人」を重く見ています。ほかが整っていても、人に向き合えていなければ上がりません。</p>`;
+  h+=vTrend();
+  h+=`<div class="toolbar" style="margin-top:14px"><button class="btn ghost small" onclick="repTab='plan';render()">今週の作戦へ</button><button class="btn ghost small" onclick="repTab='silence';render()">沈黙の分布へ</button></div>`;
+  return h;
+}
+
 /* ========== みーの言葉 ========== */
 function voice(){
   const h=new Date().getHours();const t=today();
-  const ev=eventsOn(t);const people=ev.filter(e=>e.cat==='人');
+  const ev=eventsOn(t).filter(e=>!e.done);const people=ev.filter(e=>e.cat==='人');
   const reply=D.mails.filter(m=>m.status==='open'&&mailBucket(m)==='reply');
   const staleMail=reply.filter(m=>mailStaleDays(m)>=3);
   const due=openTasks().filter(x=>x.due&&x.due<=t);
   const stale=openTasks().filter(x=>staleDays(x)>=3);
   const L=[];
-  L.push(h<11?'おはようございます。':h<17?'こんにちは。':'お疲れ様でございました。');
-  if(people.length)L.push('人に向き合う枠が'+people.length+'件、ご予定は全'+ev.length+'件。');
-  else if(ev.length)L.push('本日のご予定は'+ev.length+'件でございます。');
-  else L.push('本日、ご予定はございません。');
+  // ① 挨拶（記念日があればそれを添える）
+  const greet=h<11?'おはようございます。':h<17?'こんにちは。':'お疲れ様でございました。';
+  const md=t.slice(5);
+  const bd=D.staff.filter(p=>p.birthday&&p.birthday.slice(5)===md);
+  L.push(bd.length?greet+'本日は'+bd.map(p=>p.name).join('さん、')+'さんのお誕生日です。':greet);
+  // ② 今日のこと（予定＋急ぎを1行に）
+  // 大事な順に並べ、多くても3つまで
   const a=[];
-  if(reply.length)a.push('要返信'+reply.length+'件'+(staleMail.length?'（'+staleMail.length+'件は3日以上）':''));
   if(due.length)a.push('本日中'+due.length+'件');
-  if(stale.length)a.push('机に停滞'+stale.length+'件');
-  if(a.length)L.push(a.join('　'));else L.push('急ぎのものはございません。');
-  const cand=D.staff.map(p=>({p,sc:staffScore(p)})).filter(x=>x.sc>=40).sort((a,b)=>b.sc-a.sc).slice(0,2);
-  if(cand.length)L.push('今週は'+cand.map(x=>x.p.name.split(' ')[0]+'さん').join('と')+'にお声がけを。');
-  L.push(dailyLine(t));
-  return L.slice(0,5).join('\n');
+  if(staleMail.length)a.push('返信待ち'+staleMail.length+'件');
+  if(people.length)a.push('人の枠'+people.length+'件');
+  if(!due.length&&!staleMail.length&&reply.length)a.push('要返信'+reply.length+'件');
+  if(ev.length)a.push('ご予定'+ev.length+'件');
+  if(a.length<3&&stale.length)a.push('机に停滞'+stale.length+'件');
+  L.push(a.length?a.slice(0,3).join('　'):'急ぎのものはございません。');
+  // ③ 最も伝えたいこと（1つだけ）
+  let last='';
+  try{
+    const tc=trendComment();
+    const b=busyLevel();
+    if(tc&&(new Date().getDay()===1||b.k==='busy'||b.k==='hard'))last=tc;
+    else if(b.k==='hard'||b.k==='busy')last=b.s+'。';
+    else{
+      const cand=D.staff.map(p=>({p,sc:staffScore(p)})).filter(x=>x.sc>=40).sort((x,y)=>y.sc-x.sc)[0];
+      if(cand)last='今週は'+cand.p.name.split(' ')[0]+'さんにお声がけを。';
+      else if(b.k==='calm')last='ゆとりがございます。人に時間を。';
+    }
+  }catch(e){}
+  if(!last)last=dailyLine(t).split(' ').pop();
+  L.push(last);
+  return L.slice(0,3).join('\n');
 }
 
 /* ========== 画面 ========== */
@@ -847,11 +1087,15 @@ function vToday(){
   const oi=openTasks().length;const hrs=weekPeopleHours(t),goal=weekGoal(t);const pct=goal?Math.min(100,hrs/goal*100):0;
   let h=`<div class="date-big">${parse(t).getDate()}<small>${(parse(t).getMonth()+1)}月 ${dow(t)}曜日</small></div>`;
   h+=`<div class="bubble">${miiTag()}<p>${esc(voice()).replace(/\n/g,"<br>")}</p></div>`;
+  h+=statusBar();
   h+=dutyChips(t);
   const night=new Date().getHours()>=15;
   h+=`<div class="toolbar" style="margin-top:14px">${night?`<button class="btn" onclick="openQuickModal('night')">帰宅メモ（明日のこと）</button><button class="btn ghost small" onclick="openQuickModal('morning')">今日のメモ</button>`:`<button class="btn" onclick="openQuickModal('morning')">今朝のメモを入れる</button><button class="btn ghost small" onclick="openQuickModal('night')">明日のメモ</button>`}</div>`;
+  const restOpen=rest.filter(e=>!eventDone(e)), restDone=rest.filter(eventDone);
   h+=`<h2>本日のご予定</h2>`;
-  h+=rest.length?rest.map(rowEvent).join(''):`<div class="empty">予定はありません。</div>`;
+  h+=restOpen.length?restOpen.map(e=>rowEvent(e,{check:true})).join('')
+    :(rest.length?`<div class="empty">本日のご予定はすべて終わりました。</div>`:`<div class="empty">予定はありません。</div>`);
+  if(restDone.length)h+=`<details><summary>済んだ予定 ${restDone.length}件</summary>${restDone.map(e=>rowEvent(e,{check:true})).join('')}</details>`;
   h+=`<h2>本日中</h2>`;
   if(due.length)h+=due.map(d=>d.k==='task'?rowTask(d.x,true):rowMail(d.x,true)).join('');
   else h+=`<div class="empty">本日中の案件はありません。</div>`;
@@ -866,18 +1110,30 @@ function vToday(){
   const pend=pendingReports();
   if(pend.length){h+=`<h2>面談の記録がまだです</h2>`+pend.slice(0,3).map(e=>`<div class="row person" onclick="openReport('${e.id}')"><div class="time">${fmtMD(e.date).replace(/（.）/,'')}</div><div class="t"><div class="ttl">${esc(e.title)}</div><div class="sub">タップして会話内容と次回の課題を記録</div></div><div class="acts"><button class="btn person small">記録</button></div></div>`).join('')}
   h+=`<h2>人の枠</h2>`;
-  if(people.length)h+=people.map(e=>rowEvent(e)).join('');
-  else h+=`<div class="empty">本日は人に向き合う枠がありません。<div style="margin-top:10px"><button class="btn person small" onclick="openEventModal({date:'${t}',type:'人の枠'})">枠を取る</button></div></div>`;
+  const peoOpen=people.filter(e=>!eventDone(e)), peoDone=people.filter(eventDone);
+  if(peoOpen.length)h+=peoOpen.map(e=>rowEvent(e,{check:true})).join('');
+  else if(people.length)h+=`<div class="empty">本日の人の枠は終わりました。</div>`;
+  if(peoDone.length)h+=`<details><summary>済んだ枠 ${peoDone.length}件</summary>${peoDone.map(e=>rowEvent(e,{check:true})).join('')}</details>`;
+  if(!people.length)h+=`<div class="empty">本日は人に向き合う枠がありません。<div style="margin-top:10px"><button class="btn person small" onclick="openEventModal({date:'${t}',type:'人の枠'})">枠を取る</button></div></div>`;
   h+=`<div class="meter" style="margin-bottom:24px"><div class="track" style="--p:${pct}%"></div><div class="lbl"><span>今週、人に使えた時間 <b>${hrs.toFixed(1)}h</b> / 目標 ${goal}h</span><button class="btn ghost small" onclick="editWeekGoal()">目標を変える</button></div></div>`;
   return h;
 }
-function rowEvent(e){
+function eventDone(e){return !!e.done}
+function toggleEventDone(id,ev){
+  if(ev&&ev.stopPropagation)ev.stopPropagation();
+  const e=D.events.find(x=>x.id===id);if(!e)return;
+  e.done=!e.done;e.doneAt=e.done?new Date().toISOString():'';
+  store.save();render();
+  if(e.done)toast('お疲れ様でした');
+}
+function rowEvent(e,opt){
   const p=e.cat==='人';
+  const chk=(opt&&opt.check)?`<div class="acts"><button class="btn ghost small evdone" onclick="toggleEventDone('${e.id}',event)">済</button></div>`:'';
   if(e.type==='面談'){
     const t=today();const ended=e.date<t||(e.date===t&&mins(e.end||e.start||'23:59')<=new Date().getHours()*60+new Date().getMinutes());
-    return `<div class="row person" onclick="openReport('${e.id}')"><div class="time">${e.start||''}${e.end?'<br>'+e.end:''}</div><div class="t"><div class="ttl">${esc(e.title)}${e.report?'<span class="pill">記録済</span>':(ended?'<span class="pill warnpill">要記録</span>':'')}</div><div class="sub">${e.theme?'テーマ：'+esc(e.theme):'面談'}${e.place?'　'+esc(e.place):''}</div></div></div>`;
+    return `<div class="row person ${eventDone(e)?'evfin':''}" onclick="openReport('${e.id}')"><div class="time">${e.start||''}${e.end?'<br>'+e.end:''}</div><div class="t"><div class="ttl">${esc(e.title)}${e.report?'<span class="pill">記録済</span>':(ended?'<span class="pill warnpill">要記録</span>':'')}</div><div class="sub">${e.theme?'テーマ：'+esc(e.theme):'面談'}${e.place?'　'+esc(e.place):''}</div></div>${chk}</div>`;
   }
-  return `<div class="row ${p?'person':''}" onclick="openEventModal(${JSON.stringify(e).replace(/"/g,'&quot;')})"><div class="time">${e.start||'終日'}${e.end?'<br>'+e.end:''}</div><div class="t"><div class="ttl">${esc(e.title)}</div><div class="sub">${esc(e.type)}${e.place?'　'+esc(e.place):''}${e.party?'　'+esc(e.party):''}</div></div></div>`;
+  return `<div class="row ${p?'person':''} ${eventDone(e)?'evfin':''}" onclick="openEventModal(${JSON.stringify(e).replace(/"/g,'&quot;')})"><div class="time">${e.start||'終日'}${e.end?'<br>'+e.end:''}</div><div class="t"><div class="ttl">${esc(e.title)}</div><div class="sub">${esc(e.type)}${e.place?'　'+esc(e.place):''}${e.party?'　'+esc(e.party):''}</div></div>${chk}</div>`;
 }
 
 /* --- DESK --- */
@@ -952,7 +1208,7 @@ function vCal(){
       const people=ev.filter(e=>e.cat==='人').length;
       return `<div class="wkday ${isT?'today':''} ${ev.length?'':'bare'}">
         <div class="wkhd"><span class="dn">${parse(dd).getDate()}</span><span class="dw">${dow(dd)}</span>${people?`<span class="pmark">人${people}</span>`:''}${ev.length?'':'<span class="wnone">予定なし</span>'}<span class="sp"></span><button class="btn ghost small" onclick="openEventModal({date:'${dd}'})">＋</button></div>
-        ${ev.length?`<div class="wkev">${ev.map(e=>`<div class="wrow cat-${e.cat}" onclick="openEventModal(${JSON.stringify(e).replace(/"/g,'&quot;')})"><span class="wt">${e.start||'終日'}</span><span class="wn">${esc(e.title)}</span><span class="wc">${esc(e.type)}</span></div>`).join('')}</div>`:''}
+        ${ev.length?`<div class="wkev">${ev.map(e=>`<div class="wrow cat-${e.cat} ${eventDone(e)?'evfin':''}" onclick="openEventModal(${JSON.stringify(e).replace(/"/g,'&quot;')})"><span class="wt">${e.start||'終日'}</span><span class="wn">${esc(e.title)}</span><span class="wc">${esc(e.type)}</span></div>`).join('')}</div>`:''}
       </div>`}).join('')+`</div>`;
   }else{
     const first=addMonths(calAnchor,0);const fd=parse(first);const lead=(fd.getDay()+6)%7;const start=addDays(first,-lead);
@@ -1977,9 +2233,9 @@ function vReview(){
 let repTab='plan';
 function vReport(){
   let h=`<h1>REVIEW</h1>`;
-  const TABS=[['plan','作戦'],['review','先週'],['sub','引き算'],['silence','沈黙'],['signal','予兆'],['bias','偏り'],['time','時間'],['audit','会議'],['effect','効き目'],['notes','声']];
+  const TABS=[['status','状態'],['plan','作戦'],['review','先週'],['sub','引き算'],['silence','沈黙'],['signal','予兆'],['bias','偏り'],['time','時間'],['audit','会議'],['effect','効き目'],['notes','声']];
   h+=`<div class="tabs wrap">${TABS.map(([k,l])=>`<button class="${repTab===k?'on':''}" onclick="repTab='${k}';render()">${l}</button>`).join('')}</div>`;
-  h+=({plan:vPlan,review:vReview,sub:vSubtract,silence:vSilence,signal:vSignal,bias:vBias,time:vRoutine,audit:vAudit,effect:vEffect,notes:vNotes}[repTab]||vPlan)();
+  h+=({status:vStatus,plan:vPlan,review:vReview,sub:vSubtract,silence:vSilence,signal:vSignal,bias:vBias,time:vRoutine,audit:vAudit,effect:vEffect,notes:vNotes}[repTab]||vPlan)();
   return h;
 }
 
