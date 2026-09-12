@@ -151,6 +151,7 @@ h2{font-family:var(--pix);font-size:12px;color:var(--gray);margin:24px 0 8px;let
 .month .cell .ev{display:block;height:5px;margin-top:3px;background:var(--gray)}
 .month .cell .ev.cat-会議{background:var(--ink)}
 .month .cell .ev.cat-作業,.month .cell .ev.cat-移動{background:var(--rule)}
+.month .cell .ev.cat-私用{background:var(--c2)}
 .month .cell .ev.cat-打合せ{background:var(--gray)}
 .month .cell .ev.cat-人{background:var(--person)}
 /* 週＝縦積み */
@@ -310,6 +311,22 @@ h2{font-family:var(--pix);font-size:12px;color:var(--gray);margin:24px 0 8px;let
 .btn.evdone{border-color:var(--person);color:var(--person-deep);box-shadow:2px 2px 0 var(--person)}
 .btn.evdone:hover{background:var(--person);color:#fff}
 .row.evfin .btn.evdone{border-color:var(--rule);color:var(--gray);box-shadow:2px 2px 0 var(--rule)}
+/* 選択肢の編集 */
+.optlist .row{margin-bottom:8px}
+.optlist .sub{word-break:break-all}
+/* 自分のコンディション */
+.mycond{display:flex;gap:6px}
+.mcbtn{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:9px 2px;background:var(--panel);border:2px solid var(--rule);border-radius:8px}
+.mcbtn b{font-family:var(--pix);font-size:16px;line-height:1}
+.mcbtn span{font-size:10px;color:var(--gray)}
+.mcbtn.on{color:#fff;border-color:transparent}
+.mcbtn.on span{color:rgba(255,255,255,.85)}
+.mcbtn.c1.on{background:var(--c1)}.mcbtn.c2.on{background:var(--c2)}.mcbtn.c3.on{background:var(--c3)}.mcbtn.c4.on{background:var(--c4)}.mcbtn.c5.on{background:var(--c5)}
+.mycond.cmp .mcbtn{padding:6px 2px}
+.mycond.cmp .mcbtn b{font-size:13px}
+.mycond.cmp .mcbtn span{font-size:9px}
+.askme{background:var(--panel);border:3px solid var(--ink);border-radius:10px;box-shadow:inset 0 0 0 3px var(--panel),inset 0 0 0 4px var(--rule);padding:11px 12px;margin:12px 0}
+.askme>span{display:block;font-size:13px;margin-bottom:8px}
 /* 先週との比較 */
 .trow{display:flex;align-items:baseline;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px solid var(--rule)}
 .trow:last-child{border-bottom:0}
@@ -674,9 +691,10 @@ const TYPES={
   '面談':{cat:'人',fields:['staff']},
   '人の枠':{cat:'人',fields:[]},
   '作業':{cat:'作業',fields:[]},
-  '移動':{cat:'移動',fields:['place']}
+  '移動':{cat:'移動',fields:['place']},
+  '私用':{cat:'私用',fields:['place']}
 };
-const CATS=['会議','打合せ','人','作業','移動'];
+const CATS=['会議','打合せ','人','作業','移動','私用'];
 const DEFAULT_SETTINGS={gasUrl:'',myEmail:'',vip:[],exclude:[],deadlineWords:['至急','本日中','〆切','締切','までに','確認願います','ご確認ください'],calDays:30,icsUrls:[],nameAliases:{},forwardTo:'',forwardLabel:'',roomTo:'',roomCc:'',roomSubject:'【会議室のお願い】{date} {start}〜{end} 面談',roomBody:'お疲れ様です。\n\n下記のとおり面談を予定しております。会議室のご手配をお願いいたします。\n\n・日時：{date}（{dow}） {start}〜{end}\n・対象：{name} さん\n・場所：{place}\n\nお手数をおかけしますが、よろしくお願いいたします。',weeklyGoal:5,weekGoals:{},fetchDays:2};
 
 let D={events:[],tasks:[],mails:[],staff:[],shifts:{},duty:{},settings:{...DEFAULT_SETTINGS},meta:{updatedAt:0}};
@@ -761,7 +779,7 @@ const store={
           if(/面談|1on1/.test(ti))type='面談';else if(/定例/.test(ti))type='定例会議';
           else if(/会議|ミーティング|MTG/i.test(ti))type='臨時会議';
           else if(/打合|来社|訪問|商談/.test(ti))type='社外打合せ';
-          D.events.push({id:uid(),gcalId:e.gcalId,type,cat:TYPES[type].cat,title:ti,date:e.date,start:e.start,end:e.end,place:e.place||'',memo:''});added++;
+          D.events.push({id:uid(),gcalId:e.gcalId,type,cat:typeCat(type),title:ti,date:e.date,start:e.start,end:e.end,place:e.place||'',memo:''});added++;
         }
       });
       store.save();render();toast(added+'件を取り込み、'+upd+'件を更新しました');
@@ -1029,6 +1047,136 @@ function dailyLine(dateKey,hours){
 
 
 
+
+
+/* ===== 選択肢のカスタマイズ ===== */
+function optSlots(){const a=(D.settings.slots||[]).filter(Boolean);return a.length?a:['09:00','10:00','11:00','13:00','14:00','15:00','16:00','17:00','18:00']}
+function optDurs(){const a=(D.settings.durs||[]).map(Number).filter(n=>n>0);return a.length?a:[30,45,60]}
+function optCondLabels(){const a=(D.settings.condLabels||[]).filter(Boolean);return a.length===5?a:['絶好調','良い','ふつう','疲れ気味','限界']}
+function condLabel(v){return optCondLabels()[v-1]||String(v)}
+function allTypes(){
+  const t={...TYPES};
+  (D.settings.extraTypes||[]).forEach(x=>{
+    const p=String(x).split('/');
+    const name=(p[0]||'').trim(); const cat=(p[1]||'作業').trim();
+    if(name&&!t[name])t[name]={cat:CATS.includes(cat)?cat:'作業',fields:['place']};
+  });
+  return t;
+}
+function typeCat(name){const t=allTypes()[name];return t?t.cat:'作業'}
+function typeFields(name){const t=allTypes()[name];return t?t.fields:['place']}
+
+/* 一覧を編集する小さな画面 */
+function openListEdit(key,title,hint,ph){
+  const cur=(D.settings[key]||[]);
+  openModal(`<h3>${esc(title)}</h3><div class="hint">${hint}</div>
+  <div class="f"><textarea id="le-t" style="min-height:150px" placeholder="${esc(ph||'')}">${esc(cur.join('\n'))}</textarea></div>
+  <div class="foot"><button class="btn ghost" onclick="closeModal()">やめる</button><button class="btn ghost" onclick="resetList('${key}')">初期に戻す</button><button class="btn solid" onclick="saveList('${key}')">保存</button></div>`);
+  setTimeout(()=>document.getElementById('le-t').focus(),50);
+}
+function saveList(key){
+  let v=document.getElementById('le-t').value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+  if(key==='durs')v=v.map(x=>Number(String(x).replace(/[^\d]/g,''))).filter(n=>n>0);
+  if(key==='condLabels'&&v.length!==5){toast('コンディションは5つ必要です');return}
+  D.settings[key]=v;closeModal();store.save();render();toast('保存しました');
+}
+function resetList(key){
+  const def={themes:[],slots:DEFAULT_SETTINGS.slots,durs:DEFAULT_SETTINGS.durs,condLabels:DEFAULT_SETTINGS.condLabels,extraTypes:[]};
+  D.settings[key]=(def[key]||[]).slice();closeModal();store.save();render();toast('初期に戻しました');
+}
+
+/* ========== 自分のコンディション ========== */
+function myLog(){D.me=D.me||{};D.me.log=D.me.log||[];return D.me.log}
+function myToday(){return myLog().find(x=>x.d===today())||null}
+function setMyCond(v,note){
+  const l=myLog(), t=today();
+  const ix=l.findIndex(x=>x.d===t);
+  const rec={d:t,v:Number(v),note:note!==undefined?note:(ix>=0?l[ix].note:'')};
+  if(ix>=0)l[ix]=rec;else l.push(rec);
+  l.sort((a,b)=>a.d.localeCompare(b.d));
+  store.save();render();
+}
+function myRecent(n){return myLog().slice(-(n||14))}
+function myAvg(days){
+  const from=addDays(today(),-(days||6));
+  const a=myLog().filter(x=>x.d>=from);
+  return a.length?a.reduce((s,x)=>s+x.v,0)/a.length:null;
+}
+/** 連続で働いた日数（私用だけの日と予定ゼロの日は休みとみなす） */
+function workStreak(){
+  let n=0;
+  for(let i=0;i<60;i++){
+    const d=addDays(today(),-i);
+    const ev=eventsOn(d).filter(e=>e.cat!=='私用');
+    const own=shiftOf(D.settings.myName||'',d);
+    const worked=ev.length>0||(own!==null&&!isOff(own));
+    if(i===0&&!worked)continue;      // 今日まだ何も無ければ数えない
+    if(worked)n++;else break;
+  }
+  return n;
+}
+/** 私用に使えた時間（今週） */
+function privateHours(ws){
+  ws=ws||weekStart(today());const we=addDays(ws,6);
+  return D.events.filter(e=>e.cat==='私用'&&e.date>=ws&&e.date<=we).reduce((a,e)=>a+durH(e),0);
+}
+/** 遅い時間・長時間の予定 */
+function overWork(ws){
+  ws=ws||weekStart(today());const we=addDays(ws,6);
+  const ev=D.events.filter(e=>e.date>=ws&&e.date<=we&&e.cat!=='私用');
+  const late=ev.filter(e=>e.end&&mins(e.end)>=20*60).length;
+  const total=ev.reduce((a,e)=>a+durH(e),0);
+  return {late,total};
+}
+function myCare(){
+  const t=today(), cur=myToday();
+  const streak=workStreak(), avg=myAvg(7), ph=privateHours(), ow=overWork();
+  const msg=[];
+  if(streak>=7)msg.push({w:6,s:streak+'日続けて働いておられます。どこかで一日、お休みを。'});
+  else if(streak>=5)msg.push({w:4,s:streak+'日連続でございます。ご無理のないように。'});
+  if(avg!==null&&avg>=4)msg.push({w:5,s:'この1週間、お疲れが続いておられるようです。'});
+  if(ow.late>=3)msg.push({w:4,s:'今週、20時以降の予定が'+ow.late+'件。夜が長くなっております。'});
+  if(ow.total>=45)msg.push({w:3,s:'今週の予定は'+ow.total.toFixed(0)+'時間。少し詰め込みすぎかもしれません。'});
+  if(ph===0&&(parse(t).getDay()>=4||parse(t).getDay()===0))msg.push({w:2,s:'今週はご自分の時間が入っておりません。'});
+  msg.sort((a,b)=>b.w-a.w);
+  return {cur,streak,avg,ph,ow,say:msg.length?msg[0].s:''};
+}
+function myCondPicker(compact){
+  const cur=myToday();
+  const L=optCondLabels();
+  return `<div class="mycond ${compact?'cmp':''}">
+    ${[1,2,3,4,5].map(v=>`<button class="mcbtn c${v} ${cur&&cur.v===v?'on':''}" onclick="setMyCond(${v})" title="${L[v-1]}"><b>${v}</b><span>${L[v-1]}</span></button>`).join('')}
+  </div>`;
+}
+function vMe(){
+  const m=myCare(), cur=m.cur;
+  let h=`<h2>今日のご自身は</h2>`;
+  h+=myCondPicker();
+  if(cur)h+=`<div class="f" style="margin-top:8px"><label>ひとこと（任意）</label><input value="${esc(cur.note||'')}" onchange="setMyCond(${cur.v},this.value)" placeholder="よく眠れた／会議が続いた など"></div>`;
+  if(m.say)h+=`<div class="bubble" style="margin-top:12px">${miiTag()}<p>${esc(m.say)}</p></div>`;
+  // 推移
+  const rec=myRecent(14);
+  if(rec.length>=2){
+    const w=280,hh=64,step=rec.length>1?w/(rec.length-1):w;
+    const y=v=>hh-4-((5-v)/4)*(hh-10);
+    const pts=rec.map((x,i)=>`${(i*step).toFixed(1)},${y(x.v).toFixed(1)}`).join(' ');
+    const dots=rec.map((x,i)=>`<circle cx="${(i*step).toFixed(1)}" cy="${y(x.v).toFixed(1)}" r="${i===rec.length-1?3.4:2.2}" fill="var(--c${x.v})"/>`).join('');
+    h+=`<h2>この2週間</h2><div class="sparkbig"><svg class="spark" viewBox="0 0 ${w} ${hh}" preserveAspectRatio="none"><polyline points="${pts}" fill="none" stroke="var(--rule)" stroke-width="1.5"/>${dots}</svg><div class="sparkax"><span>${esc(optCondLabels()[0])}</span><span>${esc(optCondLabels()[4])}</span></div></div>`;
+  }
+  h+=`<h2>働き方</h2><div class="condbox"><div class="cnums">
+    <div><b>${m.streak}</b><span>連続勤務</span></div>
+    <div><b>${m.ow.total.toFixed(0)}h</b><span>今週の予定</span></div>
+    <div><b>${m.ph.toFixed(1)}h</b><span>私用の時間</span></div>
+  </div>
+  <div class="clegend" style="margin-top:10px"><span>20時以降の予定 ${m.ow.late}件${m.avg!==null?`　／　この1週間の平均 ${m.avg.toFixed(1)}`:''}</span></div></div>`;
+  if(rec.length){
+    h+=`<h2>これまでの記録</h2>`;
+    h+=rec.slice().reverse().slice(0,7).map(x=>`<div class="row"><div class="time">${fmtMD(x.d).replace(/（.）/,'')}</div><div class="t"><div class="ttl">${condLabel(x.v)}</div>${x.note?`<div class="sub">${esc(x.note)}</div>`:''}</div></div>`).join('');
+  }
+  h+=`<p class="small muted" style="margin-top:12px">記録は任意です。付け忘れても構いません。私用の予定は「私用」の型で登録すると、仕事の集計から外れます。</p>`;
+  return h;
+}
+
 /* ========== この1週間のふりかえり（傾向の分析） ========== */
 function weekStats(ws){
   const we=addDays(ws,6);
@@ -1128,7 +1276,7 @@ function statusParams(){
   // ④ 余裕：今週の会議・作業の重さ
   const we=addDays(ws,6);
   const mh=D.events.filter(e=>(e.cat==='会議'||e.cat==='打合せ')&&e.date>=ws&&e.date<=we).reduce((a,e)=>a+durH(e),0);
-  const all=D.events.filter(e=>e.date>=ws&&e.date<=we).reduce((a,e)=>a+durH(e),0);
+  const all=D.events.filter(e=>e.date>=ws&&e.date<=we&&e.cat!=='私用').reduce((a,e)=>a+durH(e),0);
   let room=100 - Math.min(50,Math.round(mh*4)) - Math.min(30,Math.max(0,Math.round((all-30)*2)));
   const cl=v=>Math.max(0,Math.min(100,Math.round(v)));
   return {
@@ -1233,6 +1381,11 @@ function voice(){
   // ③ 最も伝えたいこと（1つだけ）
   let last='';
   try{
+    const mc=myCare();
+    if(mc.say&&(mc.streak>=5||(mc.avg!==null&&mc.avg>=4)))last=mc.say;
+  }catch(e){}
+  try{
+    if(last)throw 0;
     const tc=trendComment();
     const b=busyLevel();
     if(tc&&(new Date().getDay()===1||b.k==='busy'||b.k==='hard'))last=tc;
@@ -1285,6 +1438,9 @@ function vToday(){
   let h=`<div class="date-big">${parse(t).getDate()}<small>${(parse(t).getMonth()+1)}月 ${dow(t)}曜日</small></div>`;
   h+=`<div class="bubble">${miiTag()}<p>${esc(voice()).replace(/\n/g,"<br>")}</p></div>`;
   h+=statusBar();
+  if(new Date().getHours()>=16&&!myToday()){
+    h+=`<div class="askme"><span>本日のご自身は、いかがでしたか</span>${myCondPicker(true)}</div>`;
+  }
   h+=dutyChips(t);
   const night=new Date().getHours()>=15;
   h+=`<div class="toolbar" style="margin-top:14px">${night?`<button class="btn" onclick="openQuickModal('night')">帰宅メモ（明日のこと）</button><button class="btn ghost small" onclick="openQuickModal('morning')">今日のメモ</button>`:`<button class="btn" onclick="openQuickModal('morning')">今朝のメモを入れる</button><button class="btn ghost small" onclick="openQuickModal('night')">明日のメモ</button>`}</div>`;
@@ -1422,7 +1578,7 @@ function openEventModal(e){
   e=e||{};const isNew=!e.id;const type=e.type||'作業';
   const staffOpts=D.staff.map(p=>`<option value="${esc(p.name)}">`).join('');
   openModal(`<h3>${isNew?'予定を登録':'予定'}</h3>
-  <div class="f"><label>型</label><select id="ev-type" onchange="evTypeChange()">${Object.keys(TYPES).map(t=>`<option ${t===type?'selected':''}>${t}</option>`).join('')}</select></div>
+  <div class="f"><label>型</label><select id="ev-type" onchange="evTypeChange()">${Object.keys(allTypes()).map(t=>`<option ${t===type?'selected':''}>${t}</option>`).join('')}</select></div>
   <div class="f"><label>タイトル</label><input id="ev-title" value="${esc(e.title||'')}" placeholder="例：週次進捗会議"></div>
   <div class="f2"><div class="f"><label>日付</label><input id="ev-date" type="date" value="${e.date||today()}"></div><div class="f"><label>時間</label><div style="display:flex;gap:6px;align-items:center"><input id="ev-start" type="time" value="${e.start||'10:00'}"><span>〜</span><input id="ev-end" type="time" value="${e.end||'11:00'}"></div></div></div>
   <div id="ev-extra"></div>
@@ -1445,7 +1601,7 @@ function openEventModal(e){
   evCheck();
 }
 function evTypeChange(){
-  const type=document.getElementById('ev-type').value;const e=window._evExtra||{};const f=TYPES[type].fields;
+  const type=document.getElementById('ev-type').value;const e=window._evExtra||{};const f=typeFields(type);
   const map={series:`<div class="f"><label>シリーズ名（定例の連なり）</label><input id="ev-series" value="${esc(e.series||'')}" list="series-list"><datalist id="series-list">${[...new Set(D.events.map(x=>x.series).filter(Boolean))].map(s=>`<option value="${esc(s)}">`).join('')}</datalist></div>`,
     agenda:`<div class="f"><label>アジェンダ</label><textarea id="ev-agenda" placeholder="議題を箇条書きで">${esc(e.agenda||'')}</textarea></div>`,
     party:`<div class="f"><label>相手・会社</label><input id="ev-party" value="${esc(e.party||'')}"></div>`,
@@ -1458,7 +1614,7 @@ function evTypeChange(){
 }
 function evCheck(){
   const g=id=>document.getElementById(id)?.value;
-  const cand={id:window._evExtra?.id,date:g('ev-date'),start:g('ev-start'),end:g('ev-end')};const type=g('ev-type');const cat=TYPES[type].cat;
+  const cand={id:window._evExtra?.id,date:g('ev-date'),start:g('ev-start'),end:g('ev-end')};const type=g('ev-type');const cat=typeCat(type);
   const dup=D.events.filter(x=>overlaps(x,cand));let w='';
   const personHit=dup.filter(x=>x.cat==='人');const otherHit=dup.filter(x=>x.cat!=='人');
   if(cat!=='人'&&personHit.length)w+=`<div class="warn person">人の枠「${esc(personHit[0].title)}」に重なります。この枠を潰しますか？</div>`;
@@ -1476,7 +1632,7 @@ function evCheck(){
 function saveEvent(id,taskId){
   const g=i=>document.getElementById(i)?.value?.trim()||'';
   const type=g('ev-type');const title=g('ev-title')||type;const date=g('ev-date');if(!date){toast('日付を入れてください');return}
-  const ev={id:id||uid(),type,cat:TYPES[type].cat,title,date,start:g('ev-start'),end:g('ev-end'),memo:g('ev-memo'),series:g('ev-series'),agenda:g('ev-agenda'),party:g('ev-party'),place:g('ev-place'),staffName:g('ev-staff'),attendees:Number(g('ev-att'))||''};
+  const ev={id:id||uid(),type,cat:typeCat(type),title,date,start:g('ev-start'),end:g('ev-end'),memo:g('ev-memo'),series:g('ev-series'),agenda:g('ev-agenda'),party:g('ev-party'),place:g('ev-place'),staffName:g('ev-staff'),attendees:Number(g('ev-att'))||''};
   if(id){const i=D.events.findIndex(x=>x.id===id);D.events[i]={...D.events[i],...ev}}else D.events.push(ev);
   if(taskId){const t=D.tasks.find(x=>x.id===taskId);if(t){t.status='scheduled';t.eventId=ev.id}}
   closeModal();store.save();render();toast(id?'保存しました':'登録しました');
@@ -1611,22 +1767,22 @@ function openMeetingPicker(id,pd){
   const p=D.staff.find(x=>x.id===id);
   const code=shiftOf(p.name,pd);
   const busy=eventsOn(pd);
-  const slots=['09:00','10:00','11:00','13:00','14:00','15:00','16:00','17:00','18:00'];
+  const slots=optSlots();
   const free=slots.filter(s=>!busy.some(e=>e.start&&mins(e.start)<mins(s)+30&&mins(s)<mins(e.end||e.start)+1));
   const nx=nextWorkDays(p.name,pd,5);
   openModal(`<h3>${esc(p.name)} と面談</h3>
   <div class="hint">${fmtMD(pd)}　勤務：${esc(code)}${staffWhy(p)?'　／　'+esc(staffWhy(p)):''}</div>
   ${p.homework?`<div class="warn person">前回の宿題：${esc(p.homework)}</div>`:''}
   <div class="f"><label>日付</label><select id="mp-date">${nx.map(x=>`<option value="${x.date}" ${x.date===pd?'selected':''}>${fmtMD(x.date)}（${esc(x.code)}）</option>`).join('')}</select></div>
-  <div class="f"><label>開始時刻（空いている時間）</label><div class="slots" id="mp-slots">${slots.map(s=>`<button class="btn small ${free.includes(s)?'':'ghost'} ${s==='16:00'?'on':''}" data-s="${s}" onclick="pickSlot(this)">${s}${free.includes(s)?'':'×'}</button>`).join('')}</div></div>
-  <div class="f2"><div class="f"><label>所要</label><select id="mp-dur"><option value="30">30分</option><option value="45">45分</option><option value="60" selected>1時間</option></select></div>
+  <div class="f"><label>開始時刻（空いている時間）</label><div class="slots" id="mp-slots">${slots.map(s=>`<button class="btn small ${free.includes(s)?'':'ghost'} ${s===(slots.includes('16:00')?'16:00':slots[Math.floor(slots.length/2)])?'on':''}" data-s="${s}" onclick="pickSlot(this)">${s}${free.includes(s)?'':'×'}</button>`).join('')}</div></div>
+  <div class="f2"><div class="f"><label>所要</label><select id="mp-dur">${optDurs().map((n,i)=>`<option value="${n}" ${n===60||(optDurs().indexOf(60)<0&&i===optDurs().length-1)?'selected':''}>${n>=60&&n%60===0?(n/60)+'時間':n+'分'}</option>`).join('')}</select></div>
   <div class="f"><label>場所（任意）</label><input id="mp-place" placeholder="面談室など"></div></div>
   <div class="f"><label>今回のテーマ（何を話すか）</label><textarea id="mp-theme" style="min-height:56px" placeholder="例：契約更新の意向確認／シフト希望／最近の様子">${esc(p.homework||'')}</textarea>
   <div class="ideas">${askIdeas(p).map(x=>`<button class="btn ghost small" onclick="addTheme(this)" data-x="${esc(x)}">＋ ${esc(x)}</button>`).join('')}</div></div>
   ${D.settings.roomTo?`<div class="f"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="mp-room" checked style="width:auto"> ${esc(D.settings.roomTo)} に会議室の確保を依頼する</label></div>`:'<p class="small muted">※会議室の依頼先は設定から登録できます</p>'}
   <div id="mp-warn"></div>
   <div class="foot"><button class="btn ghost" onclick="openStaffDetail('${id}')">記録をつける</button><button class="btn ghost" onclick="closeModal()">やめる</button><button class="btn solid" onclick="saveMeeting('${id}')">面談を入れる</button></div>`);
-  window._slot='16:00';
+  window._slot=slots.includes('16:00')?'16:00':slots[Math.floor(slots.length/2)]||'10:00';
 }
 function addTheme(b){const t=document.getElementById('mp-theme');const v=b.dataset.x;t.value=t.value.trim()?t.value.trim()+'\n'+v:v;b.classList.add('used')}
 function pickSlot(b){window._slot=b.dataset.s;document.querySelectorAll('#mp-slots .btn').forEach(x=>x.classList.toggle('on',x===b))}
@@ -1670,7 +1826,7 @@ function openStaffDetail(id){
   ${(()=>{const ms=shiftMonths();if(!ms.length)return '';const ym=(staffYm&&ms.includes(staffYm))?staffYm:(ms.includes(today().slice(0,7))?today().slice(0,7):ms[ms.length-1]);
     return `<h2>勤務（${ym.replace('-','年')}月）</h2>${shiftMonthNav(id,ym)}${staffMonthShift(p.name,ym,id)}`})()}
   <h2 style="margin-top:14px">声をかけた・面談した</h2>
-  <div class="cond-pick" id="cp">${[1,2,3,4,5].map(v=>`<button class="c${v}" onclick="pickCond(${v})">${v}</button>`).join('')}<span class="small muted" style="align-self:center">1＝良好　5＝要注意</span></div>
+  <div class="cond-pick" id="cp">${[1,2,3,4,5].map(v=>`<button class="c${v}" onclick="pickCond(${v})">${v}</button>`).join('')}<span class="small muted" style="align-self:center">1＝${esc(optCondLabels()[0])}　5＝${esc(optCondLabels()[4])}</span></div>
   <div class="f"><label>一言メモ・面談内容（任意）</label><textarea id="st-note"></textarea></div>
   <div class="f"><label>次回までの宿題（任意）</label><input id="st-hw" value=""></div>
   ${p.homework?`<div class="warn">前回の宿題：${esc(p.homework)}</div>`:''}
@@ -2320,8 +2476,9 @@ function askIdeas(p){
   else if(gap>180)out.push('久しぶり（'+gap+'日ぶり）。この間の変化');
   if(p.homework)out.push('前回の課題：'+p.homework);
   if(p.birthday){const b=p.birthday.slice(5),tb=t.slice(5);if(b===tb)out.push('お誕生日')}
-  if(!out.length)out.push('最近の様子','シフトや働き方の希望','困っていること');
-  return out.slice(0,5);
+  const mine=(D.settings.themes||[]).filter(Boolean);
+  if(!out.length&&!mine.length)out.push('最近の様子','シフトや働き方の希望','困っていること');
+  return mine.concat(out).slice(0,6);
 }
 
 /* ========== 1. 面談の偏りを可視化 ========== */
@@ -2440,9 +2597,9 @@ function vReview(){
 let repTab='plan';
 function vReport(){
   let h=`<h1>REVIEW</h1>`;
-  const TABS=[['status','状態'],['plan','作戦'],['review','先週'],['sub','引き算'],['silence','沈黙'],['signal','予兆'],['bias','偏り'],['time','時間'],['audit','会議'],['effect','効き目'],['notes','声']];
+  const TABS=[['status','状態'],['me','自分'],['plan','作戦'],['review','先週'],['sub','引き算'],['silence','沈黙'],['signal','予兆'],['bias','偏り'],['time','時間'],['audit','会議'],['effect','効き目'],['notes','声']];
   h+=`<div class="tabs wrap">${TABS.map(([k,l])=>`<button class="${repTab===k?'on':''}" onclick="repTab='${k}';render()">${l}</button>`).join('')}</div>`;
-  h+=({status:vStatus,plan:vPlan,review:vReview,sub:vSubtract,silence:vSilence,signal:vSignal,bias:vBias,time:vRoutine,audit:vAudit,effect:vEffect,notes:vNotes}[repTab]||vPlan)();
+  h+=({status:vStatus,me:vMe,plan:vPlan,review:vReview,sub:vSubtract,silence:vSilence,signal:vSignal,bias:vBias,time:vRoutine,audit:vAudit,effect:vEffect,notes:vNotes}[repTab]||vPlan)();
   return h;
 }
 
@@ -2733,7 +2890,7 @@ function routineStats(){
 function vRoutine(){
   const rt=routineStats();
   const t=today(),from=addDays(t,-89);
-  const all=D.events.filter(e=>e.date>=from&&e.date<=t);
+  const all=D.events.filter(e=>e.date>=from&&e.date<=t&&e.cat!=='私用');
   const byCat={};all.forEach(e=>{byCat[e.cat]=(byCat[e.cat]||0)+durH(e)});
   const total=Object.values(byCat).reduce((a,b)=>a+b,0)/3;
   let h=`<h2>時間の使い先（月あたり）</h2>`;
@@ -2790,7 +2947,7 @@ function openReport(evId){
   ${e.prevHomework?`<div class="warn person"><b>前回の課題</b><br>${esc(e.prevHomework)}</div>`:''}
   ${e.theme?`<div class="warn"><b>今回のテーマ</b><br>${esc(e.theme)}</div>`:''}
   <div class="f"><label>会話の内容・様子</label><textarea id="rp-body" style="min-height:130px" placeholder="話したこと、本人の言葉、気づいたこと">${esc(e.report||'')}</textarea></div>
-  <div class="f"><label>コンディション（面談後の印象）</label><div class="cond-pick" id="cp">${[1,2,3,4,5].map(v=>`<button class="c${v} ${e.cond===v?'on':''}" onclick="pickCond(${v})">${v}</button>`).join('')}<span class="small muted" style="align-self:center">1＝良好　5＝要注意</span></div></div>
+  <div class="f"><label>コンディション（面談後の印象）</label><div class="cond-pick" id="cp">${[1,2,3,4,5].map(v=>`<button class="c${v} ${e.cond===v?'on':''}" onclick="pickCond(${v})">${v}</button>`).join('')}<span class="small muted" style="align-self:center">1＝${esc(optCondLabels()[0])}　5＝${esc(optCondLabels()[4])}</span></div></div>
   <div class="f"><label>次回までの課題（次の面談の冒頭に出ます）</label><textarea id="rp-next" style="min-height:56px" placeholder="例：来月の勤務希望を整理してもらう">${esc(e.nextTask||'')}</textarea></div>
   <div class="foot">${done?`<button class="btn ghost" onclick="openMeetingPicker('${p?p.id:''}','${addDays(e.date,30)}')">次回を予約</button>`:''}<button class="btn ghost" onclick="closeModal()">やめる</button><button class="btn solid" onclick="saveReport('${evId}')">記録する</button></div>`);
   window._cond=e.cond||0;
@@ -3215,7 +3372,7 @@ function renderQuick(){
       <div><label>${p.kind==='event'?'日付':'期限'}</label><input type="date" value="${p.date}" onchange="QP[${i}].date=this.value"></div>
       ${p.kind==='event'?`<div><label>時間</label><div style="display:flex;gap:6px;align-items:center"><input type="time" value="${p.start}" onchange="QP[${i}].start=this.value"><span>〜</span><input type="time" value="${p.end}" onchange="QP[${i}].end=this.value"></div></div>`:'<div></div>'}
     </div>
-    ${p.kind==='event'?`<div class="f" style="margin:6px 0"><label>型</label><select onchange="QP[${i}].type=this.value">${Object.keys(TYPES).map(t=>`<option ${t===p.type?'selected':''}>${t}</option>`).join('')}</select></div>`:''}
+    ${p.kind==='event'?`<div class="f" style="margin:6px 0"><label>型</label><select onchange="QP[${i}].type=this.value">${Object.keys(allTypes()).map(t=>`<option ${t===p.type?'selected':''}>${t}</option>`).join('')}</select></div>`:''}
   </div>`).join('');
   openModal(`<h3>これでよろしいですか</h3><div class="hint">${QP.length}件を読み取りました。違うところは直してください。</div>${rows}
   <div class="foot"><button class="btn ghost" onclick="openQuickModal()">書き直す</button><button class="btn solid" onclick="quickSave()">まとめて登録</button></div>`);
@@ -3223,7 +3380,7 @@ function renderQuick(){
 function quickSave(){
   let ne=0,nt=0;
   QP.filter(p=>p.use).forEach(p=>{
-    if(p.kind==='event'){D.events.push({id:uid(),type:p.type,cat:TYPES[p.type].cat,title:p.title,date:p.date,start:p.start,end:p.end,place:p.place||'',memo:''});ne++}
+    if(p.kind==='event'){D.events.push({id:uid(),type:p.type,cat:typeCat(p.type),title:p.title,date:p.date,start:p.start,end:p.end,place:p.place||'',memo:''});ne++}
     else{D.tasks.push({id:uid(),title:p.title,due:p.date,memo:'',source:'manual',status:'open',createdAt:new Date().toISOString()});nt++}
   });
   closeModal();store.save();render();toast('予定'+ne+'件、案件'+nt+'件をお預かりしました');
@@ -3245,6 +3402,14 @@ function vSetting(){
   <p class="small muted">投稿ボックスの通知など、Gmailのフィルタでラベルを付けたメールを最上位で拾います。転送できない場合はこちらをお使いください。</p>
   <div class="f"><label>期限を示す語句（1行に1つ）</label><textarea id="s-dw">${esc(s.deadlineWords.join('\n'))}</textarea></div>
   <div class="f2"><div class="f"><label>メール：過去何日分</label><input id="s-fd" type="number" value="${s.fetchDays}"></div><div class="f"><label>カレンダー：先何日分</label><input id="s-cd2" type="number" value="${s.calDays||30}"></div></div>
+  <h2>選択肢のカスタマイズ</h2>
+  <div class="optlist">
+    <div class="row"><div class="t"><div class="ttl">面談のテーマ候補</div><div class="sub">${(s.themes||[]).length?esc((s.themes||[]).slice(0,3).join('／'))+((s.themes||[]).length>3?' ほか':''):'登録なし（状況から自動で提案します）'}</div></div><div class="acts"><button class="btn ghost small" onclick="openListEdit('themes','面談のテーマ候補','よく話す題目を1行に1つ。面談を入れるときにボタンで出ます。状況に応じた自動の候補もあわせて表示されます。','例：\n契約更新の意向\nシフト希望\n体調と負担\n人間関係')">編集</button></div></div>
+    <div class="row"><div class="t"><div class="ttl">面談の開始時刻</div><div class="sub">${esc(optSlots().join('　'))}</div></div><div class="acts"><button class="btn ghost small" onclick="openListEdit('slots','面談の開始時刻','1行に1つ、24時間表記で。面談を入れるときの候補になります。','例：\n09:00\n10:30\n13:00\n16:00')">編集</button></div></div>
+    <div class="row"><div class="t"><div class="ttl">面談の所要時間</div><div class="sub">${optDurs().map(n=>n>=60&&n%60===0?(n/60)+'時間':n+'分').join('　')}</div></div><div class="acts"><button class="btn ghost small" onclick="openListEdit('durs','面談の所要時間','分数を1行に1つ。','例：\n15\n30\n60\n90')">編集</button></div></div>
+    <div class="row"><div class="t"><div class="ttl">コンディションの言い方</div><div class="sub">${esc(optCondLabels().join('／'))}</div></div><div class="acts"><button class="btn ghost small" onclick="openListEdit('condLabels','コンディションの言い方','1〜5の順に5つ、1行に1つ。','例：\n絶好調\n良い\nふつう\n疲れ気味\n限界')">編集</button></div></div>
+    <div class="row"><div class="t"><div class="ttl">予定の型を足す</div><div class="sub">${(s.extraTypes||[]).length?esc((s.extraTypes||[]).join('／')):'既定：'+Object.keys(TYPES).join('／')}</div></div><div class="acts"><button class="btn ghost small" onclick="openListEdit('extraTypes','予定の型を足す','「名前/カテゴリ」の形で1行に1つ。カテゴリは 会議・打合せ・人・作業・移動・私用 から選びます。集計はカテゴリ単位で行われます。','例：\n研修/作業\n出張/移動\n現場巡回/人')">編集</button></div></div>
+  </div>
   <h2>名前の読み替え</h2>
   ${(()=>{const al=D.settings.nameAliases||{};const ks=Object.keys(al);
     return ks.length?ks.map(k=>`<div class="row"><div class="t"><div class="ttl">${esc(k)} → ${esc(al[k])}</div><div class="sub">勤務表の「${esc(k)}」を、名簿の「${esc(al[k])}」として扱います</div></div><div class="acts"><button class="btn ghost small" onclick="delAlias('${esc(k)}')">解除</button></div></div>`).join('')
