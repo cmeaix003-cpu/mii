@@ -1067,12 +1067,27 @@ function typeCat(name){const t=allTypes()[name];return t?t.cat:'作業'}
 function typeFields(name){const t=allTypes()[name];return t?t.fields:['place']}
 
 /* 一覧を編集する小さな画面 */
-function openListEdit(key,title,hint,ph){
+const LIST_DEF={
+  themes:{t:'面談のテーマ候補', h:'よく話す題目を1行に1つ。面談を入れるときにボタンで出ます。状況に応じた自動の候補もあわせて表示されます。',
+          p:['契約更新の意向','シフト希望','体調と負担','人間関係']},
+  slots:{t:'面談の開始時刻', h:'1行に1つ、24時間表記で。面談を入れるときの候補になります。',
+          p:['09:00','10:30','13:00','16:00']},
+  durs:{t:'面談の所要時間', h:'分数を1行に1つ。60なら「1時間」と表示します。',
+          p:['15','30','60','90']},
+  condLabels:{t:'コンディションの言い方', h:'1から5の順に、ちょうど5つ。1行に1つ。',
+          p:['絶好調','良い','ふつう','疲れ気味','限界']},
+  extraTypes:{t:'予定の型を足す', h:'「名前/カテゴリ」の形で1行に1つ。カテゴリは 会議・打合せ・人・作業・移動・私用 から選びます。時間の集計はカテゴリ単位で行われます。',
+          p:['研修/作業','出張/移動','現場巡回/人']}
+};
+function openListEdit(key){
+  const d=LIST_DEF[key];if(!d)return;
   const cur=(D.settings[key]||[]);
-  openModal(`<h3>${esc(title)}</h3><div class="hint">${hint}</div>
-  <div class="f"><textarea id="le-t" style="min-height:150px" placeholder="${esc(ph||'')}">${esc(cur.join('\n'))}</textarea></div>
-  <div class="foot"><button class="btn ghost" onclick="closeModal()">やめる</button><button class="btn ghost" onclick="resetList('${key}')">初期に戻す</button><button class="btn solid" onclick="saveList('${key}')">保存</button></div>`);
-  setTimeout(()=>document.getElementById('le-t').focus(),50);
+  openModal('<h3>'+esc(d.t)+'</h3><div class="hint">'+esc(d.h)+'</div>'
+    +'<div class="f"><label>1行に1つ</label><textarea id="le-t" style="min-height:150px" placeholder="'+esc(d.p.join('\n'))+'">'+esc(cur.join('\n'))+'</textarea></div>'
+    +'<div class="foot"><button class="btn ghost" onclick="closeModal()">やめる</button>'
+    +'<button class="btn ghost" onclick="resetList(\''+key+'\')">初期に戻す</button>'
+    +'<button class="btn solid" onclick="saveList(\''+key+'\')">保存</button></div>');
+  setTimeout(()=>{const e=document.getElementById('le-t');if(e)e.focus()},50);
 }
 function saveList(key){
   let v=document.getElementById('le-t').value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
@@ -3404,11 +3419,11 @@ function vSetting(){
   <div class="f2"><div class="f"><label>メール：過去何日分</label><input id="s-fd" type="number" value="${s.fetchDays}"></div><div class="f"><label>カレンダー：先何日分</label><input id="s-cd2" type="number" value="${s.calDays||30}"></div></div>
   <h2>選択肢のカスタマイズ</h2>
   <div class="optlist">
-    <div class="row"><div class="t"><div class="ttl">面談のテーマ候補</div><div class="sub">${(s.themes||[]).length?esc((s.themes||[]).slice(0,3).join('／'))+((s.themes||[]).length>3?' ほか':''):'登録なし（状況から自動で提案します）'}</div></div><div class="acts"><button class="btn ghost small" onclick="openListEdit('themes','面談のテーマ候補','よく話す題目を1行に1つ。面談を入れるときにボタンで出ます。状況に応じた自動の候補もあわせて表示されます。','例：\n契約更新の意向\nシフト希望\n体調と負担\n人間関係')">編集</button></div></div>
-    <div class="row"><div class="t"><div class="ttl">面談の開始時刻</div><div class="sub">${esc(optSlots().join('　'))}</div></div><div class="acts"><button class="btn ghost small" onclick="openListEdit('slots','面談の開始時刻','1行に1つ、24時間表記で。面談を入れるときの候補になります。','例：\n09:00\n10:30\n13:00\n16:00')">編集</button></div></div>
-    <div class="row"><div class="t"><div class="ttl">面談の所要時間</div><div class="sub">${optDurs().map(n=>n>=60&&n%60===0?(n/60)+'時間':n+'分').join('　')}</div></div><div class="acts"><button class="btn ghost small" onclick="openListEdit('durs','面談の所要時間','分数を1行に1つ。','例：\n15\n30\n60\n90')">編集</button></div></div>
-    <div class="row"><div class="t"><div class="ttl">コンディションの言い方</div><div class="sub">${esc(optCondLabels().join('／'))}</div></div><div class="acts"><button class="btn ghost small" onclick="openListEdit('condLabels','コンディションの言い方','1〜5の順に5つ、1行に1つ。','例：\n絶好調\n良い\nふつう\n疲れ気味\n限界')">編集</button></div></div>
-    <div class="row"><div class="t"><div class="ttl">予定の型を足す</div><div class="sub">${(s.extraTypes||[]).length?esc((s.extraTypes||[]).join('／')):'既定：'+Object.keys(TYPES).join('／')}</div></div><div class="acts"><button class="btn ghost small" onclick="openListEdit('extraTypes','予定の型を足す','「名前/カテゴリ」の形で1行に1つ。カテゴリは 会議・打合せ・人・作業・移動・私用 から選びます。集計はカテゴリ単位で行われます。','例：\n研修/作業\n出張/移動\n現場巡回/人')">編集</button></div></div>
+    <div class="row"><div class="t"><div class="ttl">面談のテーマ候補</div><div class="sub">${(s.themes||[]).length?esc((s.themes||[]).slice(0,3).join('／'))+((s.themes||[]).length>3?' ほか':''):'登録なし（状況から自動で提案します）'}</div></div><div class="acts"><button class="btn ghost small" onclick="openListEdit('themes')">編集</button></div></div>
+    <div class="row"><div class="t"><div class="ttl">面談の開始時刻</div><div class="sub">${esc(optSlots().join('　'))}</div></div><div class="acts"><button class="btn ghost small" onclick="openListEdit('slots')">編集</button></div></div>
+    <div class="row"><div class="t"><div class="ttl">面談の所要時間</div><div class="sub">${optDurs().map(n=>n>=60&&n%60===0?(n/60)+'時間':n+'分').join('　')}</div></div><div class="acts"><button class="btn ghost small" onclick="openListEdit('durs')">編集</button></div></div>
+    <div class="row"><div class="t"><div class="ttl">コンディションの言い方</div><div class="sub">${esc(optCondLabels().join('／'))}</div></div><div class="acts"><button class="btn ghost small" onclick="openListEdit('condLabels')">編集</button></div></div>
+    <div class="row"><div class="t"><div class="ttl">予定の型を足す</div><div class="sub">${(s.extraTypes||[]).length?esc((s.extraTypes||[]).join('／')):'既定：'+Object.keys(TYPES).join('／')}</div></div><div class="acts"><button class="btn ghost small" onclick="openListEdit('extraTypes')">編集</button></div></div>
   </div>
   <h2>名前の読み替え</h2>
   ${(()=>{const al=D.settings.nameAliases||{};const ks=Object.keys(al);
