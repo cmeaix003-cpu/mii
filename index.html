@@ -804,13 +804,20 @@ const store={
         if(!j.ok)throw new Error(j.error||'取り込みに失敗しました');
         (j.events||[]).forEach(e=>{
           const ex=D.events.find(x=>x.gcalId===e.gcalId);
-          if(ex){Object.assign(ex,{title:e.title,date:e.date,start:e.start,end:e.end,place:e.place});upd++}
+          if(ex){
+            Object.assign(ex,{title:e.title,date:e.date,start:e.start,end:e.end,place:e.place});
+            if(e.desc&&!ex.memo)ex.memo=e.desc;
+            if(e.desc&&!evSteps(ex).length){const ck=extractChecks(e.desc);if(ck.length)ex.steps=ck.map(c=>({id:uid(),t:c.t,done:c.done}))}
+            upd++;
+          }
           else{
             let type='作業';const ti=e.title||'';
             if(/面談|1on1/.test(ti))type='面談';else if(/定例/.test(ti))type='定例会議';
             else if(/会議|ミーティング|MTG/i.test(ti))type='臨時会議';
             else if(/打合|来社|訪問|商談/.test(ti))type='社外打合せ';
-            D.events.push({id:uid(),gcalId:e.gcalId,type,cat:typeCat(type),title:ti,date:e.date,start:e.start,end:e.end,place:e.place||'',memo:''});added++;
+            const ck=extractChecks(e.desc||'');
+            D.events.push({id:uid(),gcalId:e.gcalId,type,cat:typeCat(type),title:ti,date:e.date,start:e.start,end:e.end,place:e.place||'',memo:e.desc||'',
+              steps:ck.map(c=>({id:uid(),t:c.t,done:c.done}))});added++;
           }
         });
         store.save({silent:true});render();
@@ -1646,13 +1653,20 @@ const store={
         if(!j.ok)throw new Error(j.error||'取り込みに失敗しました');
         (j.events||[]).forEach(e=>{
           const ex=D.events.find(x=>x.gcalId===e.gcalId);
-          if(ex){Object.assign(ex,{title:e.title,date:e.date,start:e.start,end:e.end,place:e.place});upd++}
+          if(ex){
+            Object.assign(ex,{title:e.title,date:e.date,start:e.start,end:e.end,place:e.place});
+            if(e.desc&&!ex.memo)ex.memo=e.desc;
+            if(e.desc&&!evSteps(ex).length){const ck=extractChecks(e.desc);if(ck.length)ex.steps=ck.map(c=>({id:uid(),t:c.t,done:c.done}))}
+            upd++;
+          }
           else{
             let type='作業';const ti=e.title||'';
             if(/面談|1on1/.test(ti))type='面談';else if(/定例/.test(ti))type='定例会議';
             else if(/会議|ミーティング|MTG/i.test(ti))type='臨時会議';
             else if(/打合|来社|訪問|商談/.test(ti))type='社外打合せ';
-            D.events.push({id:uid(),gcalId:e.gcalId,type,cat:typeCat(type),title:ti,date:e.date,start:e.start,end:e.end,place:e.place||'',memo:''});added++;
+            const ck=extractChecks(e.desc||'');
+            D.events.push({id:uid(),gcalId:e.gcalId,type,cat:typeCat(type),title:ti,date:e.date,start:e.start,end:e.end,place:e.place||'',memo:e.desc||'',
+              steps:ck.map(c=>({id:uid(),t:c.t,done:c.done}))});added++;
           }
         });
         store.save({silent:true});render();
@@ -2381,7 +2395,8 @@ function rowEvent(e,opt){
     const t=today();const ended=e.date<t||(e.date===t&&mins(e.end||e.start||'23:59')<=new Date().getHours()*60+new Date().getMinutes());
     return `<div class="row person ${eventDone(e)?'evfin':''}" onclick="openReport('${e.id}')"><div class="time">${e.start||''}${e.end?'<br>'+e.end:''}</div><div class="t"><div class="ttl">${esc(e.title)}${e.report?'<span class="pill">記録済</span>':(ended?'<span class="pill warnpill">要記録</span>':'')}</div><div class="sub">${e.theme?'テーマ：'+esc(e.theme):'面談'}${e.place?'　'+esc(e.place):''}</div></div>${chk}</div>`;
   }
-  return `<div class="row ${p?'person':''} ${eventDone(e)?'evfin':''}" onclick="openEventModal(${JSON.stringify(e).replace(/"/g,'&quot;')})"><div class="time">${e.start||'終日'}${e.end?'<br>'+e.end:''}</div><div class="t"><div class="ttl">${esc(e.title)}</div><div class="sub">${esc(e.type)}${e.place?'　'+esc(e.place):''}${e.party?'　'+esc(e.party):''}</div></div>${chk}</div>`;
+  const est=evStepStat(e);
+  return `<div class="row ${p?'person':''} ${eventDone(e)?'evfin':''}" onclick="openEventModal(${JSON.stringify(e).replace(/"/g,'&quot;')})"><div class="time">${e.start||'終日'}${e.end?'<br>'+e.end:''}</div><div class="t"><div class="ttl">${esc(e.title)}${est.n?`<span class="pill">${est.done}/${est.n}</span>`:''}</div><div class="sub">${esc(e.type)}${e.place?'　'+esc(e.place):''}${e.party?'　'+esc(e.party):''}</div>${(opt&&opt.check)?evStepsHtml(e):''}</div>${chk}</div>`;
 }
 
 /* --- DESK --- */
@@ -2489,6 +2504,8 @@ function openEventModal(e){
   <div class="f2"><div class="f"><label>日付</label><input id="ev-date" type="date" value="${e.date||today()}"></div><div class="f"><label>時間</label><div style="display:flex;gap:6px;align-items:center"><input id="ev-start" type="time" value="${e.start||'10:00'}"><span>〜</span><input id="ev-end" type="time" value="${e.end||'11:00'}"></div></div></div>
   <div id="ev-extra"></div>
   <div class="f"><label>メモ</label><textarea id="ev-memo">${esc(e.memo||'')}</textarea></div>
+  ${isNew?'':`<div class="f"><label>手順（1行に1つ）</label><textarea id="ev-steps" style="min-height:70px" placeholder="資料を印刷する&#10;前回の議事録を確認">${esc(evSteps(e).map(x=>x.t).join('\n'))}</textarea>
+  ${extractChecks(e.memo||'').length?`<div style="margin-top:6px"><button class="btn ghost small" onclick="useMemoChecks('${e.id}')">メモの中のリスト${extractChecks(e.memo||'').length}件を取り込む</button></div>`:''}</div>`}
   <div id="ev-warn"></div>
   <div class="foot">${isNew?'':`<button class="btn ghost" onclick="delEvent('${e.id}')">削除</button>`}<button class="btn ghost" onclick="closeModal()">やめる</button><button class="btn solid" onclick="saveEvent('${e.id||''}','${e.taskId||''}')">${isNew?'登録':'保存'}</button></div>
   <datalist id="staff-list">${staffOpts}</datalist>`);
@@ -2539,7 +2556,16 @@ function saveEvent(id,taskId){
   const g=i=>document.getElementById(i)?.value?.trim()||'';
   const type=g('ev-type');const title=g('ev-title')||type;const date=g('ev-date');if(!date){toast('日付を入れてください');return}
   const ev={id:id||uid(),type,cat:typeCat(type),title,date,start:g('ev-start'),end:g('ev-end'),memo:g('ev-memo'),series:g('ev-series'),agenda:g('ev-agenda'),party:g('ev-party'),place:g('ev-place'),staffName:g('ev-staff'),attendees:Number(g('ev-att'))||''};
-  if(id){const i=D.events.findIndex(x=>x.id===id);D.events[i]={...D.events[i],...ev}}else D.events.push(ev);
+  if(id){
+    const i=D.events.findIndex(x=>x.id===id);
+    const el=document.getElementById('ev-steps');
+    if(el){
+      const lines=el.value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+      const prev=evSteps(D.events[i]);
+      ev.steps=lines.map(s=>{const o=prev.find(p=>p.t===s);return o?o:{id:uid(),t:s,done:false}});
+    }
+    D.events[i]={...D.events[i],...ev};
+  }else D.events.push(ev);
   if(taskId){const t=D.tasks.find(x=>x.id===taskId);if(t){t.status='scheduled';t.eventId=ev.id}}
   closeModal();store.save();render();toast(id?'保存しました':'登録しました');
 }
@@ -3869,6 +3895,78 @@ function vSilence(){
   return h;
 }
 
+
+
+/* ===== 予定の手順（案件と同じ仕組み） ===== */
+function evSteps(e){return (e&&e.steps)||[]}
+function evStepStat(e){const s=evSteps(e);return {n:s.length,done:s.filter(x=>x.done).length}}
+function toggleEvStep(evId,sid,ev){
+  if(ev&&ev.stopPropagation)ev.stopPropagation();
+  const e=D.events.find(x=>x.id===evId);if(!e)return;
+  const s=(e.steps||[]).find(x=>x.id===sid);if(!s)return;
+  s.done=!s.done;
+  const st=evStepStat(e);
+  if(st.n&&st.done===st.n&&!e.done){e.done=true;e.doneAt=new Date().toISOString();store.save();render();toast('すべて片付きました');return}
+  if(e.done&&st.done<st.n){e.done=false;e.doneAt=''}
+  store.save();render();
+}
+function delEvStep(evId,sid,ev){
+  if(ev&&ev.stopPropagation)ev.stopPropagation();
+  const e=D.events.find(x=>x.id===evId);if(!e)return;
+  e.steps=(e.steps||[]).filter(x=>x.id!==sid);store.save();render();
+}
+function evStepsHtml(e){
+  const s=evSteps(e);if(!s.length)return '';
+  const st=evStepStat(e);const pct=st.n?Math.round(st.done/st.n*100):0;
+  return `<div class="steps" onclick="event.stopPropagation()">
+    <div class="stbar"><span style="width:${pct}%"></span></div>
+    <div class="stlist">${s.map(x=>`<button class="stitem ${x.done?'on':''}" onclick="toggleEvStep('${e.id}','${x.id}',event)">
+      <i>${x.done?'✓':''}</i><span>${esc(x.t)}</span><b onclick="delEvStep('${e.id}','${x.id}',event)">×</b></button>`).join('')}</div></div>`;
+}
+/** 文章からチェックリストを拾う（☑ ・ - [ ] □ 1. など） */
+function extractChecks(text){
+  const out=[];
+  String(text||'').split(/\r?\n/).forEach(line=>{
+    const s=line.trim();
+    if(!s)return;
+    // 行頭の印を見て、箇条書きだけを拾う
+    // 行頭の印（-, ・, ☑, [x], 1. など。組み合わせにも対応）
+    const m=s.match(/^(?:(?:[-–—*・●○]|\d+[\.)、])\s*)?(?:([☑☐✓✔□■◻◼])|\[([ xX]?)\])?\s*(.+)$/);
+    if(!m)return;
+    const mark=m[1]||'', box=m[2], body=(m[3]||'').trim();
+    const hadMark=!!(m[1]||m[2]!==undefined)||/^(?:[-–—*・●○]|\d+[\.)、])/.test(s);
+    if(!hadMark||body.length<2)return;
+    out.push({t:body,done:/[☑✓✔■◼]/.test(mark)||/[xX]/.test(box||'')});
+  });
+  return out;
+}
+function openEvStepAdd(evId){
+  const e=D.events.find(x=>x.id===evId);if(!e)return;
+  const found=extractChecks(e.memo||'');
+  openModal('<h3>手順を足す</h3><div class="hint">'+esc(e.title)+'<br>1行に1つ。まとめて書けます。</div>'
+   +(found.length?'<div class="warn">メモの中に'+found.length+'件のリストが見つかりました。<div style="margin-top:8px"><button class="btn small" onclick="useMemoChecks(\''+evId+'\')">メモから取り込む</button></div></div>':'')
+   +'<div class="f"><textarea id="ep-t" style="min-height:120px" placeholder="例：\n資料を印刷する\n前回の議事録を確認\n会議室の鍵を借りる"></textarea></div>'
+   +'<div class="foot"><button class="btn ghost" onclick="closeModal()">やめる</button>'
+   +'<button class="btn solid" onclick="doEvStepAdd(\''+evId+'\')">足す</button></div>');
+  setTimeout(()=>{const x=document.getElementById('ep-t');if(x)x.focus()},50);
+}
+function doEvStepAdd(evId){
+  const v=document.getElementById('ep-t').value;
+  if(!v.trim()){toast('内容を入れてください');return}
+  const e=D.events.find(x=>x.id===evId);if(!e)return;
+  e.steps=e.steps||[];
+  v.split(/\r?\n/).map(s=>s.trim()).filter(Boolean).forEach(s=>e.steps.push({id:uid(),t:s,done:false}));
+  closeModal();store.save();render();toast('足しました');
+}
+function useMemoChecks(evId){
+  const e=D.events.find(x=>x.id===evId);if(!e)return;
+  const found=extractChecks(e.memo||'');
+  if(!found.length){toast('リストが見つかりません');return}
+  e.steps=e.steps||[];
+  const cur=evSteps(e).map(x=>x.t);
+  found.forEach(f=>{if(!cur.includes(f.t))e.steps.push({id:uid(),t:f.t,done:f.done})});
+  closeModal();store.save();render();toast(found.length+'件を取り込みました');
+}
 
 /* ===== 案件の中の小さなTODO ===== */
 function stepsOf(t){return (t&&t.steps)||[]}
