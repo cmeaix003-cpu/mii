@@ -758,7 +758,9 @@ const store={
     }else{setSave(l?'ok':'','この端末に保存')}
   },
   _t:null,
-  save(){
+  save(opt){
+    if(opt&&opt.silent)window._silentSave=true;      // 取り込みなど、自分で編集していない保存
+    else if(!window._silentSave)window._edited=true; // 画面で何かを編集した
     D.meta.updatedAt=Date.now();
     const okLocal=this.local.set(D);
     if(D.settings.gasUrl){
@@ -770,14 +772,17 @@ const store={
             {tries:3,timeout:90000,onRetry:(n,t)=>setSave('busy','保存し直しています '+n+'/'+t)});
           window._forceSave=false;
           if(j&&j.conflict){
-            setSave('err','他の端末が先に更新');
-            if(window._silentSave){    // 自動取り込みなどは黙って向こうに合わせる
+            // 自分で編集していなければ、聞かずに新しい方へ合わせる
+            if(!window._edited||window._silentSave){
               const remote=j.data;
-              if(remote){const gas=D.settings.gasUrl;D={...D,...remote,settings:{...DEFAULT_SETTINGS,...(remote.settings||{}),gasUrl:gas}};window._baseAt=remote.meta?.updatedAt||0;store.local.set(D);render();setSave('ok','最新に更新しました')}
-            }else showConflict(j);
+              if(remote){const gas=D.settings.gasUrl;D={...D,...remote,settings:{...DEFAULT_SETTINGS,...(remote.settings||{}),gasUrl:gas}};window._baseAt=remote.meta?.updatedAt||0;store.local.set(D);render()}
+              window._edited=false;setSave('ok','最新に更新しました');
+              return;
+            }
+            setSave('err','他の端末が先に更新');showConflict(j);
             return;
           }
-          if(j&&j.ok){window._baseAt=j.updatedAt||D.meta.updatedAt;setSave('ok','シートに保存 '+new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}))}
+          if(j&&j.ok){window._baseAt=j.updatedAt||D.meta.updatedAt;window._edited=false;setSave('ok','シートに保存 '+new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}))}
           else throw new Error(j&&j.error||'unknown');
         }catch(e){setSave('err','シート保存失敗');}
       },1800);
@@ -808,9 +813,9 @@ const store={
             D.events.push({id:uid(),gcalId:e.gcalId,type,cat:typeCat(type),title:ti,date:e.date,start:e.start,end:e.end,place:e.place||'',memo:''});added++;
           }
         });
-        store.save();render();
+        store.save({silent:true});render();
       }
-      setSave('ok','取り込み完了');
+      window._silentSave=false;setSave('ok','取り込み完了');
       toast(added+'件を取り込み、'+upd+'件を更新しました');
     }catch(e){
       setSave('err','カレンダー取り込み失敗');
@@ -831,8 +836,8 @@ const store={
         if(ex){ if(ex.status==='ignored')return; Object.assign(ex,m,{status:ex.status==='replied'&&m.needsReply?'open':ex.status}); }
         else{D.mails.push({...m,id:uid(),status:'open'});added++}
       });
-      store.save(); render();
-      setSave('ok','取り込み完了');
+      store.save({silent:true}); render();
+      window._silentSave=false;setSave('ok','取り込み完了');
       if(added)toast(added+'件を取り込みました'); else if(!silent)toast('新しいメールはありません');
     }catch(e){setSave('err','取り込み失敗');if(!silent)toast('取り込みに失敗しました：'+e.message)}
   },OCTYPE html>
@@ -1595,7 +1600,9 @@ const store={
     }else{setSave(l?'ok':'','この端末に保存')}
   },
   _t:null,
-  save(){
+  save(opt){
+    if(opt&&opt.silent)window._silentSave=true;      // 取り込みなど、自分で編集していない保存
+    else if(!window._silentSave)window._edited=true; // 画面で何かを編集した
     D.meta.updatedAt=Date.now();
     const okLocal=this.local.set(D);
     if(D.settings.gasUrl){
@@ -1607,14 +1614,17 @@ const store={
             {tries:3,timeout:90000,onRetry:(n,t)=>setSave('busy','保存し直しています '+n+'/'+t)});
           window._forceSave=false;
           if(j&&j.conflict){
-            setSave('err','他の端末が先に更新');
-            if(window._silentSave){    // 自動取り込みなどは黙って向こうに合わせる
+            // 自分で編集していなければ、聞かずに新しい方へ合わせる
+            if(!window._edited||window._silentSave){
               const remote=j.data;
-              if(remote){const gas=D.settings.gasUrl;D={...D,...remote,settings:{...DEFAULT_SETTINGS,...(remote.settings||{}),gasUrl:gas}};window._baseAt=remote.meta?.updatedAt||0;store.local.set(D);render();setSave('ok','最新に更新しました')}
-            }else showConflict(j);
+              if(remote){const gas=D.settings.gasUrl;D={...D,...remote,settings:{...DEFAULT_SETTINGS,...(remote.settings||{}),gasUrl:gas}};window._baseAt=remote.meta?.updatedAt||0;store.local.set(D);render()}
+              window._edited=false;setSave('ok','最新に更新しました');
+              return;
+            }
+            setSave('err','他の端末が先に更新');showConflict(j);
             return;
           }
-          if(j&&j.ok){window._baseAt=j.updatedAt||D.meta.updatedAt;setSave('ok','シートに保存 '+new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}))}
+          if(j&&j.ok){window._baseAt=j.updatedAt||D.meta.updatedAt;window._edited=false;setSave('ok','シートに保存 '+new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}))}
           else throw new Error(j&&j.error||'unknown');
         }catch(e){setSave('err','シート保存失敗');}
       },1800);
@@ -1645,9 +1655,9 @@ const store={
             D.events.push({id:uid(),gcalId:e.gcalId,type,cat:typeCat(type),title:ti,date:e.date,start:e.start,end:e.end,place:e.place||'',memo:''});added++;
           }
         });
-        store.save();render();
+        store.save({silent:true});render();
       }
-      setSave('ok','取り込み完了');
+      window._silentSave=false;setSave('ok','取り込み完了');
       toast(added+'件を取り込み、'+upd+'件を更新しました');
     }catch(e){
       setSave('err','カレンダー取り込み失敗');
@@ -4251,7 +4261,7 @@ function doShiftImport(){
     else{fixed[k]=map[k];unresolved.push(k)}
   });
   D.shifts=D.shifts||{};D.shifts[ym]=fixed;
-  store.save();render();
+  store.save({silent:true});render();
   if(unresolved.length){toast(n+'名分を取り込みました');openMatchModal(unresolved,()=>{
     // 別名が決まったら、その月のデータを名簿の表記に付け替える
     const m2=D.shifts[ym],out={};
@@ -4430,6 +4440,16 @@ function resetData(){if(!confirm('すべてのデータを消します。よろ�
 function openModal(html){const m=document.getElementById('modal');m.innerHTML=html;m.scrollTop=0;document.getElementById('modal-bg').classList.add('on');document.getElementById('fab').style.visibility='hidden'}
 function closeModal(){document.getElementById('modal-bg').classList.remove('on');document.getElementById('fab').style.visibility=''}
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal()});
+// 画面に戻ってきたら、編集中でなければ静かに最新を読み直す
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState!=='visible')return;
+  if(window._edited)return;
+  if(!D.settings.gasUrl)return;
+  const last=Number(sessionStorage.getItem('mii-refresh')||0);
+  if(Date.now()-last<60000)return;
+  sessionStorage.setItem('mii-refresh',String(Date.now()));
+  store.load().then(()=>render());
+});
 
 /* ========== 起動 ========== */
 const miiHdr=document.getElementById('mii-hdr');
