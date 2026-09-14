@@ -311,6 +311,11 @@ h2{font-family:var(--pix);font-size:12px;color:var(--gray);margin:24px 0 8px;let
 .btn.evdone{border-color:var(--person);color:var(--person-deep);box-shadow:2px 2px 0 var(--person)}
 .btn.evdone:hover{background:var(--person);color:#fff}
 .row.evfin .btn.evdone{border-color:var(--rule);color:var(--gray);box-shadow:2px 2px 0 var(--rule)}
+/* 見出しの開閉 */
+h2.fold{display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none}
+h2.fold .fmark{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border:2px solid var(--rule);background:var(--panel);color:var(--gray);font-size:11px;line-height:1;flex:none}
+h2.fold.open .fmark{background:var(--ink);border-color:var(--ink);color:var(--panel)}
+h2.fold .fnum{background:var(--panel2);border:1px solid var(--rule);padding:0 6px;font-size:11px;color:var(--gray)}
 /* 案件の手順 */
 .steps{margin-top:10px}
 .stbar{height:6px;background:var(--panel2);border:2px solid var(--rule);margin-bottom:7px}
@@ -1160,6 +1165,11 @@ h2{font-family:var(--pix);font-size:12px;color:var(--gray);margin:24px 0 8px;let
 .btn.evdone{border-color:var(--person);color:var(--person-deep);box-shadow:2px 2px 0 var(--person)}
 .btn.evdone:hover{background:var(--person);color:#fff}
 .row.evfin .btn.evdone{border-color:var(--rule);color:var(--gray);box-shadow:2px 2px 0 var(--rule)}
+/* 見出しの開閉 */
+h2.fold{display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none}
+h2.fold .fmark{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border:2px solid var(--rule);background:var(--panel);color:var(--gray);font-size:11px;line-height:1;flex:none}
+h2.fold.open .fmark{background:var(--ink);border-color:var(--ink);color:var(--panel)}
+h2.fold .fnum{background:var(--panel2);border:1px solid var(--rule);padding:0 6px;font-size:11px;color:var(--gray)}
 /* 案件の手順 */
 .steps{margin-top:10px}
 .stbar{height:6px;background:var(--panel2);border:2px solid var(--rule);margin-bottom:7px}
@@ -2354,10 +2364,10 @@ function vToday(){
   const night=new Date().getHours()>=15;
   h+=`<div class="toolbar" style="margin-top:14px">${night?`<button class="btn" onclick="openQuickModal('night')">帰宅メモ（明日のこと）</button><button class="btn ghost small" onclick="openQuickModal('morning')">今日のメモ</button>`:`<button class="btn" onclick="openQuickModal('morning')">今朝のメモを入れる</button><button class="btn ghost small" onclick="openQuickModal('night')">明日のメモ</button>`}</div>`;
   const restOpen=rest.filter(e=>!eventDone(e)), restDone=rest.filter(eventDone);
-  h+=`<h2>本日のご予定</h2>`;
-  h+=restOpen.length?restOpen.map(e=>rowEvent(e,{check:true})).join('')
+  h+=foldHead('t-ev','本日のご予定',restOpen.length);
+  h+=!isOpen('t-ev')?'':restOpen.length?restOpen.map(e=>rowEvent(e,{check:true})).join('')
     :(rest.length?`<div class="empty">本日のご予定はすべて終わりました。</div>`:`<div class="empty">予定はありません。</div>`);
-  if(restDone.length)h+=`<details><summary>済んだ予定 ${restDone.length}件</summary>${restDone.map(e=>rowEvent(e,{check:true})).join('')}</details>`;
+  if(restDone.length&&isOpen('t-ev'))h+=`<details><summary>済んだ予定 ${restDone.length}件</summary>${restDone.map(e=>rowEvent(e,{check:true})).join('')}</details>`;
   h+=`<h2>本日中</h2>`;
   if(due.length)h+=due.map(d=>d.k==='task'?rowTask(d.x,true):rowMail(d.x,true)).join('');
   else h+=`<div class="empty">本日中の案件はありません。</div>`;
@@ -2477,22 +2487,30 @@ function vCal(){
   if(calMode==='day'){
     const ev=eventsOn(calAnchor);
     h+=dutyChips(calAnchor);
-    h+=ev.length?ev.map(e=>rowEvent(e,{check:true})).join(''):`<div class="empty">予定はありません。<div style="margin-top:10px"><button class="btn small" onclick="openEventModal({date:'${calAnchor}'})">登録する</button></div></div>`;
+    // 予定
+    h+=foldHead('d-ev','予定',ev.length);
+    if(isOpen('d-ev'))h+=ev.length?ev.map(e=>rowEvent(e,{check:true})).join(''):`<div class="empty">予定はありません。<div style="margin-top:10px"><button class="btn small" onclick="openEventModal({date:'${calAnchor}'})">登録する</button></div></div>`;
     // その日が期限の案件
-    const dayTasks=D.tasks.filter(t=>t.status==='open'&&t.due===calAnchor)
-      .sort((a,b)=>staleDays(b)-staleDays(a));
+    const dayTasks=D.tasks.filter(t=>t.status==='open'&&t.due===calAnchor).sort((a,b)=>staleDays(b)-staleDays(a));
     const late=(calAnchor===today())?D.tasks.filter(t=>t.status==='open'&&t.due&&t.due<calAnchor):[];
-    if(dayTasks.length||late.length){
-      h+=`<h2>この日の案件 ${dayTasks.length+late.length}件</h2>`;
-      h+=dayTasks.map(t=>rowTask(t)).join('');
-      if(late.length)h+=`<details><summary>期限が過ぎている案件 ${late.length}件</summary>${late.map(t=>rowTask(t)).join('')}</details>`;
-    }
-    // 人に振った案件のうち、その日が期限のもの
     const dlg=D.tasks.filter(t=>t.status==='delegated'&&t.due===calAnchor);
-    if(dlg.length)h+=`<h2>依頼中（この日が期限）</h2>`+dlg.map(t=>`<div class="row person"><div class="t"><div class="ttl">${esc(t.title)}</div><div class="sub">${esc(t.assignee||'')}さんへ</div></div><div class="acts"><button class="btn small" onclick="taskDone('${t.id}')">完了</button></div></div>`).join('');
-    h+=`<div class="toolbar" style="margin-top:10px"><span class="sp"></span><button class="btn ghost small" onclick="openTaskModal(null,{due:'${calAnchor}'})">この日の案件を足す</button></div>`;
+    if(dayTasks.length||late.length){
+      h+=foldHead('d-task','この日の案件',dayTasks.length+late.length);
+      if(isOpen('d-task')){
+        h+=dayTasks.map(t=>rowTask(t)).join('');
+        if(late.length)h+=`<details><summary>期限が過ぎている案件 ${late.length}件</summary>${late.map(t=>rowTask(t)).join('')}</details>`;
+      }
+    }
+    if(dlg.length){
+      h+=foldHead('d-dlg','依頼中',dlg.length);
+      if(isOpen('d-dlg'))h+=dlg.map(t=>`<div class="row person"><div class="t"><div class="ttl">${esc(t.title)}</div><div class="sub">${esc(t.assignee||'')}さんへ</div></div><div class="acts"><button class="btn small" onclick="taskDone('${t.id}')">完了</button></div></div>`).join('');
+    }
+    h+=`<div class="toolbar" style="margin-top:10px"><span class="sp"></span><button class="btn ghost small" onclick="openEventModal({date:'${calAnchor}'})">予定を足す</button><button class="btn ghost small" onclick="openTaskModal(null,{due:'${calAnchor}'})">案件を足す</button></div>`;
     const w=workingOn(calAnchor);
-    if(w&&w.length)h+=`<h2>この日の出勤 ${w.length}名</h2>`+vShiftDay(calAnchor);
+    if(w&&w.length){
+      h+=foldHead('d-shift','この日の出勤',w.length,false);   // 既定は閉じる
+      if(isOpen('d-shift',false))h+=vShiftDay(calAnchor);
+    }
   }
   else if(calMode==='week'){
     const ws=weekStart(calAnchor);
@@ -4427,6 +4445,20 @@ function doShiftImport(){
 }
 
 let shiftView='pri';
+/* ===== 見出しの開閉 ===== */
+let FOLD={};
+try{FOLD=JSON.parse(localStorage.getItem('mii-fold')||'{}')}catch(e){FOLD={}}
+function isOpen(key,def){return FOLD[key]===undefined?(def!==false):!!FOLD[key]}
+function toggleFold(key,def){
+  FOLD[key]=!isOpen(key,def);
+  try{localStorage.setItem('mii-fold',JSON.stringify(FOLD))}catch(e){}
+  render();
+}
+function foldHead(key,label,count,def){
+  const open=isOpen(key,def);
+  return `<h2 class="fold ${open?'open':''}" onclick="toggleFold('${key}',${def!==false})">
+    <span class="fmark">${open?'－':'＋'}</span>${esc(label)}${count!==undefined?`<span class="fnum">${count}</span>`:''}</h2>`;
+}
 function vShiftDay(date){
   const w=workingOn(date);
   if(w===null)return `<div class="empty">${date.slice(0,7)}の勤務表がまだありません。<div style="margin-top:10px"><button class="btn small" onclick="openShiftModal()">勤務表を取り込む</button></div></div>`;
