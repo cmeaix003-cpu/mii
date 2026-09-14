@@ -2474,9 +2474,26 @@ function vCal(){
     if(ms.length)h+=`<p class="small muted" style="margin-top:14px">取り込み済み：${ms.join('／')}</p>`;
     return h;
   }
-  if(calMode==='day'){const ev=eventsOn(calAnchor);h+=dutyChips(calAnchor);h+=ev.length?ev.map(e=>rowEvent(e,{check:true})).join(''):`<div class="empty">予定はありません。<div style="margin-top:10px"><button class="btn small" onclick="openEventModal({date:'${calAnchor}'})">登録する</button></div></div>`;
+  if(calMode==='day'){
+    const ev=eventsOn(calAnchor);
+    h+=dutyChips(calAnchor);
+    h+=ev.length?ev.map(e=>rowEvent(e,{check:true})).join(''):`<div class="empty">予定はありません。<div style="margin-top:10px"><button class="btn small" onclick="openEventModal({date:'${calAnchor}'})">登録する</button></div></div>`;
+    // その日が期限の案件
+    const dayTasks=D.tasks.filter(t=>t.status==='open'&&t.due===calAnchor)
+      .sort((a,b)=>staleDays(b)-staleDays(a));
+    const late=(calAnchor===today())?D.tasks.filter(t=>t.status==='open'&&t.due&&t.due<calAnchor):[];
+    if(dayTasks.length||late.length){
+      h+=`<h2>この日の案件 ${dayTasks.length+late.length}件</h2>`;
+      h+=dayTasks.map(t=>rowTask(t)).join('');
+      if(late.length)h+=`<details><summary>期限が過ぎている案件 ${late.length}件</summary>${late.map(t=>rowTask(t)).join('')}</details>`;
+    }
+    // 人に振った案件のうち、その日が期限のもの
+    const dlg=D.tasks.filter(t=>t.status==='delegated'&&t.due===calAnchor);
+    if(dlg.length)h+=`<h2>依頼中（この日が期限）</h2>`+dlg.map(t=>`<div class="row person"><div class="t"><div class="ttl">${esc(t.title)}</div><div class="sub">${esc(t.assignee||'')}さんへ</div></div><div class="acts"><button class="btn small" onclick="taskDone('${t.id}')">完了</button></div></div>`).join('');
+    h+=`<div class="toolbar" style="margin-top:10px"><span class="sp"></span><button class="btn ghost small" onclick="openTaskModal(null,{due:'${calAnchor}'})">この日の案件を足す</button></div>`;
     const w=workingOn(calAnchor);
-    if(w&&w.length)h+=`<h2>この日の出勤 ${w.length}名</h2>`+vShiftDay(calAnchor);}
+    if(w&&w.length)h+=`<h2>この日の出勤 ${w.length}名</h2>`+vShiftDay(calAnchor);
+  }
   else if(calMode==='week'){
     const ws=weekStart(calAnchor);
     h+=`<div class="wk">`+[0,1,2,3,4,5,6].map(i=>{const dd=addDays(ws,i);const ev=eventsOn(dd);const isT=dd===today();
