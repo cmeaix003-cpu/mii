@@ -2441,7 +2441,8 @@ function openTaskModal(id,preset){
   <div class="f"><label>内容</label><input id="tk-title" value="${esc(t.title)}" placeholder="例：派遣会社に来月の人数を返答"></div>
   <div class="f"><label>期限（必須ではありませんが、無いと沈みます）</label><input id="tk-due" type="date" value="${t.due||''}"></div>
   <div class="f"><label>メモ</label><textarea id="tk-memo">${esc(t.memo||'')}</textarea></div>
-  <div class="f"><label>手順（1行に1つ・あとから足せます）</label><textarea id="tk-steps" style="min-height:80px" placeholder="人数を確認する&#10;上長に相談する&#10;メールを送る">${esc(stepsOf(t).map(x=>x.t).join('\n'))}</textarea></div>
+  ${(id&&stepsOf(t).length)?`<div class="f"><label>手順（タップで済／未を切り替え）</label><div id="tk-stlist">${stepsHtml(t,true)}</div></div>`:''}
+  <div class="f"><label>${(id&&stepsOf(t).length)?'手順を書き換える':'手順（1行に1つ・任意）'}</label><textarea id="tk-steps" style="min-height:80px" placeholder="人数を確認する&#10;上長に相談する&#10;メールを送る">${esc(stepsOf(t).map(x=>x.t).join('\n'))}</textarea></div>
   <div class="foot">${id?`<button class="btn ghost" onclick="delTask('${id}')">削除</button>`:''}<button class="btn ghost" onclick="closeModal()">やめる</button><button class="btn solid" onclick="saveTask('${id||''}')">${id?'保存':'入れる'}</button></div>`);
   setTimeout(()=>document.getElementById('tk-title').focus(),50);
 }
@@ -2473,7 +2474,7 @@ function vCal(){
     if(ms.length)h+=`<p class="small muted" style="margin-top:14px">取り込み済み：${ms.join('／')}</p>`;
     return h;
   }
-  if(calMode==='day'){const ev=eventsOn(calAnchor);h+=dutyChips(calAnchor);h+=ev.length?ev.map(rowEvent).join(''):`<div class="empty">予定はありません。<div style="margin-top:10px"><button class="btn small" onclick="openEventModal({date:'${calAnchor}'})">登録する</button></div></div>`;
+  if(calMode==='day'){const ev=eventsOn(calAnchor);h+=dutyChips(calAnchor);h+=ev.length?ev.map(e=>rowEvent(e,{check:true})).join(''):`<div class="empty">予定はありません。<div style="margin-top:10px"><button class="btn small" onclick="openEventModal({date:'${calAnchor}'})">登録する</button></div></div>`;
     const w=workingOn(calAnchor);
     if(w&&w.length)h+=`<h2>この日の出勤 ${w.length}名</h2>`+vShiftDay(calAnchor);}
   else if(calMode==='week'){
@@ -2504,8 +2505,9 @@ function openEventModal(e){
   <div class="f2"><div class="f"><label>日付</label><input id="ev-date" type="date" value="${e.date||today()}"></div><div class="f"><label>時間</label><div style="display:flex;gap:6px;align-items:center"><input id="ev-start" type="time" value="${e.start||'10:00'}"><span>〜</span><input id="ev-end" type="time" value="${e.end||'11:00'}"></div></div></div>
   <div id="ev-extra"></div>
   <div class="f"><label>メモ</label><textarea id="ev-memo">${esc(e.memo||'')}</textarea></div>
-  ${isNew?'':`<div class="f"><label>手順（1行に1つ）</label><textarea id="ev-steps" style="min-height:70px" placeholder="資料を印刷する&#10;前回の議事録を確認">${esc(evSteps(e).map(x=>x.t).join('\n'))}</textarea>
-  ${extractChecks(e.memo||'').length?`<div style="margin-top:6px"><button class="btn ghost small" onclick="useMemoChecks('${e.id}')">メモの中のリスト${extractChecks(e.memo||'').length}件を取り込む</button></div>`:''}</div>`}
+  ${(!isNew&&evSteps(e).length)?`<div class="f"><label>手順（タップで済／未を切り替え）</label><div id="ev-stlist">${evStepsHtml(e,true)}</div></div>`:''}
+  <div class="f"><label>${(!isNew&&evSteps(e).length)?'手順を書き換える':'手順（1行に1つ・任意）'}</label><textarea id="ev-steps" style="min-height:70px" placeholder="資料を印刷する&#10;前回の議事録を確認">${esc(evSteps(e).map(x=>x.t).join('\n'))}</textarea>
+  ${(!isNew&&extractChecks(e.memo||'').length)?`<div style="margin-top:6px"><button class="btn ghost small" onclick="useMemoChecks('${e.id}')">メモの中のリスト${extractChecks(e.memo||'').length}件を取り込む</button></div>`:''}</div>
   <div id="ev-warn"></div>
   <div class="foot">${isNew?'':`<button class="btn ghost" onclick="delEvent('${e.id}')">削除</button>`}<button class="btn ghost" onclick="closeModal()">やめる</button><button class="btn solid" onclick="saveEvent('${e.id||''}','${e.taskId||''}')">${isNew?'登録':'保存'}</button></div>
   <datalist id="staff-list">${staffOpts}</datalist>`);
@@ -2565,7 +2567,14 @@ function saveEvent(id,taskId){
       ev.steps=lines.map(s=>{const o=prev.find(p=>p.t===s);return o?o:{id:uid(),t:s,done:false}});
     }
     D.events[i]={...D.events[i],...ev};
-  }else D.events.push(ev);
+  }else{
+    const el0=document.getElementById('ev-steps');
+    if(el0){
+      const lines=el0.value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+      if(lines.length)ev.steps=lines.map(s=>({id:uid(),t:s,done:false}));
+    }
+    D.events.push(ev);
+  }
   if(taskId){const t=D.tasks.find(x=>x.id===taskId);if(t){t.status='scheduled';t.eventId=ev.id}}
   closeModal();store.save();render();toast(id?'保存しました':'登録しました');
 }
@@ -3910,13 +3919,30 @@ function toggleEvStep(evId,sid,ev){
   if(e.done&&st.done<st.n){e.done=false;e.doneAt=''}
   store.save();render();
 }
+function toggleEvStepInModal(evId,sid,ev){
+  if(ev&&ev.stopPropagation)ev.stopPropagation();
+  const e=D.events.find(x=>x.id===evId);if(!e)return;
+  const s=(e.steps||[]).find(x=>x.id===sid);if(!s)return;
+  s.done=!s.done;
+  const st=evStepStat(e);
+  if(st.n&&st.done===st.n)e.done=true; else if(e.done)e.done=false;
+  store.save();
+  const box=document.getElementById('ev-stlist');
+  if(box)box.innerHTML=evStepsHtml(e,true);
+}
 function delEvStep(evId,sid,ev){
   if(ev&&ev.stopPropagation)ev.stopPropagation();
   const e=D.events.find(x=>x.id===evId);if(!e)return;
   e.steps=(e.steps||[]).filter(x=>x.id!==sid);store.save();render();
 }
-function evStepsHtml(e){
+function evStepsHtml(e,inModal){
   const s=evSteps(e);if(!s.length)return '';
+  if(inModal){
+    const st=evStepStat(e);const pct=st.n?Math.round(st.done/st.n*100):0;
+    return `<div class="steps"><div class="stbar"><span style="width:${pct}%"></span></div>
+      <div class="stlist">${s.map(x=>`<button class="stitem ${x.done?'on':''}" onclick="toggleEvStepInModal('${e.id}','${x.id}',event)">
+      <i>${x.done?'✓':''}</i><span>${esc(x.t)}</span></button>`).join('')}</div></div>`;
+  }
   const st=evStepStat(e);const pct=st.n?Math.round(st.done/st.n*100):0;
   return `<div class="steps" onclick="event.stopPropagation()">
     <div class="stbar"><span style="width:${pct}%"></span></div>
@@ -3988,6 +4014,14 @@ function toggleStep(taskId,sid,ev){
   if(t.status==='done'&&st.done<st.n){t.status='open';t.doneAt=''}
   store.save();render();
 }
+function toggleStepInModal(taskId,sid,ev){
+  if(ev&&ev.stopPropagation)ev.stopPropagation();
+  const t=D.tasks.find(x=>x.id===taskId);if(!t)return;
+  const s=(t.steps||[]).find(x=>x.id===sid);if(!s)return;
+  s.done=!s.done;store.save();
+  const box=document.getElementById('tk-stlist');
+  if(box)box.innerHTML=stepsHtml(t,true);
+}
 function addStep(taskId,text){
   const t=D.tasks.find(x=>x.id===taskId);if(!t)return;
   const v=String(text||'').trim();if(!v)return;
@@ -4001,9 +4035,15 @@ function delStep(taskId,sid,ev){
   t.steps=(t.steps||[]).filter(x=>x.id!==sid);
   store.save();render();
 }
-function stepsHtml(t){
+function stepsHtml(t,inModal){
   const s=stepsOf(t);
   if(!s.length)return '';
+  if(inModal){
+    const st0=stepStat(t);const p0=st0.n?Math.round(st0.done/st0.n*100):0;
+    return `<div class="steps"><div class="stbar"><span style="width:${p0}%"></span></div>
+      <div class="stlist">${s.map(x=>`<button class="stitem ${x.done?'on':''}" onclick="toggleStepInModal('${t.id}','${x.id}',event)">
+      <i>${x.done?'✓':''}</i><span>${esc(x.t)}</span></button>`).join('')}</div></div>`;
+  }
   const st=stepStat(t);
   const pct=st.n?Math.round(st.done/st.n*100):0;
   return `<div class="steps">
