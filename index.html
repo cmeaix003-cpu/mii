@@ -780,7 +780,7 @@ const store={
           if(j&&j.ok){window._baseAt=j.updatedAt||D.meta.updatedAt;setSave('ok','シートに保存 '+new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}))}
           else throw new Error(j&&j.error||'unknown');
         }catch(e){setSave('err','シート保存失敗');}
-      },600);
+      },1800);
     }else setSave(okLocal?'ok':'','この端末に保存');
   },
 
@@ -1617,7 +1617,7 @@ const store={
           if(j&&j.ok){window._baseAt=j.updatedAt||D.meta.updatedAt;setSave('ok','シートに保存 '+new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}))}
           else throw new Error(j&&j.error||'unknown');
         }catch(e){setSave('err','シート保存失敗');}
-      },600);
+      },1800);
     }else setSave(okLocal?'ok':'','この端末に保存');
   },
 
