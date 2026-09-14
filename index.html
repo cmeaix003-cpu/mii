@@ -311,6 +311,9 @@ h2{font-family:var(--pix);font-size:12px;color:var(--gray);margin:24px 0 8px;let
 .btn.evdone{border-color:var(--person);color:var(--person-deep);box-shadow:2px 2px 0 var(--person)}
 .btn.evdone:hover{background:var(--person);color:#fff}
 .row.evfin .btn.evdone{border-color:var(--rule);color:var(--gray);box-shadow:2px 2px 0 var(--rule)}
+/* 退職 */
+.card.gone{opacity:.45}
+.card.gone .nm{text-decoration:line-through}
 /* お任せ */
 .dbar{height:6px;background:var(--panel2);border:2px solid var(--rule);margin:6px 0 5px}
 .dbar span{display:block;height:100%;background:var(--person)}
@@ -1192,6 +1195,9 @@ h2{font-family:var(--pix);font-size:12px;color:var(--gray);margin:24px 0 8px;let
 .btn.evdone{border-color:var(--person);color:var(--person-deep);box-shadow:2px 2px 0 var(--person)}
 .btn.evdone:hover{background:var(--person);color:#fff}
 .row.evfin .btn.evdone{border-color:var(--rule);color:var(--gray);box-shadow:2px 2px 0 var(--rule)}
+/* 退職 */
+.card.gone{opacity:.45}
+.card.gone .nm{text-decoration:line-through}
 /* お任せ */
 .dbar{height:6px;background:var(--panel2);border:2px solid var(--rule);margin:6px 0 5px}
 .dbar span{display:block;height:100%;background:var(--person)}
@@ -2245,11 +2251,11 @@ function vTrend(){
 /* ========== 今の状態（4つのパラメータ） ========== */
 function statusParams(){
   const t=today(), ws=weekStart(t);
-  const n=Math.max(1,D.staff.length);
+  const n=Math.max(1,activeStaff().length);
   // ① 人：30日で話せた割合＋長期沈黙の重み
   const from30=addDays(t,-29);
   const met=new Set(D.events.filter(e=>e.cat==='人'&&e.date>=from30&&e.date<=t&&e.staffName).map(e=>e.staffName)).size;
-  const long=D.staff.filter(p=>!p.lastContact||diffDays(p.lastContact,t)>=90).length;
+  const long=activeStaff().filter(p=>!p.lastContact||diffDays(p.lastContact,t)>=90).length;
   const goal=weekGoal(t), hrs=weekPeopleHours(t);
   let people=D.staff.length? Math.round( (met/n)*60 + (1-Math.min(1,long/n))*25 + Math.min(1,goal?hrs/goal:0)*15 ) : 50;
   // ② 捌き：未処理と停滞
@@ -2377,7 +2383,7 @@ function voice(){
     if(tc&&(new Date().getDay()===1||b.k==='busy'||b.k==='hard'))last=tc;
     else if(b.k==='hard'||b.k==='busy')last=b.s+'。';
     else{
-      const cand=D.staff.map(p=>({p,sc:staffScore(p)})).filter(x=>x.sc>=40).sort((x,y)=>y.sc-x.sc)[0];
+      const cand=activeStaff().map(p=>({p,sc:staffScore(p)})).filter(x=>x.sc>=40).sort((x,y)=>y.sc-x.sc)[0];
       if(cand)last='今週は'+cand.p.name.split(' ')[0]+'さんにお声がけを。';
       else if(b.k==='calm')last='ゆとりがございます。人に時間を。';
     }
@@ -2509,16 +2515,48 @@ function taskReopen(id){const t=D.tasks.find(x=>x.id===id);t.status='open';t.ass
 function taskToEvent(id){const t=D.tasks.find(x=>x.id===id);openEventModal({date:t.due||today(),title:t.title,type:'作業',taskId:id})}
 function taskDelegate(id){
   const t=D.tasks.find(x=>x.id===id);
-  const opts=D.staff.map(p=>`<option>${esc(p.name)}</option>`).join('');
-  openModal(`<h3>人に振る</h3><div class="hint">${esc(t.title)}</div>
-  <div class="f"><label>誰に</label><input id="dg-who" list="staff-list" placeholder="名前"><datalist id="staff-list">${opts}</datalist></div>
-  <div class="f"><label>期限</label><input id="dg-due" type="date" value="${t.due||addDays(today(),7)}"></div>
-  <div class="foot"><button class="btn ghost" onclick="closeModal()">やめる</button><button class="btn solid" onclick="doDelegate('${id}')">振る</button></div>`);
-  setTimeout(()=>document.getElementById('dg-who').focus(),50);
+  // 直近の勤務表にいる人を先に、その他の在籍者を後に
+  const act=activeStaff();
+  const onShift=act.filter(p=>inRecentShift(p.name));
+  const rest=act.filter(p=>!inRecentShift(p.name));
+  const past=[...new Set(delegLog().map(x=>x.to).filter(n=>n&&!resolveStaff(n)))];  // 過去に頼んだ他部署
+  const opt=p=>`<option value="${esc(p.name)}">${esc(p.name)}（${esc(p.kind)}）</option>`;
+  openModal(`<h3>人にお任せする</h3><div class="hint">${esc(t.title)}</div>
+  <div class="f"><label>誰に</label>
+    <select id="dg-sel" onchange="dgPick(this.value)">
+      <option value="">選んでください</option>
+      ${onShift.length?`<optgroup label="直近の勤務表にいる方">${onShift.map(opt).join('')}</optgroup>`:''}
+      ${rest.length?`<optgroup label="その他の在籍者">${rest.map(opt).join('')}</optgroup>`:''}
+      ${past.length?`<optgroup label="他部署・社外（これまでの依頼先）">${past.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('')}</optgroup>`:''}
+      <option value="__other">他部署・社外の方（新しく入力）</option>
+    </select>
+  </div>
+  <div class="f" id="dg-otherbox" style="display:none"><label>お名前・部署</label><input id="dg-other" placeholder="例：技術部 鈴木"></div>
+  <div id="dg-info"></div>
+  <div class="f"><label>いつまでに</label><input id="dg-due" type="date" value="${t.due||addDays(today(),7)}"></div>
+  <div class="foot"><button class="btn ghost" onclick="closeModal()">やめる</button><button class="btn solid" onclick="doDelegate('${id}')">お任せする</button></div>`);
+}
+function dgPick(v){
+  const box=document.getElementById('dg-otherbox');
+  const info=document.getElementById('dg-info');
+  box.style.display=(v==='__other')?'':'none';
+  if(v==='__other'){info.innerHTML='';setTimeout(()=>{const e=document.getElementById('dg-other');if(e)e.focus()},50);return}
+  if(!v){info.innerHTML='';return}
+  const p=resolveStaff(v);
+  const o=delegStats(89).by[v];
+  const bits=[];
+  if(p){
+    const c=(p.conditions||[]);
+    if(c.length&&c[c.length-1].v>=4)bits.push('最近のコンディションが下がっています');
+    if(!inRecentShift(p.name))bits.push('直近の勤務表に名前がありません');
+  }
+  if(o)bits.push(`これまで${o.n}件をお任せ（完了${o.done}${o.onTime!==null?'・期限内'+o.onTime+'％':''}）`);
+  info.innerHTML=bits.length?`<div class="warn">${bits.map(esc).join('<br>')}</div>`:'';
 }
 function doDelegate(id){
-  const who=document.getElementById('dg-who').value.trim();
-  if(!who){toast('名前を入れてください');return}
+  const sel=document.getElementById('dg-sel').value;
+  const who=(sel==='__other')?document.getElementById('dg-other').value.trim():sel;
+  if(!who){toast('お任せする方を選んでください');return}
   const t=D.tasks.find(x=>x.id===id);
   t.status='delegated';t.assignee=who;t.due=document.getElementById('dg-due').value;
   const p=resolveStaff(who);
@@ -2742,9 +2780,14 @@ function saveManualMail(){
 /* --- 人 --- */
 function vPeople(){
   const pd=peopleDate||today();
-  const all=D.staff.map(p=>({p,sc:staffScore(p)}));
+  const all=activeStaff().map(p=>({p,sc:staffScore(p)}));
   const pick=all.filter(x=>x.sc>=40).sort((a,b)=>b.sc-a.sc).slice(0,5);
-  let list=peopleFilter==='全'?all:peopleFilter==='要'?all.filter(x=>x.sc>=40):peopleFilter==='出'?all.filter(x=>{const c=shiftOf(x.p.name,pd);return c!==null&&!isOff(c)}):all.filter(x=>x.p.kind===peopleFilter);
+  let list;
+  if(peopleFilter==='退')list=retiredStaff().map(p=>({p,sc:0}));
+  else if(peopleFilter==='全')list=all;
+  else if(peopleFilter==='要')list=all.filter(x=>x.sc>=40);
+  else if(peopleFilter==='出')list=all.filter(x=>{const c=shiftOf(x.p.name,pd);return c!==null&&!isOff(c)});
+  else list=all.filter(x=>x.p.kind===peopleFilter);
   list.sort((a,b)=>b.sc-a.sc);
   let h=`<h1>PEOPLE</h1>`;
   if(!D.staff.length)return h+`<div class="empty"><b>まだ名簿がありません。</b><br>エクセルファイルを選ぶだけで一括登録できます。<div style="margin-top:10px"><button class="btn" onclick="openImportModal()">名簿を取り込む</button> <button class="btn ghost" onclick="openStaffModal()">1人ずつ登録</button></div></div>`;
@@ -2760,10 +2803,12 @@ function vPeople(){
     <span class="wcount">${hasShift?(w?w.length+'名 出勤':''):'勤務表なし'}</span>
   </div>`;
   if(!hasShift)h+=`<div class="toolbar"><span class="small muted">${pd.slice(0,7)}の勤務表を入れると、出勤状況がカードに出ます</span><span class="sp"></span><button class="btn ghost small" onclick="openShiftModal('${pd.slice(0,7)}')">勤務表を取り込む</button></div>`;
+  const gone=goneFromShift();
+  if(gone.length)h+=`<div class="warn"><b>勤務表から名前が消えている方が${gone.length}名</b><br>${gone.slice(0,6).map(p=>esc(p.name)).join('　')}${gone.length>6?' ほか':''}<br><span class="small">退職・異動でしたら、その方を開いて「退職として記録」を押してください。集計から外れます。</span></div>`;
   h+=condBar();
   h+=`<h2>今週、お声がけを</h2>`;
   h+=pick.length?`<div class="grid">${pick.map(x=>cardStaff(x.p,true,pd)).join('')}</div>`:`<div class="empty">今週は特に浮上している方はいません。</div>`;
-  h+=`<h2>全員</h2><div class="toolbar"><div class="seg">${['全','要','出',...KINDS].map(k=>`<button class="${peopleFilter===k?'on':''}" onclick="peopleFilter='${k}';render()">${k==='全'?'全員':k==='要'?'要対応':k==='出'?'出勤者':k}</button>`).join('')}</div><span class="sp"></span><button class="btn ghost small" onclick="openBulkKind()">区分を直す</button><button class="btn ghost small" onclick="openImportModal()">名簿を取り込む</button></div>`;
+  h+=`<h2>全員</h2><div class="toolbar"><div class="seg">${['全','要','出',...KINDS,...(retiredStaff().length?['退']:[])].map(k=>`<button class="${peopleFilter===k?'on':''}" onclick="peopleFilter='${k}';render()">${k==='全'?'全員 '+activeStaff().length:k==='要'?'要対応':k==='出'?'出勤者':k==='退'?'退職 '+retiredStaff().length:k}</button>`).join('')}</div><span class="sp"></span><button class="btn ghost small" onclick="openBulkKind()">区分を直す</button><button class="btn ghost small" onclick="openImportModal()">名簿を取り込む</button></div>`;
   h+=`<div class="grid">${list.map(x=>cardStaff(x.p,false,pd)).join('')}</div>`;
   return h;
 }
@@ -2775,7 +2820,7 @@ function cardStaff(p,big,pd){
   const code=shiftOf(p.name,pd);const off=code!==null&&isOff(code);const work=code!==null&&!off;
   const dots=[0,1,2].map(i=>{const v=c[i-(3-c.length)];const sz=i===2?14:i===1?10:7;return v?`<i class="c${v.v}" style="width:${sz}px;height:${sz}px"></i>`:`<i style="width:${sz}px;height:${sz}px"></i>`}).join('');
   const shiftTag=code===null?'':(off?`<span class="shbadge off">休</span>`:`<span class="shbadge on">${esc(code)}</span>`);
-  return `<div class="card cond${lc} ${big?'big':''} ${off?'isoff':''} ${work?'iswork':''}" onclick="onCardTap('${p.id}','${pd}')">${ren?`<span class="ren">更新 ${r}日前</span>`:''}<div class="nmrow">${avatarTag(p)}<span class="nm">${esc(p.name)}</span></div><span class="kd">${esc(p.kind)}</span>${shiftTag}<div class="dots">${dots}</div>${condSpark(p)}<div class="last ${gap!==null&&gap>target?'over':''}">${gap===null?'未接触':gap+'日前に接触'}</div>${big?`<div class="why">${esc(staffWhy(p))}</div>`:''}</div>`;
+  return `<div class="card cond${lc} ${big?'big':''} ${off?'isoff':''} ${work?'iswork':''} ${isActive(p)?'':'gone'}" onclick="onCardTap('${p.id}','${pd}')">${isActive(p)?'':'<span class="ren" style="background:var(--gray)">退職</span>'}${ren?`<span class="ren">更新 ${r}日前</span>`:''}<div class="nmrow">${avatarTag(p)}<span class="nm">${esc(p.name)}</span></div><span class="kd">${esc(p.kind)}</span>${shiftTag}<div class="dots">${dots}</div>${condSpark(p)}<div class="last ${gap!==null&&gap>target?'over':''}">${gap===null?'未接触':gap+'日前に接触'}</div>${big?`<div class="why">${esc(staffWhy(p))}</div>`:''}</div>`;
 }
 function onCardTap(id,pd){
   const p=D.staff.find(x=>x.id===id);
@@ -2891,7 +2936,8 @@ function openStaffDetail(id){
   <div class="f"><label>一言メモ・面談内容（任意）</label><textarea id="st-note"></textarea></div>
   <div class="f"><label>次回までの宿題（任意）</label><input id="st-hw" value=""></div>
   ${p.homework?`<div class="warn">前回の宿題：${esc(p.homework)}</div>`:''}
-  <div class="foot"><button class="btn ghost" onclick="openStaffModal('${id}')">情報を編集</button><button class="btn ghost" onclick="toggleFlag('${id}')">${p.flag?'気になる印を外す':'気になる印'}</button><button class="btn solid" onclick="logContact('${id}')">記録する</button></div>
+  ${isActive(p)?'':`<div class="warn"><b>退職として記録されています</b>（${esc(p.retiredAt||'')}）<br>集計や提案の対象から外れています。</div>`}
+  <div class="foot">${isActive(p)?`<button class="btn ghost" onclick="askRetire('${id}')">退職として記録</button>`:`<button class="btn ghost" onclick="setReturned('${id}');closeModal()">在籍に戻す</button>`}<button class="btn ghost" onclick="openStaffModal('${id}')">情報を編集</button><button class="btn ghost" onclick="toggleFlag('${id}')">${p.flag?'気になる印を外す':'気になる印'}</button><button class="btn solid" onclick="logContact('${id}')">記録する</button></div>
   ${(p.conditions||[]).length>=2?`<h2>コンディションの推移</h2><div class="sparkbig">${condSpark(p,280,72)}<div class="sparkax"><span>良好</span><span>要注意</span></div></div>`:''}
   ${(()=>{const ns=notesOf(id,p.name).slice(0,3);if(!ns.length)return '';return `<h2>いただいた声</h2>`+ns.map(n=>`<div class="row" onclick="closeModal();openNoteModal('${n.id}')"><div class="time">${n.at?fmtMD(n.at.slice(0,10)).replace(/（.）/,''):''}</div><div class="t"><div class="ttl">${esc(n.body.slice(0,40))}${n.body.length>40?'…':''}</div></div></div>`).join('')})()}
   ${(()=>{const ms=meetingsOf(id).slice(0,6);if(!ms.length)return '';return `<h2>面談の記録</h2>`+ms.map(e=>`<div class="row" onclick="openReport('${e.id}')"><div class="time">${fmtMD(e.date).replace(/（.）/,'')}</div><div class="t"><div class="ttl">${e.report?esc(e.report.slice(0,40))+(e.report.length>40?'…':''):'<span class="muted">未記録</span>'}</div><div class="sub">${e.theme?'テーマ：'+esc(e.theme):''}${e.nextTask?'　→ '+esc(e.nextTask.slice(0,30)):''}</div></div></div>`).join('')})()}
@@ -3515,8 +3561,32 @@ function doImport(){
     if(ex){Object.assign(ex,o);u++}else{D.staff.push({id:uid(),conditions:[],...o});n++}
   });
   window._imRows=null;
-  closeModal();store.save();render();toast(n+'名を追加、'+u+'名を更新しました');
+  // 今回の名簿に載っていない在籍者を知らせる
+  const names=src.map(r=>normName(r.name));
+  const missing=activeStaff().filter(p=>!names.includes(normName(p.name)));
+  closeModal();store.save();render();
+  toast(n+'名を追加、'+u+'名を更新しました');
+  if(missing.length&&src.length>=Math.max(3,D.staff.length*0.5))openMissingModal(missing);
 }
+/* 名簿に載っていなかった人を、退職として記録するか確認する */
+let MISS=[];
+function openMissingModal(list){
+  MISS=list.slice();
+  renderMissing();
+}
+function renderMissing(){
+  if(!MISS.length){closeModal();render();return}
+  openModal('<h3>名簿に載っていない方</h3>'
+   +'<div class="hint">今回の名簿に <b>'+MISS.length+'名</b> の名前がありませんでした。<br>退職・異動された方であれば記録してください。名簿の書き方が違うだけの場合は「そのまま」を選んでください。</div>'
+   +MISS.map((p,i)=>'<div class="row"><div class="t"><div class="ttl">'+esc(p.name)+'<span class="pill">'+esc(p.kind)+'</span></div>'
+     +'<div class="sub">'+(p.lastContact?'最後にお話ししたのは '+fmtMD(p.lastContact):'記録なし')+'</div>'
+     +'<div class="exits"><button class="btn small" onclick="missRetire('+i+')">退職として記録</button>'
+     +'<button class="btn ghost small" onclick="missKeep('+i+')">そのまま</button></div></div></div>').join('')
+   +'<div class="foot"><button class="btn ghost" onclick="MISS=[];renderMissing()">すべてそのまま</button></div>');
+}
+function missRetire(i){const p=MISS[i];setRetired(p.id,today());MISS.splice(i,1);renderMissing()}
+function missKeep(i){MISS.splice(i,1);renderMissing()}
+
 function guessKind(v){
   v=String(v||'');
   if(/派遣|ﾊｹﾝ/.test(v))return '派遣';           // 「派遣社員」を先に判定
@@ -3591,19 +3661,19 @@ function vBias(){
   let h=`<h2>この30日の偏り</h2>`;
   if(!s.count)return h+`<div class="empty">この30日に面談の記録がありません。</div>`;
   const rows=KINDS.map(k=>{
-    const n=D.staff.filter(p=>p.kind===k).length;if(!n)return '';
+    const n=activeStaff().filter(p=>p.kind===k).length;if(!n)return '';
     const hrs=s.byKind[k]||0;
     const per=n?hrs/n:0;
     const met=new Set(D.events.filter(e=>e.cat==='人'&&e.date>=from&&e.date<=to).map(e=>e.staffName)).size;
-    const kmet=D.staff.filter(p=>p.kind===k&&D.events.some(e=>e.cat==='人'&&e.date>=from&&e.date<=to&&e.staffName===p.name)).length;
+    const kmet=activeStaff().filter(p=>p.kind===k&&D.events.some(e=>e.cat==='人'&&e.date>=from&&e.date<=to&&e.staffName===p.name)).length;
     const pct=s.total?Math.round(hrs/s.total*100):0;
     return `<div class="biasrow"><div class="bk">${k}<span>${n}名</span></div>
       <div class="bbar"><div class="bfill" style="width:${pct}%"></div></div>
       <div class="bnum">${hrs.toFixed(1)}h<span>${kmet}/${n}名</span></div></div>`;
   }).join('');
-  const zero=D.staff.filter(p=>!D.events.some(e=>e.cat==='人'&&e.date>=from&&e.date<=to&&e.staffName===p.name));
+  const zero=activeStaff().filter(p=>!D.events.some(e=>e.cat==='人'&&e.date>=from&&e.date<=to&&e.staffName===p.name));
   return h+`<div class="condbox">${rows}
-    <div class="clegend" style="margin-top:10px"><span>合計 ${s.total.toFixed(1)}h ／ ${s.count}件</span><span class="sp"></span>1人あたり ${(s.total/Math.max(1,D.staff.length)).toFixed(2)}h</div>
+    <div class="clegend" style="margin-top:10px"><span>合計 ${s.total.toFixed(1)}h ／ ${s.count}件</span><span class="sp"></span>1人あたり ${(s.total/Math.max(1,activeStaff().length)).toFixed(2)}h</div>
     ${zero.length?`<div class="warn" style="margin:10px 0 0">30日間ひとりも話せていない方が <b>${zero.length}名</b>：${zero.slice(0,6).map(p=>esc(p.name)).join('　')}${zero.length>6?' ほか':''}</div>`:''}
     </div>`;
 }
@@ -3719,7 +3789,7 @@ function buildPlan(ws){
   const doneH=already.reduce((a,e)=>a+durH(e),0);
   const booked=new Set(already.map(e=>e.staffName).filter(Boolean));
   // 候補：浮上順、すでに予約済みの人は除く
-  const cand=D.staff.map(p=>({p,sc:staffScore(p)})).filter(x=>!booked.has(x.p.name)&&x.sc>=35&&staffWhy(x.p)).sort((a,b)=>b.sc-a.sc);
+  const cand=activeStaff().map(p=>({p,sc:staffScore(p)})).filter(x=>!booked.has(x.p.name)&&x.sc>=35&&staffWhy(x.p)).sort((a,b)=>b.sc-a.sc);
   const used={};
   const picks=[];
   const remain=Math.max(0,goal-doneH);
@@ -3758,7 +3828,7 @@ function buildPlan(ws){
   const un=unreadNotes();
   if(un.length)h+=`<h2>いただいた声</h2>`+un.slice(0,2).map(n=>`<div class="row due" onclick="openNoteModal('${n.id}')"><div class="t"><div class="ttl">${esc(n.from||'匿名')}さんから</div><div class="sub">${esc(n.body.slice(0,50))}${n.body.length>50?'…':''}</div></div></div>`).join('');
   const pend=pendingReports();
-  const zero=D.staff.filter(p=>!p.lastContact||diffDays(p.lastContact,today())>=120);
+  const zero=activeStaff().filter(p=>!p.lastContact||diffDays(p.lastContact,today())>=120);
   const sig=(shiftSignals()||[]).filter(s=>s.sev>=50);
   return {ws,we,goal,doneH,remain,picks,audit,stale,mailStale,pend,zero,sig,booked:already.length};
 }
@@ -3831,7 +3901,7 @@ function shiftSignals(){
   const cur=ms[0],prev=ms[1];
   if(!(D.shifts||{})[cur]||!(D.shifts||{})[prev])return null;
   const out=[];
-  D.staff.forEach(p=>{
+  activeStaff().forEach(p=>{
     const a=shiftProfile(p.name,cur),b=shiftProfile(p.name,prev);
     if(!a||!b||!b.work)return;
     const reasons=[];let sev=0;
@@ -4002,7 +4072,7 @@ function vRoutine(){
 function silenceBuckets(){
   const t=today();
   const B=[{k:'7日以内',max:7,n:[],c:'c1'},{k:'8〜30日',max:30,n:[],c:'c2'},{k:'31〜60日',max:60,n:[],c:'c3'},{k:'61〜90日',max:90,n:[],c:'c4'},{k:'91日以上',max:1e9,n:[],c:'c5'}];
-  D.staff.forEach(p=>{
+  activeStaff().forEach(p=>{
     const g=p.lastContact?diffDays(p.lastContact,t):99999;
     (B.find(b=>g<=b.max)||B[4]).n.push({p,g});
   });
@@ -4010,7 +4080,7 @@ function silenceBuckets(){
   return B;
 }
 function vSilence(){
-  const B=silenceBuckets();const total=D.staff.length;
+  const B=silenceBuckets();const total=activeStaff().length;
   let h=`<h2>沈黙の分布</h2>`;
   if(!total)return h+`<div class="empty">名簿がまだありません。</div>`;
   const max=Math.max(...B.map(b=>b.n.length));
@@ -4029,6 +4099,58 @@ function vSilence(){
 
 
 
+
+
+/* ===== 在籍と退職 ===== */
+function isActive(p){return !p.retiredAt}
+function activeStaff(){return D.staff.filter(isActive)}
+function retiredStaff(){return D.staff.filter(p=>!isActive(p))}
+/** 勤務表に名前があるか（直近2か月） */
+function inRecentShift(name){
+  const ms=monthKeys(2);
+  return ms.some(ym=>{
+    const m=(D.shifts||{})[ym];
+    if(!m)return false;
+    const n=normName(name);
+    return Object.keys(m).some(k=>normName(k)===n);
+  });
+}
+function askRetire(id){
+  const p=D.staff.find(x=>x.id===id);if(!p)return;
+  openModal('<h3>退職として記録</h3>'
+   +'<div class="hint">'+esc(p.name)+' さんを退職として記録します。<br>'
+   +'名簿からは消えません。面談の記録も残ります。以後、提案や集計の対象から外れます。</div>'
+   +'<div class="f"><label>最終出勤日（分かれば）</label><input id="rt-date" type="date" value="'+today()+'"></div>'
+   +'<div class="foot"><button class="btn ghost" onclick="openStaffDetail(\''+id+'\')">やめる</button>'
+   +'<button class="btn solid" onclick="doRetire(\''+id+'\')">記録する</button></div>');
+}
+function doRetire(id){
+  const d=document.getElementById('rt-date').value||today();
+  setRetired(id,d);closeModal();
+}
+function setRetired(id,date){
+  const p=D.staff.find(x=>x.id===id);if(!p)return;
+  p.retiredAt=date||today();
+  store.save();render();toast(p.name+'さんを退職として記録しました');
+}
+function setReturned(id){
+  const p=D.staff.find(x=>x.id===id);if(!p)return;
+  delete p.retiredAt;
+  store.save();render();toast(p.name+'さんを在籍に戻しました');
+}
+/** 勤務表から消えた人を見つける */
+function goneFromShift(){
+  const ms=monthKeys(3);
+  if(!ms.slice(0,2).some(ym=>(D.shifts||{})[ym]))return [];
+  return activeStaff().filter(p=>{
+    // 3か月前にはいたのに、直近2か月にいない
+    const old=(D.shifts||{})[ms[2]];
+    if(!old)return false;
+    const n=normName(p.name);
+    const wasThere=Object.keys(old).some(k=>normName(k)===n);
+    return wasThere&&!inRecentShift(p.name);
+  });
+}
 
 /* ========== 委任の記録と分析 ========== */
 function delegLog(){D.delegations=D.delegations||[];return D.delegations}
@@ -4062,7 +4184,7 @@ function delegStats(days){
 /** 任せていない人（社内のみ） */
 function neverDelegated(days){
   const s=delegStats(days);
-  return D.staff.filter(p=>!s.by[p.name]);
+  return activeStaff().filter(p=>!s.by[p.name]);
 }
 function vDeleg(){
   const s=delegStats(89);
@@ -4802,15 +4924,15 @@ function condSpark(p,w,hh){
 }
 function condStats(){
   const n=[0,0,0,0,0,0];let rec=0;
-  D.staff.forEach(p=>{const v=lastCond(p);if(v){n[v]++;rec++}});
-  return {n,rec,total:D.staff.length};
+  activeStaff().forEach(p=>{const v=lastCond(p);if(v){n[v]++;rec++}});
+  return {n,rec,total:activeStaff().length};
 }
 function condBar(){
   const s=condStats();if(!s.rec)return '';
   const seg=[1,2,3,4,5].map(v=>s.n[v]?`<div class="cseg c${v}" style="flex:${s.n[v]}" title="${v}：${s.n[v]}名"><span>${s.n[v]}</span></div>`:'').join('');
   const cov=Math.round(s.rec/Math.max(1,s.total)*100);
   const t=today();
-  const long=D.staff.filter(p=>!p.lastContact||diffDays(p.lastContact,t)>=90).length;
+  const long=activeStaff().filter(p=>!p.lastContact||diffDays(p.lastContact,t)>=90).length;
   const down=D.staff.filter(p=>{const c=p.conditions||[];return c.length>=2&&c[c.length-1].v>c[c.length-2].v}).length;
   return `<div class="condbox">
     <div class="cbar">${seg}</div>
