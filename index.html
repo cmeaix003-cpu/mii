@@ -311,6 +311,20 @@ h2{font-family:var(--pix);font-size:12px;color:var(--gray);margin:24px 0 8px;let
 .btn.evdone{border-color:var(--person);color:var(--person-deep);box-shadow:2px 2px 0 var(--person)}
 .btn.evdone:hover{background:var(--person);color:#fff}
 .row.evfin .btn.evdone{border-color:var(--rule);color:var(--gray);box-shadow:2px 2px 0 var(--rule)}
+/* 面談テーマ */
+.thitem{background:var(--panel2);border:2px solid var(--rule);border-radius:7px;overflow:hidden}
+.thitem.on{background:var(--person-tint);border-color:var(--person)}
+.thhead{display:flex;align-items:center;gap:8px;width:100%;text-align:left;padding:8px 9px;background:transparent}
+.thhead i{width:18px;height:18px;flex:none;border:2px solid var(--rule);background:var(--panel);font-style:normal;font-size:12px;line-height:15px;text-align:center;color:var(--person-deep);font-weight:700}
+.thitem.on .thhead i{background:var(--person);border-color:var(--person);color:#fff}
+.thhead span{flex:1;min-width:0;font-size:13px;font-weight:700;word-break:break-word}
+.thitem.on .thhead span{color:var(--gray);text-decoration:line-through}
+.thhead b{flex:none;font-weight:400;color:var(--rule);font-size:14px;padding:0 2px}
+.thnote{border:0;border-top:2px solid var(--rule);border-radius:0;background:var(--panel);font-size:12px;padding:7px 9px;box-shadow:none}
+.thitem.on .thnote{background:#fff}
+.thnoteview{border-top:2px solid var(--rule);background:var(--panel);font-size:12px;padding:7px 9px;color:var(--gray)}
+.thadd{display:flex;gap:6px;margin-top:8px}
+.thadd input{flex:1}
 /* 退職 */
 .card.gone{opacity:.45}
 .card.gone .nm{text-decoration:line-through}
@@ -1195,6 +1209,20 @@ h2{font-family:var(--pix);font-size:12px;color:var(--gray);margin:24px 0 8px;let
 .btn.evdone{border-color:var(--person);color:var(--person-deep);box-shadow:2px 2px 0 var(--person)}
 .btn.evdone:hover{background:var(--person);color:#fff}
 .row.evfin .btn.evdone{border-color:var(--rule);color:var(--gray);box-shadow:2px 2px 0 var(--rule)}
+/* 面談テーマ */
+.thitem{background:var(--panel2);border:2px solid var(--rule);border-radius:7px;overflow:hidden}
+.thitem.on{background:var(--person-tint);border-color:var(--person)}
+.thhead{display:flex;align-items:center;gap:8px;width:100%;text-align:left;padding:8px 9px;background:transparent}
+.thhead i{width:18px;height:18px;flex:none;border:2px solid var(--rule);background:var(--panel);font-style:normal;font-size:12px;line-height:15px;text-align:center;color:var(--person-deep);font-weight:700}
+.thitem.on .thhead i{background:var(--person);border-color:var(--person);color:#fff}
+.thhead span{flex:1;min-width:0;font-size:13px;font-weight:700;word-break:break-word}
+.thitem.on .thhead span{color:var(--gray);text-decoration:line-through}
+.thhead b{flex:none;font-weight:400;color:var(--rule);font-size:14px;padding:0 2px}
+.thnote{border:0;border-top:2px solid var(--rule);border-radius:0;background:var(--panel);font-size:12px;padding:7px 9px;box-shadow:none}
+.thitem.on .thnote{background:#fff}
+.thnoteview{border-top:2px solid var(--rule);background:var(--panel);font-size:12px;padding:7px 9px;color:var(--gray)}
+.thadd{display:flex;gap:6px;margin-top:8px}
+.thadd input{flex:1}
 /* 退職 */
 .card.gone{opacity:.45}
 .card.gone .nm{text-decoration:line-through}
@@ -2425,42 +2453,44 @@ function fabAction(){({today:()=>openQuickModal(new Date().getHours()>=15?'night
 /* --- 今日 --- */
 function vToday(){
   const t=today();const ev=eventsOn(t);const people=ev.filter(e=>e.cat==='人');const rest=ev.filter(e=>e.cat!=='人');
+  const openEv=ev.filter(e=>!eventDone(e));
   const due=[...openTasks().filter(x=>x.due&&x.due<=t).map(x=>({k:'task',x})),...D.mails.filter(m=>m.status==='open'&&mailBucket(m)==='reply').map(x=>({k:'mail',x}))];
-  const oi=openTasks().length;const hrs=weekPeopleHours(t),goal=weekGoal(t);const pct=goal?Math.min(100,hrs/goal*100):0;
+  const oi=openTasks().length;const stale=openTasks().filter(x=>staleDays(x)>=3).length;
+  const hrs=weekPeopleHours(t),goal=weekGoal(t);const pct=goal?Math.min(100,hrs/goal*100):0;
   let h=`<div class="date-big">${parse(t).getDate()}<small>${(parse(t).getMonth()+1)}月 ${dow(t)}曜日</small></div>`;
   h+=`<div class="bubble">${miiTag()}<p>${esc(voice()).replace(/\n/g,"<br>")}</p></div>`;
   h+=statusBar();
-  if(new Date().getHours()>=16&&!myToday()){
-    h+=`<div class="askme"><span>本日のご自身は、いかがでしたか</span>${myCondPicker(true)}</div>`;
-  }
   h+=dutyChips(t);
   const night=new Date().getHours()>=15;
   h+=`<div class="toolbar" style="margin-top:14px">${night?`<button class="btn" onclick="openQuickModal('night')">帰宅メモ（明日のこと）</button><button class="btn ghost small" onclick="openQuickModal('morning')">今日のメモ</button>`:`<button class="btn" onclick="openQuickModal('morning')">今朝のメモを入れる</button><button class="btn ghost small" onclick="openQuickModal('night')">明日のメモ</button>`}</div>`;
-  const restOpen=rest.filter(e=>!eventDone(e)), restDone=rest.filter(eventDone);
-  h+=foldHead('t-ev','本日のご予定',restOpen.length);
-  h+=!isOpen('t-ev')?'':restOpen.length?restOpen.map(e=>rowEvent(e,{check:true})).join('')
-    :(rest.length?`<div class="empty">本日のご予定はすべて終わりました。</div>`:`<div class="empty">予定はありません。</div>`);
-  if(restDone.length&&isOpen('t-ev'))h+=`<details><summary>済んだ予定 ${restDone.length}件</summary>${restDone.map(e=>rowEvent(e,{check:true})).join('')}</details>`;
+
+  // ① 人の枠（このアプリの主役）
+  h+=`<h2>人の枠</h2>`;
+  const peoOpen=people.filter(e=>!eventDone(e));
+  if(peoOpen.length)h+=peoOpen.map(e=>rowEvent(e,{check:true})).join('');
+  else if(people.length)h+=`<div class="empty">本日の人の枠は終わりました。</div>`;
+  else h+=`<div class="empty">本日は人に向き合う枠がありません。<div style="margin-top:10px"><button class="btn person small" onclick="openEventModal({date:'${t}',type:'人の枠'})">枠を取る</button></div></div>`;
+  h+=`<div class="meter" style="margin-bottom:20px"><div class="track" style="--p:${pct}%"></div><div class="lbl"><span>今週、人に使えた時間 <b>${hrs.toFixed(1)}h</b> / 目標 ${goal}h</span><button class="btn ghost small" onclick="editWeekGoal()">目標を変える</button></div></div>`;
+
+  // ② 今日中に片付けたいこと
   h+=`<h2>本日中</h2>`;
   if(due.length)h+=due.map(d=>d.k==='task'?rowTask(d.x,true):rowMail(d.x,true)).join('');
   else h+=`<div class="empty">本日中の案件はありません。</div>`;
-  h+=`<div class="toolbar"><span class="sp"></span><button class="btn ghost small" onclick="openNoteModal()">聞いた話を書き留める</button></div>`;
-  h+=`<h2>DESK</h2><div class="row"><div class="t"><div class="ttl">未処理 ${oi}件</div><div class="sub">${openTasks().filter(x=>staleDays(x)>=3).length}件が3日以上止まっています</div></div><div class="acts"><button class="btn" onclick="go('inbox')">机を見る</button></div></div>`;
-  if(parse(t).getDay()===1||weekPeopleHours(t)===0){
-    const P0=buildPlan();
-    if(P0.picks.length)h+=`<div class="row person" onclick="repTab='plan';go('report')"><div class="t"><div class="ttl">今週の作戦がございます</div><div class="sub">${P0.picks.slice(0,3).map(x=>esc(x.p.name)).join('　')} へのお声がけをご提案しています</div></div><div class="acts"><button class="btn person small">見る</button></div></div>`;
-  }
-  const un=unreadNotes();
-  if(un.length)h+=`<h2>いただいた声</h2>`+un.slice(0,2).map(n=>`<div class="row due" onclick="openNoteModal('${n.id}')"><div class="t"><div class="ttl">${esc(n.from||'匿名')}さんから</div><div class="sub">${esc(n.body.slice(0,50))}${n.body.length>50?'…':''}</div></div></div>`).join('');
+
+  // ③ 気づいてほしいこと（記録忘れ・声・停滞）
   const pend=pendingReports();
-  if(pend.length){h+=`<h2>面談の記録がまだです</h2>`+pend.slice(0,3).map(e=>`<div class="row person" onclick="openReport('${e.id}')"><div class="time">${fmtMD(e.date).replace(/（.）/,'')}</div><div class="t"><div class="ttl">${esc(e.title)}</div><div class="sub">タップして会話内容と次回の課題を記録</div></div><div class="acts"><button class="btn person small">記録</button></div></div>`).join('')}
-  h+=`<h2>人の枠</h2>`;
-  const peoOpen=people.filter(e=>!eventDone(e)), peoDone=people.filter(eventDone);
-  if(peoOpen.length)h+=peoOpen.map(e=>rowEvent(e,{check:true})).join('');
-  else if(people.length)h+=`<div class="empty">本日の人の枠は終わりました。</div>`;
-  if(peoDone.length)h+=`<details><summary>済んだ枠 ${peoDone.length}件</summary>${peoDone.map(e=>rowEvent(e,{check:true})).join('')}</details>`;
-  if(!people.length)h+=`<div class="empty">本日は人に向き合う枠がありません。<div style="margin-top:10px"><button class="btn person small" onclick="openEventModal({date:'${t}',type:'人の枠'})">枠を取る</button></div></div>`;
-  h+=`<div class="meter" style="margin-bottom:24px"><div class="track" style="--p:${pct}%"></div><div class="lbl"><span>今週、人に使えた時間 <b>${hrs.toFixed(1)}h</b> / 目標 ${goal}h</span><button class="btn ghost small" onclick="editWeekGoal()">目標を変える</button></div></div>`;
+  const un=unreadNotes();
+  const bits=[];
+  if(pend.length)bits.push(`<div class="row person" onclick="openReport('${pend[0].id}')"><div class="t"><div class="ttl">面談の記録が${pend.length}件たまっています</div><div class="sub">最も古いのは ${fmtMD(pend[pend.length-1].date)}</div></div><div class="acts"><button class="btn person small">記録</button></div></div>`);
+  if(un.length)bits.push(`<div class="row due" onclick="openNoteModal('${un[0].id}')"><div class="t"><div class="ttl">いただいた声が${un.length}件</div><div class="sub">${esc((un[0].body||'').slice(0,40))}</div></div></div>`);
+  if(stale)bits.push(`<div class="row" onclick="go('inbox')"><div class="t"><div class="ttl">机に${stale}件、3日以上止まっています</div><div class="sub">出口を決めてしまいましょう</div></div><div class="acts"><button class="btn small">机を見る</button></div></div>`);
+  if(bits.length)h+=`<h2>気になること</h2>`+bits.join('');
+
+  // ④ 今日の予定は件数だけ。詳しくはSCHEDULEへ
+  const restOpen=rest.filter(e=>!eventDone(e));
+  h+=`<h2>本日のご予定</h2>`;
+  h+=`<div class="row" onclick="calMode='day';calAnchor='${t}';go('cal')"><div class="t"><div class="ttl">${openEv.length?`残り ${restOpen.length}件${ev.length-openEv.length?`（済 ${ev.length-openEv.length}件）`:''}`:(ev.length?'すべて終わりました':'予定はありません')}</div><div class="sub">${restOpen.length?restOpen.slice(0,3).map(e=>(e.start||'')+' '+e.title).join('　'):'タップして一日の詳しい画面へ'}</div></div><div class="acts"><button class="btn small">開く</button></div></div>`;
+  h+=`<div class="toolbar" style="margin-bottom:10px"><span class="sp"></span><button class="btn ghost small" onclick="openEventModal({date:'${t}'})">予定を足す</button><button class="btn ghost small" onclick="openTaskModal(null,{due:'${t}'})">案件を足す</button></div>`;
   return h;
 }
 function eventDone(e){return !!e.done}
@@ -2872,14 +2902,17 @@ function openMeetingPicker(id,pd){
   const slots=optSlots();
   const free=slots.filter(s=>!busy.some(e=>e.start&&mins(e.start)<mins(s)+30&&mins(s)<mins(e.end||e.start)+1));
   const nx=nextWorkDays(p.name,pd,5);
+  // 前回、話せなかったこと
+  const lastMt=meetingsOf(id).find(x=>x.report&&Array.isArray(x.carryOver)&&x.carryOver.length);
+  const carry=lastMt?lastMt.carryOver:[];
   openModal(`<h3>${esc(p.name)} と面談</h3>
   <div class="hint">${fmtMD(pd)}　勤務：${esc(code)}${staffWhy(p)?'　／　'+esc(staffWhy(p)):''}</div>
-  ${p.homework?`<div class="warn person">前回の宿題：${esc(p.homework)}</div>`:''}
   <div class="f"><label>日付</label><select id="mp-date">${nx.map(x=>`<option value="${x.date}" ${x.date===pd?'selected':''}>${fmtMD(x.date)}（${esc(x.code)}）</option>`).join('')}</select></div>
   <div class="f"><label>開始時刻（空いている時間）</label><div class="slots" id="mp-slots">${slots.map(s=>`<button class="btn small ${free.includes(s)?'':'ghost'} ${s===(slots.includes('16:00')?'16:00':slots[Math.floor(slots.length/2)])?'on':''}" data-s="${s}" onclick="pickSlot(this)">${s}${free.includes(s)?'':'×'}</button>`).join('')}</div></div>
   <div class="f2"><div class="f"><label>所要</label><select id="mp-dur">${optDurs().map((n,i)=>`<option value="${n}" ${n===60||(optDurs().indexOf(60)<0&&i===optDurs().length-1)?'selected':''}>${n>=60&&n%60===0?(n/60)+'時間':n+'分'}</option>`).join('')}</select></div>
   <div class="f"><label>場所（任意）</label><input id="mp-place" placeholder="面談室など"></div></div>
-  <div class="f"><label>今回のテーマ（何を話すか）</label><textarea id="mp-theme" style="min-height:56px" placeholder="例：契約更新の意向確認／シフト希望／最近の様子">${esc(p.homework||'')}</textarea>
+  ${carry.length?`<div class="warn person"><b>前回、話せなかったこと</b><br>${carry.map(esc).join('<br>')}</div>`:''}
+  <div class="f"><label>話すこと（1行に1つ）</label><textarea id="mp-theme" style="min-height:64px" placeholder="例：契約更新の意向確認&#10;シフト希望&#10;最近の様子">${esc([...carry,...(p.homework&&!carry.includes(p.homework)?[p.homework]:[])].join('\n'))}</textarea>
   <div class="ideas">${askIdeas(p).map(x=>`<button class="btn ghost small" onclick="addTheme(this)" data-x="${esc(x)}">＋ ${esc(x)}</button>`).join('')}</div></div>
   ${D.settings.roomTo?`<div class="f"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="mp-room" checked style="width:auto"> ${esc(D.settings.roomTo)} に会議室の確保を依頼する</label></div>`:'<p class="small muted">※会議室の依頼先は設定から登録できます</p>'}
   <div id="mp-warn"></div>
@@ -4340,25 +4373,59 @@ function vResched(){
 function themeList(e){
   if(!e)return [];
   if(Array.isArray(e.themes))return e.themes;
-  // 古い形式（文字列）から作り直す
   const t=String(e.theme||'').split(/\r?\n|／|・/).map(s=>s.trim()).filter(Boolean);
-  return t.map(s=>({id:uid(),t:s,done:false}));
+  return t.map(s=>({id:uid(),t:s,done:false,note:''}));
 }
 function themeStat(e){const a=themeList(e);return {n:a.length,done:a.filter(x=>x.done).length}}
+function ensureThemes(e){if(!Array.isArray(e.themes))e.themes=themeList(e);return e.themes}
 function toggleTheme(evId,tid){
   const e=D.events.find(x=>x.id===evId);if(!e)return;
-  if(!Array.isArray(e.themes))e.themes=themeList(e);
-  const x=e.themes.find(y=>y.id===tid);if(!x)return;
-  x.done=!x.done;store.save();
-  const box=document.getElementById('rp-themes');
-  if(box)box.innerHTML=themeChecks(e);
+  const a=ensureThemes(e);
+  const x=a.find(y=>y.id===tid);if(!x)return;
+  x.done=!x.done;store.save();refreshThemes(evId);
 }
-function themeChecks(e){
-  const a=themeList(e);if(!a.length)return '';
+function refreshThemes(evId){
+  const e=D.events.find(x=>x.id===evId);
+  const box=document.getElementById('rp-themes');
+  if(box&&e)box.innerHTML=themeChecks(e,true);
+}
+function addTheme2(evId){
+  const el=document.getElementById('rp-newtheme');
+  const v=(el?el.value:'').trim();
+  if(!v){toast('話したいことを入れてください');return}
+  const e=D.events.find(x=>x.id===evId);if(!e)return;
+  const a=ensureThemes(e);
+  v.split(/\r?\n/).map(s=>s.trim()).filter(Boolean).forEach(s=>a.push({id:uid(),t:s,done:false,note:''}));
+  el.value='';store.save();refreshThemes(evId);toast('足しました');
+}
+function delTheme(evId,tid,ev){
+  if(ev&&ev.stopPropagation)ev.stopPropagation();
+  const e=D.events.find(x=>x.id===evId);if(!e)return;
+  e.themes=ensureThemes(e).filter(x=>x.id!==tid);
+  store.save();refreshThemes(evId);
+}
+function setThemeNote(evId,tid,v){
+  const e=D.events.find(x=>x.id===evId);if(!e)return;
+  const x=ensureThemes(e).find(y=>y.id===tid);if(!x)return;
+  x.note=v;store.save();
+}
+/** 話したことは自動でチェック扱い、メモがあれば済とみなす */
+function themeChecks(e,editable){
+  const a=themeList(e);
   const st=themeStat(e);const pct=st.n?Math.round(st.done/st.n*100):0;
-  return `<div class="steps"><div class="stbar"><span style="width:${pct}%"></span></div>
-    <div class="stlist">${a.map(x=>`<button class="stitem ${x.done?'on':''}" onclick="toggleTheme('${e.id}','${x.id}')">
-      <i>${x.done?'✓':''}</i><span>${esc(x.t)}</span></button>`).join('')}</div></div>`;
+  let h='';
+  if(a.length){
+    h+=`<div class="steps"><div class="stbar"><span style="width:${pct}%"></span></div><div class="stlist">`;
+    h+=a.map(x=>`<div class="thitem ${x.done?'on':''}">
+      <button class="thhead" onclick="toggleTheme('${e.id}','${x.id}')"><i>${x.done?'✓':''}</i><span>${esc(x.t)}</span>${editable?`<b onclick="delTheme('${e.id}','${x.id}',event)">×</b>`:''}</button>
+      ${editable?`<input class="thnote" placeholder="話した内容（任意）" value="${esc(x.note||'')}" onchange="setThemeNote('${e.id}','${x.id}',this.value)">`:(x.note?`<div class="thnoteview">${esc(x.note)}</div>`:'')}
+    </div>`).join('');
+    h+=`</div></div>`;
+  }
+  if(editable){
+    h+=`<div class="thadd"><input id="rp-newtheme" placeholder="話すことを足す" onkeydown="if(event.key==='Enter'){addTheme2('${e.id}');event.preventDefault()}"><button class="btn small" onclick="addTheme2('${e.id}')">＋</button></div>`;
+  }
+  return h;
 }
 
 /* ===== 予定の手順（案件と同じ仕組み） ===== */
@@ -4534,7 +4601,8 @@ function openReport(evId){
   openModal(`<h3>面談レポート</h3>
   <div class="hint">${esc(e.staffName||'')}　${fmtMD(e.date)} ${e.start||''}〜${e.end||''}${e.place?'　'+esc(e.place):''}</div>
   ${e.prevHomework?`<div class="warn person"><b>前回の課題</b><br>${esc(e.prevHomework)}</div>`:''}
-  ${themeList(e).length?`<div class="f"><label>今回のテーマ（話せたらタップ）</label><div id="rp-themes">${themeChecks(e)}</div></div>`:''}
+  ${(Array.isArray(e.carryOver)&&e.carryOver.length)?`<div class="warn"><b>前回の持ち越し</b><br>${e.carryOver.map(esc).join('<br>')}</div>`:''}
+  <div class="f"><label>話すこと（話せたらタップ／下の欄に内容を残せます）</label><div id="rp-themes">${themeChecks(e,true)}</div></div>
   <div class="f"><label>会話の内容・様子</label><textarea id="rp-body" style="min-height:130px" placeholder="話したこと、本人の言葉、気づいたこと">${esc(e.report||'')}</textarea></div>
   <div class="f"><label>コンディション（面談後の印象）</label><div class="cond-pick" id="cp">${[1,2,3,4,5].map(v=>`<button class="c${v} ${e.cond===v?'on':''}" onclick="pickCond(${v})">${v}</button>`).join('')}<span class="small muted" style="align-self:center">1＝${esc(optCondLabels()[0])}　5＝${esc(optCondLabels()[4])}</span></div></div>
   <div class="f"><label>次回までの課題（次の面談の冒頭に出ます）</label><textarea id="rp-next" style="min-height:56px" placeholder="例：来月の勤務希望を整理してもらう">${esc(e.nextTask||'')}</textarea></div>
@@ -4544,7 +4612,14 @@ function openReport(evId){
 function saveReport(evId){
   const e=D.events.find(x=>x.id===evId);
   const body=document.getElementById('rp-body').value.trim();
-  const next=document.getElementById('rp-next').value.trim();
+  let next=document.getElementById('rp-next').value.trim();
+  // 話せなかったテーマは次回へ持ち越す
+  const rest=themeList(e).filter(x=>!x.done).map(x=>x.t);
+  e.carryOver=rest;
+  if(rest.length){
+    const add=rest.map(s=>'（持ち越し）'+s).join('\n');
+    next=next?next+'\n'+add:add;
+  }
   e.report=body;e.nextTask=next;e.cond=window._cond||e.cond||0;e.reportedAt=new Date().toISOString();
   const p=D.staff.find(x=>x.id===e.staffId)||D.staff.find(x=>x.name===e.staffName);
   if(p){
@@ -4556,7 +4631,8 @@ function saveReport(evId){
       const rec={d:e.date,v:e.cond,note:body.slice(0,120)};
       if(ix>=0)p.conditions[ix]=rec;else{p.conditions.push(rec);p.conditions.sort((a,b)=>a.d.localeCompare(b.d))}}
   }
-  closeModal();store.save();render();toast('面談を記録しました');
+  closeModal();store.save();render();
+  toast(rest.length?'記録しました（'+rest.length+'件を次回へ持ち越し）':'面談を記録しました');
 }
 /* 未記録の面談（実施済みなのにレポートが無いもの） */
 function pendingReports(){
