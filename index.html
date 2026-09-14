@@ -311,6 +311,10 @@ h2{font-family:var(--pix);font-size:12px;color:var(--gray);margin:24px 0 8px;let
 .btn.evdone{border-color:var(--person);color:var(--person-deep);box-shadow:2px 2px 0 var(--person)}
 .btn.evdone:hover{background:var(--person);color:#fff}
 .row.evfin .btn.evdone{border-color:var(--rule);color:var(--gray);box-shadow:2px 2px 0 var(--rule)}
+/* 手順の開閉バッジ */
+.stepbadge{display:inline-flex;align-items:center;gap:3px;font-family:var(--pix);font-size:10px;background:var(--panel2);border:2px solid var(--rule);border-radius:6px;padding:1px 7px;margin-left:7px;color:var(--gray);vertical-align:2px}
+.stepbadge.all{background:var(--person-tint);border-color:var(--person);color:var(--person-deep)}
+.row.person .stepbadge{background:#fff}
 /* 見出しの開閉 */
 h2.fold{display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none}
 h2.fold .fmark{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border:2px solid var(--rule);background:var(--panel);color:var(--gray);font-size:11px;line-height:1;flex:none}
@@ -1165,6 +1169,10 @@ h2{font-family:var(--pix);font-size:12px;color:var(--gray);margin:24px 0 8px;let
 .btn.evdone{border-color:var(--person);color:var(--person-deep);box-shadow:2px 2px 0 var(--person)}
 .btn.evdone:hover{background:var(--person);color:#fff}
 .row.evfin .btn.evdone{border-color:var(--rule);color:var(--gray);box-shadow:2px 2px 0 var(--rule)}
+/* 手順の開閉バッジ */
+.stepbadge{display:inline-flex;align-items:center;gap:3px;font-family:var(--pix);font-size:10px;background:var(--panel2);border:2px solid var(--rule);border-radius:6px;padding:1px 7px;margin-left:7px;color:var(--gray);vertical-align:2px}
+.stepbadge.all{background:var(--person-tint);border-color:var(--person);color:var(--person-deep)}
+.row.person .stepbadge{background:#fff}
 /* 見出しの開閉 */
 h2.fold{display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none}
 h2.fold .fmark{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border:2px solid var(--rule);background:var(--panel);color:var(--gray);font-size:11px;line-height:1;flex:none}
@@ -2406,7 +2414,9 @@ function rowEvent(e,opt){
     return `<div class="row person ${eventDone(e)?'evfin':''}" onclick="openReport('${e.id}')"><div class="time">${e.start||''}${e.end?'<br>'+e.end:''}</div><div class="t"><div class="ttl">${esc(e.title)}${e.report?'<span class="pill">記録済</span>':(ended?'<span class="pill warnpill">要記録</span>':'')}</div><div class="sub">${e.theme?'テーマ：'+esc(e.theme):'面談'}${e.place?'　'+esc(e.place):''}</div></div>${chk}</div>`;
   }
   const est=evStepStat(e);
-  return `<div class="row ${p?'person':''} ${eventDone(e)?'evfin':''}" onclick="openEventModal(${JSON.stringify(e).replace(/"/g,'&quot;')})"><div class="time">${e.start||'終日'}${e.end?'<br>'+e.end:''}</div><div class="t"><div class="ttl">${esc(e.title)}${est.n?`<span class="pill">${est.done}/${est.n}</span>`:''}</div><div class="sub">${esc(e.type)}${e.place?'　'+esc(e.place):''}${e.party?'　'+esc(e.party):''}</div>${(opt&&opt.check)?evStepsHtml(e):''}</div>${chk}</div>`;
+  const show=(opt&&opt.check)&&est.n&&isOpen('s-'+e.id,false);
+  const badge=est.n?`<button class="stepbadge ${est.done===est.n?'all':''}" onclick="toggleFold('s-${e.id}',false);event.stopPropagation()">${show?'−':'＋'} ${est.done}/${est.n}</button>`:'';
+  return `<div class="row ${p?'person':''} ${eventDone(e)?'evfin':''}" onclick="openEventModal(${JSON.stringify(e).replace(/"/g,'&quot;')})"><div class="time">${e.start||'終日'}${e.end?'<br>'+e.end:''}</div><div class="t"><div class="ttl">${esc(e.title)}${badge}</div><div class="sub">${esc(e.type)}${e.place?'　'+esc(e.place):''}${e.party?'　'+esc(e.party):''}</div>${show?evStepsHtml(e):''}</div>${chk}</div>`;
 }
 
 /* --- DESK --- */
@@ -2426,9 +2436,10 @@ function rowTask(t,compact){
   const sd=staleDays(t);const due=t.due&&t.due<=today();
   const src={mail:'メール',meeting:'会議',shortcut:'ショートカット',manual:''}[t.source]||'';
   const st=stepStat(t);
-  const badge=st.n?`<span class="pill">${st.done}/${st.n}</span>`:'';
+  const show=!compact&&st.n&&isOpen('s-'+t.id,false);
+  const badge=st.n?`<button class="stepbadge ${st.done===st.n?'all':''}" onclick="toggleFold('s-${t.id}',false);event.stopPropagation()">${show?'−':'＋'} ${st.done}/${st.n}</button>`:'';
   return `<div class="row ${sd>=3?'stale':''} ${due?'due':''}"><div class="t"><div class="ttl">${esc(t.title)}${badge}</div><div class="sub">${src?src+'から　':''}${t.due?'期限 <span class="'+(due?'due-today':'')+'">'+fmtMD(t.due)+'</span>':'期限なし'}　${sd?sd+'日経過':'今日'}</div>
-  ${compact?'':stepsHtml(t)}
+  ${show?stepsHtml(t):''}
   ${compact?'':`<div class="exits"><button class="btn small" onclick="taskDone('${t.id}')">${st.n?'まとめて完了':'今すぐ・完了'}</button><button class="btn small" onclick="taskToEvent('${t.id}')">予定にする</button><button class="btn small person" onclick="taskDelegate('${t.id}')">人に振る</button><button class="btn ghost small" onclick="openStepAdd('${t.id}')">手順を足す</button><button class="btn ghost small" onclick="openTaskModal('${t.id}')">編集</button></div>`}
   </div>${compact?`<div class="acts"><button class="btn small" onclick="taskDone('${t.id}')">完了</button></div>`:''}</div>`;
 }
@@ -2508,7 +2519,7 @@ function vCal(){
     h+=`<div class="toolbar" style="margin-top:10px"><span class="sp"></span><button class="btn ghost small" onclick="openEventModal({date:'${calAnchor}'})">予定を足す</button><button class="btn ghost small" onclick="openTaskModal(null,{due:'${calAnchor}'})">案件を足す</button></div>`;
     const w=workingOn(calAnchor);
     if(w&&w.length){
-      h+=foldHead('d-shift','この日の出勤',w.length,false);   // 既定は閉じる
+      h+=foldHead('d-shift','この日の出勤',w.length,false);
       if(isOpen('d-shift',false))h+=vShiftDay(calAnchor);
     }
   }
