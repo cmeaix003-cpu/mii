@@ -311,6 +311,18 @@ h2{font-family:var(--pix);font-size:12px;color:var(--gray);margin:24px 0 8px;let
 .btn.evdone{border-color:var(--person);color:var(--person-deep);box-shadow:2px 2px 0 var(--person)}
 .btn.evdone:hover{background:var(--person);color:#fff}
 .row.evfin .btn.evdone{border-color:var(--rule);color:var(--gray);box-shadow:2px 2px 0 var(--rule)}
+/* 案件の手順 */
+.steps{margin-top:10px}
+.stbar{height:6px;background:var(--panel2);border:2px solid var(--rule);margin-bottom:7px}
+.stbar span{display:block;height:100%;background:var(--person);transition:width .2s}
+.stlist{display:flex;flex-direction:column;gap:5px}
+.stitem{display:flex;align-items:center;gap:8px;width:100%;text-align:left;background:var(--panel2);border:2px solid var(--rule);border-radius:7px;padding:7px 9px}
+.stitem i{width:18px;height:18px;flex:none;border:2px solid var(--rule);background:var(--panel);font-style:normal;font-size:12px;line-height:15px;text-align:center;color:var(--person-deep);font-weight:700}
+.stitem span{flex:1;min-width:0;font-size:13px;word-break:break-word}
+.stitem b{flex:none;font-weight:400;color:var(--rule);font-size:14px;padding:0 2px}
+.stitem.on{background:var(--person-tint);border-color:var(--person)}
+.stitem.on i{background:var(--person);border-color:var(--person);color:#fff}
+.stitem.on span{text-decoration:line-through;color:var(--gray)}
 /* 選択肢の編集 */
 .optlist .row{margin-bottom:8px}
 .optlist .sub{word-break:break-all}
@@ -1520,8 +1532,11 @@ function vInbox(){
 function rowTask(t,compact){
   const sd=staleDays(t);const due=t.due&&t.due<=today();
   const src={mail:'メール',meeting:'会議',shortcut:'ショートカット',manual:''}[t.source]||'';
-  return `<div class="row ${sd>=3?'stale':''} ${due?'due':''}"><div class="t"><div class="ttl">${esc(t.title)}</div><div class="sub">${src?src+'から　':''}${t.due?'期限 <span class="'+(due?'due-today':'')+'">'+fmtMD(t.due)+'</span>':'期限なし'}　${sd?sd+'日経過':'今日'}</div>
-  ${compact?'':`<div class="exits"><button class="btn small" onclick="taskDone('${t.id}')">今すぐ・完了</button><button class="btn small" onclick="taskToEvent('${t.id}')">予定にする</button><button class="btn small person" onclick="taskDelegate('${t.id}')">人に振る</button><button class="btn ghost small" onclick="openTaskModal('${t.id}')">編集</button></div>`}
+  const st=stepStat(t);
+  const badge=st.n?`<span class="pill">${st.done}/${st.n}</span>`:'';
+  return `<div class="row ${sd>=3?'stale':''} ${due?'due':''}"><div class="t"><div class="ttl">${esc(t.title)}${badge}</div><div class="sub">${src?src+'から　':''}${t.due?'期限 <span class="'+(due?'due-today':'')+'">'+fmtMD(t.due)+'</span>':'期限なし'}　${sd?sd+'日経過':'今日'}</div>
+  ${compact?'':stepsHtml(t)}
+  ${compact?'':`<div class="exits"><button class="btn small" onclick="taskDone('${t.id}')">${st.n?'まとめて完了':'今すぐ・完了'}</button><button class="btn small" onclick="taskToEvent('${t.id}')">予定にする</button><button class="btn small person" onclick="taskDelegate('${t.id}')">人に振る</button><button class="btn ghost small" onclick="openStepAdd('${t.id}')">手順を足す</button><button class="btn ghost small" onclick="openTaskModal('${t.id}')">編集</button></div>`}
   </div>${compact?`<div class="acts"><button class="btn small" onclick="taskDone('${t.id}')">完了</button></div>`:''}</div>`;
 }
 function taskDone(id){const t=D.tasks.find(x=>x.id===id);t.status='done';t.doneAt=today();if(t.mailId){const m=D.mails.find(x=>x.id===t.mailId);if(m&&m.status==='tasked')m.status='replied'}store.save();render();toast('お見事です、完了しました')}
@@ -1543,14 +1558,22 @@ function openTaskModal(id,preset){
   <div class="f"><label>内容</label><input id="tk-title" value="${esc(t.title)}" placeholder="例：派遣会社に来月の人数を返答"></div>
   <div class="f"><label>期限（必須ではありませんが、無いと沈みます）</label><input id="tk-due" type="date" value="${t.due||''}"></div>
   <div class="f"><label>メモ</label><textarea id="tk-memo">${esc(t.memo||'')}</textarea></div>
+  <div class="f"><label>手順（1行に1つ・あとから足せます）</label><textarea id="tk-steps" style="min-height:80px" placeholder="人数を確認する&#10;上長に相談する&#10;メールを送る">${esc(stepsOf(t).map(x=>x.t).join('\n'))}</textarea></div>
   <div class="foot">${id?`<button class="btn ghost" onclick="delTask('${id}')">削除</button>`:''}<button class="btn ghost" onclick="closeModal()">やめる</button><button class="btn solid" onclick="saveTask('${id||''}')">${id?'保存':'入れる'}</button></div>`);
   setTimeout(()=>document.getElementById('tk-title').focus(),50);
 }
 function saveTask(id){
   const title=document.getElementById('tk-title').value.trim();if(!title){toast('内容を入れてください');return}
   const due=document.getElementById('tk-due').value,memo=document.getElementById('tk-memo').value;
-  if(id){Object.assign(D.tasks.find(x=>x.id===id),{title,due,memo})}
-  else D.tasks.push({id:uid(),title,due,memo,source:'manual',status:'open',createdAt:new Date().toISOString()});
+  const lines=(document.getElementById('tk-steps')?.value||'').split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+  if(id){
+    const t0=D.tasks.find(x=>x.id===id);
+    const prev=stepsOf(t0);
+    // 同じ文言の手順は済みの印を引き継ぐ
+    t0.steps=lines.map(s=>{const o=prev.find(p=>p.t===s);return o?o:{id:uid(),t:s,done:false}});
+    Object.assign(t0,{title,due,memo});
+  }
+  else D.tasks.push({id:uid(),title,due,memo,steps:lines.map(s=>({id:uid(),t:s,done:false})),source:'manual',status:'open',createdAt:new Date().toISOString()});
   closeModal();store.save();render();toast(id?'承知しました':'お預かりしました');
 }
 function delTask(id){if(!confirm('削除しますか？'))return;D.tasks=D.tasks.filter(x=>x.id!==id);closeModal();store.save();render()}
@@ -2946,6 +2969,66 @@ function vSilence(){
   }
   h+=`<p class="small muted" style="margin-top:12px">平均では見えないものが、分布だと見えます。右側（濃い色）に人が溜まっていないかを見てください。</p>`;
   return h;
+}
+
+
+/* ===== 案件の中の小さなTODO ===== */
+function stepsOf(t){return (t&&t.steps)||[]}
+function stepStat(t){
+  const s=stepsOf(t);
+  return {n:s.length, done:s.filter(x=>x.done).length};
+}
+function toggleStep(taskId,sid,ev){
+  if(ev&&ev.stopPropagation)ev.stopPropagation();
+  const t=D.tasks.find(x=>x.id===taskId);if(!t)return;
+  const s=(t.steps||[]).find(x=>x.id===sid);if(!s)return;
+  s.done=!s.done;
+  const st=stepStat(t);
+  if(st.n&&st.done===st.n&&t.status==='open'){
+    t.status='done';t.doneAt=today();
+    store.save();render();toast('すべて片付きました');
+    return;
+  }
+  if(t.status==='done'&&st.done<st.n){t.status='open';t.doneAt=''}
+  store.save();render();
+}
+function addStep(taskId,text){
+  const t=D.tasks.find(x=>x.id===taskId);if(!t)return;
+  const v=String(text||'').trim();if(!v)return;
+  t.steps=t.steps||[];
+  v.split(/\r?\n/).map(s=>s.trim()).filter(Boolean).forEach(s=>t.steps.push({id:uid(),t:s,done:false}));
+  store.save();render();
+}
+function delStep(taskId,sid,ev){
+  if(ev&&ev.stopPropagation)ev.stopPropagation();
+  const t=D.tasks.find(x=>x.id===taskId);if(!t)return;
+  t.steps=(t.steps||[]).filter(x=>x.id!==sid);
+  store.save();render();
+}
+function stepsHtml(t){
+  const s=stepsOf(t);
+  if(!s.length)return '';
+  const st=stepStat(t);
+  const pct=st.n?Math.round(st.done/st.n*100):0;
+  return `<div class="steps">
+    <div class="stbar"><span style="width:${pct}%"></span></div>
+    <div class="stlist">${s.map(x=>`<button class="stitem ${x.done?'on':''}" onclick="toggleStep('${t.id}','${x.id}',event)">
+      <i>${x.done?'✓':''}</i><span>${esc(x.t)}</span>
+      <b onclick="delStep('${t.id}','${x.id}',event)">×</b></button>`).join('')}</div>
+  </div>`;
+}
+function openStepAdd(taskId){
+  const t=D.tasks.find(x=>x.id===taskId);if(!t)return;
+  openModal('<h3>手順を足す</h3><div class="hint">'+esc(t.title)+'<br>1行に1つ。まとめて書けます。</div>'
+   +'<div class="f"><textarea id="sp-t" style="min-height:120px" placeholder="例：\n人数を確認する\n上長に相談する\nメールを送る"></textarea></div>'
+   +'<div class="foot"><button class="btn ghost" onclick="closeModal()">やめる</button>'
+   +'<button class="btn solid" onclick="doStepAdd(\''+taskId+'\')">足す</button></div>');
+  setTimeout(()=>{const e=document.getElementById('sp-t');if(e)e.focus()},50);
+}
+function doStepAdd(taskId){
+  const v=document.getElementById('sp-t').value;
+  if(!v.trim()){toast('内容を入れてください');return}
+  addStep(taskId,v);closeModal();toast('足しました');
 }
 
 /* ========== 面談レポート ========== */
