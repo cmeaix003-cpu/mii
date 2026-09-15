@@ -1236,7 +1236,7 @@ function doBundle(tag){
   const due=document.getElementById('bd-due').value||addDays(today(),14);
   const id=uid();
   D.tasks=D.tasks||[];
-  D.tasks.push({id,title,due,memo:'いただいた声 '+items.length+'件をまとめたもの\n'+items.map(n=>'・'+(n.body||'')).join('\n'),
+  D.tasks.push({id,title,due,memo:'',
     source:'manual',status:'open',createdAt:new Date().toISOString(),bundleTag:tag,bundleNoteIds:items.map(n=>n.id),
     steps:[{id:uid(),t:'声の内容を整理する',done:false},{id:uid(),t:'対応の方向を決める',done:false},{id:uid(),t:'対応する',done:false},{id:uid(),t:'全体に返す',done:false}]});
   items.forEach(n=>{n.bundleId=id;n.read=true});
@@ -2072,6 +2072,8 @@ function doDelegate(id){
   closeModal();store.save();render();toast((p?p.name:who)+'さんにお任せしました');
 }
 function openTaskModal(id,preset){
+  if(id){const t0=D.tasks.find(x=>x.id===id);
+    if(t0&&t0.bundleNoteIds&&/^いただいた声 \d+件をまとめたもの/.test(t0.memo||'')){t0.memo='';store.save()}}
   const t=id?D.tasks.find(x=>x.id===id):{title:'',due:'',memo:'',...(preset||{})};
   openModal(`<h3>${id?'案件を編集':'DESKに置く'}</h3>
   <div class="f"><label>内容</label><input id="tk-title" value="${esc(t.title)}" placeholder="例：派遣会社に来月の人数を返答"></div>
