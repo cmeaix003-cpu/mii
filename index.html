@@ -311,6 +311,8 @@ h2{font-family:var(--pix);font-size:12px;color:var(--gray);margin:24px 0 8px;let
 .btn.evdone{border-color:var(--person);color:var(--person-deep);box-shadow:2px 2px 0 var(--person)}
 .btn.evdone:hover{background:var(--person);color:#fff}
 .row.evfin .btn.evdone{border-color:var(--rule);color:var(--gray);box-shadow:2px 2px 0 var(--rule)}
+/* メール本文 */
+.mailbody{background:var(--panel2);border:2px solid var(--rule);border-radius:7px;padding:10px 11px;font-size:13px;line-height:1.8;white-space:pre-wrap;word-break:break-word;max-height:40vh;overflow:auto}
 /* 目次 */
 .row.gitem{cursor:pointer}
 .row.gitem:active{transform:translate(1px,1px)}
@@ -1213,6 +1215,8 @@ h2{font-family:var(--pix);font-size:12px;color:var(--gray);margin:24px 0 8px;let
 .btn.evdone{border-color:var(--person);color:var(--person-deep);box-shadow:2px 2px 0 var(--person)}
 .btn.evdone:hover{background:var(--person);color:#fff}
 .row.evfin .btn.evdone{border-color:var(--rule);color:var(--gray);box-shadow:2px 2px 0 var(--rule)}
+/* メール本文 */
+.mailbody{background:var(--panel2);border:2px solid var(--rule);border-radius:7px;padding:10px 11px;font-size:13px;line-height:1.8;white-space:pre-wrap;word-break:break-word;max-height:40vh;overflow:auto}
 /* 目次 */
 .row.gitem{cursor:pointer}
 .row.gitem:active{transform:translate(1px,1px)}
@@ -2815,11 +2819,29 @@ function vMail(){
 }
 function rowMail(m,compact){
   const sd=mailStaleDays(m);const rep=m.needsReply;
-  return `<div class="row ${rep?'due':''} ${sd>=3&&rep?'stale':''}"><div class="t"><div class="ttl">${m.flagged?'<span class="fwd">自分で送信</span>':''}${esc(m.subject||'（件名なし）')}</div><div class="sub">${esc(m.from)}${m.to==='CC'?'<span class="pill">CC</span>':''}　${m.date?fmtMD(m.date.slice(0,10)):''}${rep?'　<span class="'+(sd>=3?'due-today':'')+'">'+(sd?sd+'日返信なし':'返信待ち')+'</span>':''}　<span class="score">${mailScore(m)}点</span></div>
-  ${m.snippet?`<div class="sub" style="margin-top:4px;color:var(--ink)">${esc(m.snippet.slice(0,120))}</div>`:''}
-  ${compact?'':`<div class="exits"><button class="btn small" onclick="mailExit('${m.id}','replied')">返信した</button><button class="btn small" onclick="mailToTask('${m.id}')">タスク化</button><button class="btn ghost small" onclick="mailExit('${m.id}','ignored')">対応不要</button>${m.link?`<a class="btn ghost small" href="${esc(m.link)}" target="_blank" rel="noopener">Gmailで開く</a>`:''}</div>`}
+  return `<div class="row ${rep?'due':''} ${sd>=3&&rep?'stale':''}"><div class="t" onclick="openMailDetail('${m.id}')" style="cursor:pointer"><div class="ttl">${m.flagged?'<span class="fwd">自分で送信</span>':''}${esc(m.subject||'（件名なし）')}</div><div class="sub">${esc(m.from)}${m.to==='CC'?'<span class="pill">CC</span>':''}　${m.date?fmtMD(m.date.slice(0,10)):''}${rep?'　<span class="'+(sd>=3?'due-today':'')+'">'+(sd?sd+'日返信なし':'返信待ち')+'</span>':''}　<span class="score">${mailScore(m)}点</span></div>
+  ${m.snippet?`<div class="sub" style="margin-top:4px;color:var(--ink)">${esc(m.snippet.slice(0,120))}${m.snippet.length>120?'…':''}</div>`:''}
+  ${compact?'':`<div class="exits" onclick="event.stopPropagation()"><button class="btn small" onclick="mailExit('${m.id}','replied')">返信した</button><button class="btn small" onclick="mailToTask('${m.id}')">タスク化</button><button class="btn ghost small" onclick="mailExit('${m.id}','ignored')">対応不要</button>${m.link?`<a class="btn ghost small" href="${esc(m.link)}" target="_blank" rel="noopener">Gmailで開く</a>`:''}</div>`}
   </div>${compact?`<div class="acts"><button class="btn small" onclick="mailExit('${m.id}','replied')">返信した</button></div>`:''}</div>`;
 }
+
+/* ===== メールの中身を見る ===== */
+function openMailDetail(id){
+  const m=D.mails.find(x=>x.id===id);if(!m)return;
+  const sd=mailStaleDays(m);
+  openModal('<h3>'+esc(m.subject||'（件名なし）')+'</h3>'
+   +'<div class="hint">'+esc(m.from||'')+(m.to==='CC'?'（CC）':'')+'　'+(m.date?fmtMD(m.date.slice(0,10)):'')
+   +(m.needsReply?'　<b style="color:var(--today)">'+(sd?sd+'日返信なし':'返信待ち')+'</b>':'')+'　'+mailScore(m)+'点</div>'
+   +(m.flagged?'<div class="warn person">自分で送った（転送・投稿ボックス）</div>':'')
+   +'<div class="f"><label>本文</label><div class="mailbody">'+(m.snippet?esc(m.snippet):'<span class="muted">本文は取り込まれていません</span>')+'</div></div>'
+   +(m.link?'<div class="f"><a class="btn ghost small" href="'+esc(m.link)+'" target="_blank" rel="noopener">Gmailで開く</a></div>':'')
+   +'<div class="foot">'
+   +'<button class="btn ghost" onclick="mailExit(\''+id+'\',\'ignored\');closeModal()">対応不要</button>'
+   +'<button class="btn" onclick="closeModal();mailToTask(\''+id+'\')">タスク化</button>'
+   +'<button class="btn solid" onclick="mailExit(\''+id+'\',\'replied\');closeModal()">返信した</button>'
+   +'</div>');
+}
+
 function mailExit(id,st){const m=D.mails.find(x=>x.id===id);m.status=st;store.save();render();toast({replied:'完了',ignored:'以後追いません',tasked:'タスクにしました'}[st])}
 function mailToTask(id){const m=D.mails.find(x=>x.id===id);openModal(`<h3>タスク化</h3><div class="hint">${esc(m.subject)}</div><div class="f"><label>やること</label><input id="mt-title" value="${esc('返信：'+(m.subject||''))}"></div><div class="f"><label>期限</label><input id="mt-due" type="date" value="${addDays(today(),1)}"></div><div class="foot"><button class="btn ghost" onclick="closeModal()">やめる</button><button class="btn solid" onclick="doMailTask('${id}')">机に置く</button></div>`)}
 function doMailTask(id){const m=D.mails.find(x=>x.id===id);D.tasks.push({id:uid(),title:document.getElementById('mt-title').value,due:document.getElementById('mt-due').value,source:'mail',mailId:id,status:'open',createdAt:new Date().toISOString()});m.status='tasked';closeModal();store.save();render();toast('机に入れました')}
