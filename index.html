@@ -2586,7 +2586,11 @@ function vToday(){
   const un=unreadNotes();
   const bits=[];
   if(pend.length)bits.push(`<div class="row person" onclick="openReport('${pend[0].id}')"><div class="t"><div class="ttl">面談の記録が${pend.length}件たまっています</div><div class="sub">最も古いのは ${fmtMD(pend[pend.length-1].date)}</div></div><div class="acts"><button class="btn person small">記録</button></div></div>`);
-  if(un.length)bits.push(`<div class="row due" onclick="openNoteModal('${un[0].id}')"><div class="t"><div class="ttl">いただいた声が${un.length}件</div><div class="sub">${esc((un[0].body||'').slice(0,40))}</div></div></div>`);
+  if(un.length){
+    bits.push(`<div class="row due"><div class="t" onclick="repTab='notes';go('report')" style="cursor:pointer"><div class="ttl">いただいた声が${un.length}件</div><div class="sub">タップしてすべて見る</div></div><div class="acts"><button class="btn small" onclick="repTab='notes';go('report')">一覧</button></div></div>`);
+    un.slice(0,3).forEach(n=>bits.push(`<div class="row" onclick="openNoteModal('${n.id}')"><div class="t"><div class="ttl">${esc(n.from||'匿名')}</div><div class="sub">${esc((n.body||'').slice(0,60))}${(n.body||'').length>60?'…':''}</div></div></div>`));
+    if(un.length>3)bits.push(`<div class="row" onclick="repTab='notes';go('report')"><div class="t"><div class="sub">ほか ${un.length-3}件</div></div></div>`);
+  }
   if(stale)bits.push(`<div class="row" onclick="go('inbox')"><div class="t"><div class="ttl">机に${stale}件、3日以上止まっています</div><div class="sub">出口を決めてしまいましょう</div></div><div class="acts"><button class="btn small">机を見る</button></div></div>`);
   if(bits.length)h+=`<h2>気になること</h2>`+bits.join('');
 
