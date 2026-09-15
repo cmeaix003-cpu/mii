@@ -311,6 +311,10 @@ h2{font-family:var(--pix);font-size:12px;color:var(--gray);margin:24px 0 8px;let
 .btn.evdone{border-color:var(--person);color:var(--person-deep);box-shadow:2px 2px 0 var(--person)}
 .btn.evdone:hover{background:var(--person);color:#fff}
 .row.evfin .btn.evdone{border-color:var(--rule);color:var(--gray);box-shadow:2px 2px 0 var(--rule)}
+/* 目次 */
+.row.gitem{cursor:pointer}
+.row.gitem:active{transform:translate(1px,1px)}
+.garrow{font-family:var(--pix);font-size:18px;color:var(--gray);align-self:center}
 /* 面談テーマ */
 .thitem{background:var(--panel2);border:2px solid var(--rule);border-radius:7px;overflow:hidden}
 .thitem.on{background:var(--person-tint);border-color:var(--person)}
@@ -503,7 +507,7 @@ details[open] summary{margin-bottom:10px}
 <div id="app">
   <header>
     <div class="mark"><img class="mii" id="mii-hdr" alt="">しツジの「みー」さん<span id="hdr-sub"></span></div>
-    <div class="right"><span id="savestate"><i></i><span>未保存</span></span><button class="btn ghost small" onclick="go('setting')">設定</button></div>
+    <div class="right"><span id="savestate"><i></i><span>未保存</span></span><button class="btn ghost small" onclick="go('guide')">?</button><button class="btn ghost small" onclick="go('setting')">設定</button></div>
   </header>
   <nav>
     <button data-v="today" onclick="go('today')"><b>今</b>TODAY</button>
@@ -1209,6 +1213,10 @@ h2{font-family:var(--pix);font-size:12px;color:var(--gray);margin:24px 0 8px;let
 .btn.evdone{border-color:var(--person);color:var(--person-deep);box-shadow:2px 2px 0 var(--person)}
 .btn.evdone:hover{background:var(--person);color:#fff}
 .row.evfin .btn.evdone{border-color:var(--rule);color:var(--gray);box-shadow:2px 2px 0 var(--rule)}
+/* 目次 */
+.row.gitem{cursor:pointer}
+.row.gitem:active{transform:translate(1px,1px)}
+.garrow{font-family:var(--pix);font-size:18px;color:var(--gray);align-self:center}
 /* 面談テーマ */
 .thitem{background:var(--panel2);border:2px solid var(--rule);border-radius:7px;overflow:hidden}
 .thitem.on{background:var(--person-tint);border-color:var(--person)}
@@ -1401,7 +1409,7 @@ details[open] summary{margin-bottom:10px}
 <div id="app">
   <header>
     <div class="mark"><img class="mii" id="mii-hdr" alt="">しツジの「みー」さん<span id="hdr-sub"></span></div>
-    <div class="right"><span id="savestate"><i></i><span>未保存</span></span><button class="btn ghost small" onclick="go('setting')">設定</button></div>
+    <div class="right"><span id="savestate"><i></i><span>未保存</span></span><button class="btn ghost small" onclick="go('guide')">?</button><button class="btn ghost small" onclick="go('setting')">設定</button></div>
   </header>
   <nav>
     <button data-v="today" onclick="go('today')"><b>今</b>TODAY</button>
@@ -2441,12 +2449,12 @@ function render(){
   try{const s=shiftSignals();window._sigMap={};if(s)s.forEach(x=>{window._sigMap[x.p.name]=Math.min(45,x.sev)})}catch(e){window._sigMap={}}
   document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===view));
   const m=document.getElementById('main');
-  const f={today:vToday,inbox:vInbox,cal:vCal,mail:vMail,people:vPeople,report:vReport,setting:vSetting}[view];
+  const f={today:vToday,inbox:vInbox,cal:vCal,mail:vMail,people:vPeople,report:vReport,setting:vSetting,guide:vGuide}[view];
   m.innerHTML=f();
   const oi=openTasks().length;const bi=document.getElementById('bd-inbox');bi.textContent=oi||'';bi.style.display=oi?'':'none';
   const rm=D.mails.filter(x=>x.status==='open'&&mailBucket(x)==='reply').length;const bm=document.getElementById('bd-mail');bm.textContent=rm||'';bm.style.display=rm?'':'none';
   document.getElementById('hdr-sub').textContent=D.staff.length?D.staff.length+'名':'';
-  document.getElementById('fab').style.display=(view==='setting'||view==='report')?'none':'';
+  document.getElementById('fab').style.display=(view==='setting'||view==='report'||view==='guide')?'none':'';
 }
 function fabAction(){({today:()=>openQuickModal(new Date().getHours()>=15?'night':'morning'),inbox:()=>openTaskModal(),cal:()=>openEventModal({date:calMode==='month'?calAnchor:today()}),mail:()=>openMailModal(),people:()=>openStaffModal()}[view]||(()=>{}))()}
 
@@ -2470,7 +2478,21 @@ function vToday(){
   if(peoOpen.length)h+=peoOpen.map(e=>rowEvent(e,{check:true})).join('');
   else if(people.length)h+=`<div class="empty">本日の人の枠は終わりました。</div>`;
   else h+=`<div class="empty">本日は人に向き合う枠がありません。<div style="margin-top:10px"><button class="btn person small" onclick="openEventModal({date:'${t}',type:'人の枠'})">枠を取る</button></div></div>`;
-  h+=`<div class="meter" style="margin-bottom:20px"><div class="track" style="--p:${pct}%"></div><div class="lbl"><span>今週、人に使えた時間 <b>${hrs.toFixed(1)}h</b> / 目標 ${goal}h</span><button class="btn ghost small" onclick="editWeekGoal()">目標を変える</button></div></div>`;
+  h+=`<div class="meter"><div class="track" style="--p:${pct}%"></div><div class="lbl"><span>今週、人に使えた時間 <b>${hrs.toFixed(1)}h</b> / 目標 ${goal}h</span><button class="btn ghost small" onclick="editWeekGoal()">目標を変える</button></div></div>`;
+
+  // 本日の出勤者（既定は畳む）
+  const wk=workingOn(t);
+  if(wk===null){
+    h+=`<div class="toolbar" style="margin:8px 0 20px"><span class="small muted">${t.slice(0,7)}の勤務表を入れると、本日の出勤者が出ます</span><span class="sp"></span><button class="btn ghost small" onclick="openShiftModal('${t.slice(0,7)}')">勤務表</button></div>`;
+  }else if(wk.length){
+    const over=wk.filter(x=>{const g=x.p.lastContact?diffDays(x.p.lastContact,t):null;const tg=x.p.contactDays||KIND_DAYS[x.p.kind]||90;return g===null||g>tg}).length;
+    h+=foldHead('t-shift','本日の出勤',wk.length,false);
+    if(!isOpen('t-shift',false)&&over)h+=`<div class="row person" onclick="toggleFold('t-shift',false)"><div class="t"><div class="ttl">${over}名としばらくお話しできていません</div><div class="sub">タップして出勤者を見る</div></div><div class="acts"><button class="btn person small">開く</button></div></div>`;
+    if(isOpen('t-shift',false))h+=vShiftDay(t);
+    h+=`<div style="height:12px"></div>`;
+  }else{
+    h+=`<div style="height:12px"></div>`;
+  }
 
   // ② 今日中に片付けたいこと
   h+=`<h2>本日中</h2>`;
@@ -4183,6 +4205,66 @@ function goneFromShift(){
     const wasThere=Object.keys(old).some(k=>normName(k)===n);
     return wasThere&&!inRecentShift(p.name);
   });
+}
+
+
+/* ========== できること（目次） ========== */
+const GUIDE=[
+ {g:'毎日',items:[
+   {t:'今日をひと目で',d:'みーの言葉、いまの状態、人の枠、本日中のこと',go:"go('today')"},
+   {t:'思いついたことを放り込む',d:'1行ずつ雑に書けば、予定と案件に振り分けます',go:"openQuickModal(new Date().getHours()>=15?'night':'morning')"},
+   {t:'机の上を片付ける',d:'出口は3つだけ。今すぐ／予定にする／人に任せる',go:"go('inbox')"},
+   {t:'メールを拾う',d:'画面を開くと自動で取り込み。返信待ちが最優先',go:"go('mail')"},
+ ]},
+ {g:'人と向き合う',items:[
+   {t:'今日いる人から選ぶ',d:'出勤者を見て、話せていない人から声をかける',go:"calMode='shift';go('cal')"},
+   {t:'スタッフを見る',d:'コンディション、勤務、面談の履歴',go:"go('people')"},
+   {t:'面談を記録する',d:'話すことをチェックしながら、次回の課題まで',go:"go('people')",note:'予定の面談をタップ'},
+   {t:'今週の作戦',d:'誰にいつ声をかけるか、みーが日時まで提案します',go:"repTab='plan';go('report')"},
+   {t:'聞いた話を残す',d:'現場で耳にした一言を、その人の記録に',go:"openNoteModal()"},
+ ]},
+ {g:'予定と勤務',items:[
+   {t:'一日を詳しく見る',d:'予定・案件・当番・出勤者をまとめて',go:"calMode='day';calAnchor=today();go('cal')"},
+   {t:'週・月で見る',d:'縦に積んだ週表示と、月のカレンダー',go:"calMode='week';go('cal')"},
+   {t:'勤務表を取り込む',d:'エクセルを選ぶだけ。社員もアルバイトも読み取ります',go:"openShiftModal()"},
+   {t:'名簿を取り込む',d:'列の順番は問いません。見出しから自動で判別',go:"openImportModal()"},
+   {t:'当番表を取り込む',d:'校閲さんなど、他セクションの当番を表示',go:"openDutyModal()"},
+   {t:'カレンダーから取り込む',d:'GoogleとOutlook（ICS）の予定を読み込みます',go:"calMode='day';go('cal');store.fetchEvents()"},
+ ]},
+ {g:'振り返る',items:[
+   {t:'いまの状態',d:'人・捌き・返信・余裕の4つと、先週との比較',go:"repTab='status';go('report')"},
+   {t:'自分のこと',d:'コンディションの記録、連続勤務、私用の時間',go:"repTab='me';go('report')"},
+   {t:'先週のふりかえり',d:'人に使えた時間、片付けた案件、会議の量',go:"repTab='review';go('report')"},
+   {t:'やめられそうなこと',d:'成果の出ていない会議、放置された案件を名指し',go:"repTab='sub';go('report')"},
+   {t:'沈黙の分布',d:'誰と何日話せていないか、全体の偏りを一枚で',go:"repTab='silence';go('report')"},
+   {t:'勤務からの予兆',d:'出勤が減った人、シフトが変わった人に気づく',go:"repTab='signal';go('report')"},
+   {t:'お任せの記録',d:'誰にどれだけ任せているか、偏りと未活用',go:"repTab='deleg';go('report')"},
+   {t:'組み直しの記録',d:'前向きか、やむを得ずか。何に邪魔されているか',go:"repTab='resched';go('report')"},
+   {t:'会議の棚卸し',d:'月に何時間使っているか。見直し候補を出します',go:"repTab='audit';go('report')"},
+   {t:'面談の効き目',d:'面談の後、コンディションがどう動いたか',go:"repTab='effect';go('report')"},
+ ]},
+ {g:'整える',items:[
+   {t:'選択肢を変える',d:'面談のテーマ、時刻、所要時間、予定の型',go:"go('setting')"},
+   {t:'区分をまとめて直す',d:'社員／嘱託／派遣／バイトを一覧で切り替え',go:"openBulkKind()"},
+   {t:'メールの判定',d:'重要な送信者、除外、ラベル、転送の受け皿',go:"go('setting')"},
+   {t:'会議室の依頼メール',d:'面談を入れたら自動で依頼を送る',go:"go('setting')"},
+   {t:'名前の読み替え',d:'勤務表と名簿で書き方が違うときの結び付け',go:"go('setting')"},
+   {t:'データの書き出し',d:'JSONで控えを取る／読み込む',go:"go('setting')"},
+ ]}
+];
+function vGuide(){
+  let h=`<h1>できること</h1><p class="small muted">押すとその画面へまいります。</p>`;
+  GUIDE.forEach(sec=>{
+    h+=`<h2>${esc(sec.g)}</h2>`;
+    h+=sec.items.map(x=>`<div class="row gitem" onclick="closeModal();${x.go}">
+      <div class="t"><div class="ttl">${esc(x.t)}</div><div class="sub">${esc(x.d)}${x.note?`　<span class="muted">（${esc(x.note)}）</span>`:''}</div></div>
+      <div class="acts"><span class="garrow">›</span></div></div>`).join('');
+  });
+  h+=`<h2>困ったとき</h2>
+  <div class="row"><div class="t"><div class="ttl">保存できない・取り込めない</div><div class="sub">右上の表示を確認。赤ければ設定の接続先を見直してください</div></div><div class="acts"><button class="btn ghost small" onclick="go('setting')">設定</button></div></div>
+  <div class="row"><div class="t"><div class="ttl">みーの姿を変えたい</div><div class="sub">index.htmlと同じ場所に mii.png や mii-busy.gif を置くと差し替わります</div></div></div>
+  <div class="row"><div class="t"><div class="ttl">勤務表がうまく読めない</div><div class="sub">取り込み画面の「列を手で指定する」から、氏名と1日の列を選べます</div></div></div>`;
+  return h;
 }
 
 /* ========== 委任の記録と分析 ========== */
