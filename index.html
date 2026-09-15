@@ -311,6 +311,18 @@ h2{font-family:var(--pix);font-size:12px;color:var(--gray);margin:24px 0 8px;let
 .btn.evdone{border-color:var(--person);color:var(--person-deep);box-shadow:2px 2px 0 var(--person)}
 .btn.evdone:hover{background:var(--person);color:#fff}
 .row.evfin .btn.evdone{border-color:var(--rule);color:var(--gray);box-shadow:2px 2px 0 var(--rule)}
+/* 声のカード */
+.notecard{background:var(--panel);border:3px solid var(--ink);border-radius:10px;box-shadow:inset 0 0 0 3px var(--panel),inset 0 0 0 4px var(--rule);padding:12px;margin-bottom:12px}
+.notecard.unread{border-color:var(--today);box-shadow:inset 0 0 0 3px var(--panel),inset 0 0 0 4px var(--today)}
+.notecard.fin{opacity:.6}
+.nhd{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:7px}
+.nhd .nfrom{font-weight:700;font-size:14px}
+.nhd .sp{flex:1}
+.nhd .nwhen{font-family:var(--pix);font-size:10px;color:var(--gray)}
+.nbody{font-size:13px;line-height:1.8;white-space:pre-wrap;word-break:break-word;background:var(--panel2);border:2px solid var(--rule);border-radius:7px;padding:9px 10px}
+.nreply{margin-top:8px;font-size:12px;line-height:1.7;background:var(--person-tint);border:2px solid var(--person);border-radius:7px;padding:8px 10px;color:var(--person-deep)}
+.nact{display:flex;gap:6px;margin-top:9px;flex-wrap:wrap;align-items:center}
+.nact .sp{flex:1}
 /* メール本文 */
 .mailbody{background:var(--panel2);border:2px solid var(--rule);border-radius:7px;padding:10px 11px;font-size:13px;line-height:1.8;white-space:pre-wrap;word-break:break-word;max-height:40vh;overflow:auto}
 /* 目次 */
@@ -1248,6 +1260,18 @@ h2{font-family:var(--pix);font-size:12px;color:var(--gray);margin:24px 0 8px;let
 .btn.evdone{border-color:var(--person);color:var(--person-deep);box-shadow:2px 2px 0 var(--person)}
 .btn.evdone:hover{background:var(--person);color:#fff}
 .row.evfin .btn.evdone{border-color:var(--rule);color:var(--gray);box-shadow:2px 2px 0 var(--rule)}
+/* 声のカード */
+.notecard{background:var(--panel);border:3px solid var(--ink);border-radius:10px;box-shadow:inset 0 0 0 3px var(--panel),inset 0 0 0 4px var(--rule);padding:12px;margin-bottom:12px}
+.notecard.unread{border-color:var(--today);box-shadow:inset 0 0 0 3px var(--panel),inset 0 0 0 4px var(--today)}
+.notecard.fin{opacity:.6}
+.nhd{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:7px}
+.nhd .nfrom{font-weight:700;font-size:14px}
+.nhd .sp{flex:1}
+.nhd .nwhen{font-family:var(--pix);font-size:10px;color:var(--gray)}
+.nbody{font-size:13px;line-height:1.8;white-space:pre-wrap;word-break:break-word;background:var(--panel2);border:2px solid var(--rule);border-radius:7px;padding:9px 10px}
+.nreply{margin-top:8px;font-size:12px;line-height:1.7;background:var(--person-tint);border:2px solid var(--person);border-radius:7px;padding:8px 10px;color:var(--person-deep)}
+.nact{display:flex;gap:6px;margin-top:9px;flex-wrap:wrap;align-items:center}
+.nact .sp{flex:1}
 /* メール本文 */
 .mailbody{background:var(--panel2);border:2px solid var(--rule);border-radius:7px;padding:10px 11px;font-size:13px;line-height:1.8;white-space:pre-wrap;word-break:break-word;max-height:40vh;overflow:auto}
 /* 目次 */
@@ -1996,7 +2020,7 @@ function addMin(t0,n){const m0=mins(t0)+n;return String(Math.floor(m0/60)%24).pa
 
 /* ========== C. 伝言箱（受け皿・スタッフからの声） ========== */
 function inboxNotes(){return (D.notes||[]).slice().sort((a,b)=>(b.at||'').localeCompare(a.at||''))}
-function unreadNotes(){return (D.notes||[]).filter(n=>!n.read)}
+function unreadNotes(){return (D.notes||[]).filter(n=>!n.read&&!n.done)}
 function openNoteModal(id){
   const n=id?(D.notes||[]).find(x=>x.id===id):null;
   if(n){
@@ -2025,6 +2049,40 @@ function saveNote(){
   D.notes.push({id:uid(),from,staffId:p?p.id:'',body,via:document.getElementById('nt-via').value.trim(),at:new Date().toISOString(),read:true});
   closeModal();store.save();render();toast('お預かりしました');
 }
+function replyNote(id,ev){
+  if(ev&&ev.stopPropagation)ev.stopPropagation();
+  const n=(D.notes||[]).find(x=>x.id===id);if(!n)return;
+  openModal('<h3>この声への対応</h3>'
+   +'<div class="hint">'+esc(n.from||'匿名')+(n.via?'　'+esc(n.via):'')+'</div>'
+   +'<div class="warn" style="white-space:pre-wrap">'+esc(n.body)+'</div>'
+   +'<div class="f"><label>どう対応しましたか</label><textarea id="nr-t" style="min-height:90px" placeholder="例：椅子を交換した／総務に依頼した／次の朝礼で伝える">'+esc(n.reply||'')+'</textarea></div>'
+   +'<div class="foot"><button class="btn ghost" onclick="closeModal()">やめる</button>'
+   +'<button class="btn" onclick="noteToTask(\''+id+'\')">案件にする</button>'
+   +'<button class="btn solid" onclick="doReplyNote(\''+id+'\')">対応済みにする</button></div>');
+  setTimeout(()=>{const e=document.getElementById('nr-t');if(e)e.focus()},50);
+}
+function doReplyNote(id){
+  const n=(D.notes||[]).find(x=>x.id===id);if(!n)return;
+  n.reply=document.getElementById('nr-t').value.trim();
+  n.done=true;n.doneAt=new Date().toISOString();n.read=true;
+  closeModal();store.save();render();toast('対応済みにしました');
+}
+function noteToTask(id){
+  const n=(D.notes||[]).find(x=>x.id===id);if(!n)return;
+  const r=document.getElementById('nr-t');
+  if(r)n.reply=r.value.trim();
+  D.tasks=D.tasks||[];
+  D.tasks.push({id:uid(),title:(n.body||'').slice(0,40),due:addDays(today(),7),
+    memo:'いただいた声より'+(n.from?'（'+n.from+'さん）':'')+'\n'+(n.body||''),
+    source:'manual',status:'open',createdAt:new Date().toISOString(),noteId:id});
+  n.read=true;n.tasked=true;
+  closeModal();store.save();render();toast('DESKに案件として置きました');
+}
+function reopenNote(id,ev){
+  if(ev&&ev.stopPropagation)ev.stopPropagation();
+  const n=(D.notes||[]).find(x=>x.id===id);if(!n)return;
+  n.done=false;n.doneAt='';store.save();render();
+}
 function delNote(id){if(!confirm('削除しますか？'))return;D.notes=(D.notes||[]).filter(x=>x.id!==id);closeModal();store.save();render()}
 function notesOf(staffId,name){
   return (D.notes||[]).filter(n=>n.staffId===staffId||(n.from&&normName(n.from)===normName(name))).sort((a,b)=>(b.at||'').localeCompare(a.at||''));
@@ -2037,10 +2095,36 @@ function vNotes(){
       store.fetchForm(true).finally(()=>{window._formFetching=false});
     }
   }
-  const list=inboxNotes();
-  let h=`<h2>いただいた声</h2><div class="toolbar"><span class="small muted">スタッフから聞いた話を溜めておく場所です</span><span class="sp"></span>${D.settings.formSheetUrl?`<button class="btn ghost small" onclick="store.fetchForm()">投稿を取り込む</button>`:''}<button class="btn small" onclick="openNoteModal()">書き留める</button></div>`;
-  if(!list.length)return h+`<div class="empty">まだ何もありません。<br><span class="small">現場で聞いた一言を残しておくと、面談のときに効いてきます。</span></div>`;
-  return h+list.map(n=>`<div class="row ${n.read?'':'due'}" onclick="openNoteModal('${n.id}')"><div class="t"><div class="ttl">${n.read?'':'<span class="pill warnpill">未読</span>'}${esc(n.from||'匿名')}</div><div class="sub">${esc(n.body.slice(0,60))}${n.body.length>60?'…':''}　${n.at?fmtMD(n.at.slice(0,10)):''}${n.via?'　'+esc(n.via):''}</div></div></div>`).join('');
+  const all=inboxNotes();
+  const open=all.filter(n=>!n.done), done=all.filter(n=>n.done);
+  let h=`<h2>いただいた声</h2><div class="toolbar"><span class="small muted">未対応 ${open.length}件　対応済み ${done.length}件</span><span class="sp"></span>${D.settings.formSheetUrl?`<button class="btn ghost small" onclick="store.fetchForm()">取り込む</button>`:''}<button class="btn small" onclick="openNoteModal()">書き留める</button></div>`;
+  if(!all.length)return h+`<div class="empty">まだ何もありません。<br><span class="small">現場で聞いた一言を残しておくと、面談のときに効いてきます。</span></div>`;
+  const card=n=>`<div class="notecard ${n.done?'fin':''} ${n.read||n.done?'':'unread'}">
+    <div class="nhd"><span class="nfrom">${esc(n.from||'匿名')}</span>
+      ${n.read||n.done?'':'<span class="warnpill">未読</span>'}
+      ${n.tasked?'<span class="pill">案件化</span>':''}
+      <span class="sp"></span>
+      <span class="nwhen">${n.at?fmtMD(n.at.slice(0,10)).replace(/（.）/,''):''}${n.via?'　'+esc(n.via):''}</span></div>
+    <div class="nbody">${esc(n.body)}</div>
+    ${n.reply?`<div class="nreply"><b>対応</b>　${esc(n.reply)}</div>`:''}
+    <div class="nact">
+      ${n.done?`<button class="btn ghost small" onclick="reopenNote('${n.id}',event)">未対応に戻す</button>`
+              :`<button class="btn small" onclick="replyNote('${n.id}',event)">対応を書く</button>
+                <button class="btn ghost small" onclick="noteMarkRead('${n.id}')">${n.read?'既読':'読んだ'}</button>`}
+      ${(()=>{const p=n.staffId?D.staff.find(x=>x.id===n.staffId):(n.from?resolveStaff(n.from):null);
+        return p?`<button class="btn ghost small person" onclick="openStaffDetail('${p.id}')">${esc(p.name)}</button>`:''})()}
+      <span class="sp"></span>
+      <button class="btn ghost small" onclick="delNote('${n.id}')">削除</button>
+    </div>
+  </div>`;
+  if(open.length)h+=open.map(card).join('');
+  else h+=`<div class="empty">未対応の声はありません。</div>`;
+  if(done.length)h+=`<details><summary>対応済み ${done.length}件</summary>${done.map(card).join('')}</details>`;
+  return h;
+}
+function noteMarkRead(id){
+  const n=(D.notes||[]).find(x=>x.id===id);if(!n)return;
+  n.read=!n.read;store.save();render();
 }
 
 /* ========== E. 顔写真（この端末にだけ保存） ========== */
@@ -2650,7 +2734,8 @@ function rowTask(t,compact){
   return `<div class="row ${sd>=3?'stale':''} ${due?'due':''}"><div class="t"${tap}><div class="ttl">${esc(t.title)}${badge}</div><div class="sub">${src?src+'から　':''}${t.due?'期限 <span class="'+(due?'due-today':'')+'">'+fmtMD(t.due)+'</span>':'期限なし'}　${sd?sd+'日経過':'今日'}</div>
   ${show?`<div onclick="event.stopPropagation()">${stepsHtml(t)}</div>`:''}
   ${compact?'':`<div class="exits" onclick="event.stopPropagation()"><button class="btn small" onclick="taskDone('${t.id}')">${st.n?'まとめて完了':'今すぐ・完了'}</button><button class="btn small" onclick="taskToEvent('${t.id}')">予定にする</button><button class="btn small person" onclick="taskDelegate('${t.id}')">人に振る</button><button class="btn ghost small" onclick="openStepAdd('${t.id}')">手順を足す</button><button class="btn ghost small" onclick="openTaskModal('${t.id}')">編集</button></div>`}
-  </div>${compact?`<div class="acts"><button class="btn small" onclick="taskDone('${t.id}')">完了</button></div>`:''}</div>`;
+  ${compact?`<div class="exits" onclick="event.stopPropagation()"><button class="btn small" onclick="taskDone('${t.id}')">${st.n?'まとめて完了':'完了'}</button><button class="btn ghost small" onclick="openStepAdd('${t.id}')">手順を足す</button><button class="btn ghost small" onclick="openTaskModal('${t.id}')">編集</button></div>`:''}
+  </div></div>`;
 }
 function taskDone(id){const t=D.tasks.find(x=>x.id===id);
   if(t.status==='delegated'&&t.delegId){const g=delegLog().find(x=>x.id===t.delegId);if(g&&!g.doneAt)g.doneAt=today()}
