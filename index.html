@@ -2247,6 +2247,7 @@ let staffYm=null;
 /* ===== 面談の日時を決めてスケジュールへ ===== */
 function openMeetingPicker(id,pd){
   const p=D.staff.find(x=>x.id===id);
+  if(isSelf(p)){openStaffDetail(id);return}
   const code=shiftOf(p.name,pd);
   const busy=eventsOn(pd);
   const slots=optSlots();
@@ -2266,7 +2267,7 @@ function openMeetingPicker(id,pd){
   <div class="ideas">${askIdeas(p).map(x=>`<button class="btn ghost small" onclick="addTheme(this)" data-x="${esc(x)}">＋ ${esc(x)}</button>`).join('')}</div></div>
   ${D.settings.roomTo?`<div class="f"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="mp-room" checked style="width:auto"> ${esc(D.settings.roomTo)} に会議室の確保を依頼する</label></div>`:'<p class="small muted">※会議室の依頼先は設定から登録できます</p>'}
   <div id="mp-warn"></div>
-  <div class="foot"><button class="btn ghost" onclick="openStaffDetail('${id}')">記録をつける</button><button class="btn ghost" onclick="closeModal()">やめる</button><button class="btn solid" onclick="saveMeeting('${id}')">面談を入れる</button></div>`);
+  <div class="foot"><button class="btn ghost" onclick="openStaffDetail('${id}')">この人の詳細</button><button class="btn ghost" onclick="closeModal()">やめる</button><button class="btn solid" onclick="saveMeeting('${id}')">面談を入れる</button></div>`);
   window._slot=slots.includes('16:00')?'16:00':slots[Math.floor(slots.length/2)]||'10:00';
 }
 function addTheme(b){const t=document.getElementById('mp-theme');const v=b.dataset.x;t.value=t.value.trim()?t.value.trim()+'\n'+v:v;b.classList.add('used')}
@@ -4520,6 +4521,14 @@ function vSetting(){
   <p class="small muted">投稿ボックスの通知など、Gmailのフィルタでラベルを付けたメールを最上位で拾います。転送できない場合はこちらをお使いください。</p>
   <div class="f"><label>期限を示す語句（1行に1つ）</label><textarea id="s-dw">${esc(s.deadlineWords.join('\n'))}</textarea></div>
   <div class="f2"><div class="f"><label>メール：過去何日分</label><input id="s-fd" type="number" value="${s.fetchDays}"></div><div class="f"><label>カレンダー：先何日分</label><input id="s-cd2" type="number" value="${s.calDays||30}"></div></div>
+  <h2>自分は誰か</h2>
+  <div class="f"><label>名簿の中から自分を選ぶ</label>
+    <select onchange="if(this.value)setSelf(this.value); else {const m=selfStaff();if(m)clearSelf(m.id)}">
+      <option value="">（選んでいません）</option>
+      ${D.staff.filter(p=>!p.retiredAt).map(p=>`<option value="${p.id}" ${p.self?'selected':''}>${esc(p.name)}（${esc(p.kind)}）</option>`).join('')}
+    </select>
+  </div>
+  <p class="small muted">選ぶと、面談の提案や「話せていない人」の集計から外れます。勤務表では自分の勤務が最上部に出ます。</p>
   <h2>選択肢のカスタマイズ</h2>
   <div class="optlist">
     <div class="row"><div class="t"><div class="ttl">面談のテーマ候補</div><div class="sub">${(s.themes||[]).length?esc((s.themes||[]).slice(0,3).join('／'))+((s.themes||[]).length>3?' ほか':''):'登録なし（状況から自動で提案します）'}</div></div><div class="acts"><button class="btn ghost small" onclick="openListEdit('themes')">編集</button></div></div>
