@@ -373,6 +373,14 @@ h2{font-family:var(--pix);font-size:12px;color:var(--gray);margin:24px 0 8px;let
 .pick .pd{display:block;font-size:12px;color:var(--gray);margin-top:5px;line-height:1.6}
 .pick.rec{background:var(--person-tint);border-color:var(--person-deep);box-shadow:inset 0 0 0 3px var(--person-tint),inset 0 0 0 5px var(--person-deep)}
 .pick.rec .pd{color:var(--person-deep)}
+/* 出勤者の要約 */
+.wsum{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--panel);border:3px solid var(--ink);border-radius:10px;box-shadow:inset 0 0 0 3px var(--panel),inset 0 0 0 4px var(--rule);padding:10px 13px;margin:10px 0 6px}
+.wsum .wsn{font-size:13px;color:var(--gray)}
+.wsum .wsn b{font-family:var(--pix);font-size:22px;color:var(--ink);margin-right:2px}
+.wsum .wso{font-size:13px;color:var(--person-deep);font-weight:700}
+.wsum .wso b{font-family:var(--pix);font-size:22px;color:var(--person-deep);margin-right:2px}
+.wsum.has{background:var(--person-tint);border-color:var(--person-deep);box-shadow:inset 0 0 0 3px var(--person-tint),inset 0 0 0 5px var(--person-deep)}
+.wsum .wsok{font-size:13px;color:var(--gray)}
 /* 自分の勤務 */
 .myshift{display:flex;align-items:center;gap:9px;background:var(--panel);border:3px solid var(--ink);border-radius:10px;box-shadow:inset 0 0 0 3px var(--panel),inset 0 0 0 4px var(--rule);padding:9px 12px;margin:10px 0}
 .myshift .ml{font-family:var(--pix);font-size:10px;color:var(--gray);flex:none}
@@ -4413,7 +4421,8 @@ function vShiftDay(date){
     const off0=isOff(myInfo?myInfo.l:'');
     h+=`<div class="myshift ${off0?'off':''}"><span class="ml">自分の勤務</span><b>${off0?'お休み':esc(myInfo.l||'')}</b>${!off0&&myInfo.s?`<span class="mt">${esc(myInfo.s)}</span>`:''}${!off0&&myInfo.p?`<span class="mp2">${esc(myInfo.p)}</span>`:''}</div>`;
   }
-  h+=`<div class="toolbar"><span class="small muted">${w.length}名 出勤${over?`／<b style="color:var(--person-deep)">${over}名</b>はしばらく話せていません`:''}</span><span class="sp"></span>
+  h+=`<div class="wsum ${over?'has':''}"><span class="wsn"><b>${w.length}</b>名 出勤</span>${over?`<span class="wso"><b>${over}</b>名としばらく話せていません</span>`:`<span class="wsok">全員と最近お話しできています</span>`}</div>`;
+  h+=`<div class="toolbar"><span class="sp"></span><span class="sp"></span>
     <div class="seg"><button class="${shiftView==='pri'?'on':''}" onclick="shiftView='pri';render()">優先順</button><button class="${shiftView==='code'?'on':''}" onclick="shiftView='code';render()">区分順</button></div></div>`;
   const chip=x=>{
     const inf=shiftInfo(x.p.name,date)||{l:x.code,s:'',p:''};
