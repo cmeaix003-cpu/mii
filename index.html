@@ -118,6 +118,9 @@ h2{font-family:var(--pix);font-size:12px;color:var(--gray);margin:24px 0 8px;let
 .btn.person:hover{background:var(--person);color:#fff}
 .btn.solid{background:var(--ink);color:var(--panel)}
 .btn.small{padding:4px 10px;font-size:12px}
+.btn.xs{padding:3px 7px;font-size:12px;min-width:28px;line-height:1.2}
+.acts.mini{flex-direction:column;align-items:flex-end;gap:4px}
+@media(min-width:420px){.acts.mini{flex-direction:row;align-items:center}}
 .exits{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
 .toolbar{display:flex;gap:8px;align-items:center;margin:6px 0 12px;flex-wrap:wrap}
 .toolbar .sp{flex:1}
@@ -1067,6 +1070,9 @@ h2{font-family:var(--pix);font-size:12px;color:var(--gray);margin:24px 0 8px;let
 .btn.person:hover{background:var(--person);color:#fff}
 .btn.solid{background:var(--ink);color:var(--panel)}
 .btn.small{padding:4px 10px;font-size:12px}
+.btn.xs{padding:3px 7px;font-size:12px;min-width:28px;line-height:1.2}
+.acts.mini{flex-direction:column;align-items:flex-end;gap:4px}
+@media(min-width:420px){.acts.mini{flex-direction:row;align-items:center}}
 .exits{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
 .toolbar{display:flex;gap:8px;align-items:center;margin:6px 0 12px;flex-wrap:wrap}
 .toolbar .sp{flex:1}
@@ -2734,8 +2740,7 @@ function rowTask(t,compact){
   return `<div class="row ${sd>=3?'stale':''} ${due?'due':''}"><div class="t"${tap}><div class="ttl">${esc(t.title)}${badge}</div><div class="sub">${src?src+'から　':''}${t.due?'期限 <span class="'+(due?'due-today':'')+'">'+fmtMD(t.due)+'</span>':'期限なし'}　${sd?sd+'日経過':'今日'}</div>
   ${show?`<div onclick="event.stopPropagation()">${stepsHtml(t)}</div>`:''}
   ${compact?'':`<div class="exits" onclick="event.stopPropagation()"><button class="btn small" onclick="taskDone('${t.id}')">${st.n?'まとめて完了':'今すぐ・完了'}</button><button class="btn small" onclick="taskToEvent('${t.id}')">予定にする</button><button class="btn small person" onclick="taskDelegate('${t.id}')">人に振る</button><button class="btn ghost small" onclick="openStepAdd('${t.id}')">手順を足す</button><button class="btn ghost small" onclick="openTaskModal('${t.id}')">編集</button></div>`}
-  ${compact?`<div class="exits" onclick="event.stopPropagation()"><button class="btn small" onclick="taskDone('${t.id}')">${st.n?'まとめて完了':'完了'}</button><button class="btn ghost small" onclick="openStepAdd('${t.id}')">手順を足す</button><button class="btn ghost small" onclick="openTaskModal('${t.id}')">編集</button></div>`:''}
-  </div></div>`;
+  </div>${compact?`<div class="acts mini" onclick="event.stopPropagation()"><button class="btn ghost xs" onclick="openStepAdd('${t.id}')" title="手順を足す">＋</button><button class="btn ghost xs" onclick="openTaskModal('${t.id}')" title="編集">✎</button><button class="btn small" onclick="taskDone('${t.id}')">${st.n?'まとめて':'完了'}</button></div>`:''}</div>`;
 }
 function taskDone(id){const t=D.tasks.find(x=>x.id===id);
   if(t.status==='delegated'&&t.delegId){const g=delegLog().find(x=>x.id===t.delegId);if(g&&!g.doneAt)g.doneAt=today()}
@@ -2984,7 +2989,7 @@ function rowMail(m,compact){
   return `<div class="row ${rep?'due':''} ${sd>=3&&rep?'stale':''}"><div class="t" onclick="openMailDetail('${m.id}')" style="cursor:pointer"><div class="ttl">${m.flagged?'<span class="fwd">自分で送信</span>':''}${esc(m.subject||'（件名なし）')}</div><div class="sub">${esc(m.from)}${m.to==='CC'?'<span class="pill">CC</span>':''}　${m.date?fmtMD(m.date.slice(0,10)):''}${rep?'　<span class="'+(sd>=3?'due-today':'')+'">'+(sd?sd+'日返信なし':'返信待ち')+'</span>':''}　<span class="score">${mailScore(m)}点</span></div>
   ${m.snippet?`<div class="sub" style="margin-top:4px;color:var(--ink)">${esc(m.snippet.slice(0,120))}${m.snippet.length>120?'…':''}</div>`:''}
   ${compact?'':`<div class="exits" onclick="event.stopPropagation()"><button class="btn small" onclick="mailExit('${m.id}','replied')">返信した</button><button class="btn small" onclick="mailToTask('${m.id}')">タスク化</button><button class="btn ghost small" onclick="mailExit('${m.id}','ignored')">対応不要</button>${m.link?`<a class="btn ghost small" href="${esc(m.link)}" target="_blank" rel="noopener">Gmailで開く</a>`:''}</div>`}
-  </div>${compact?`<div class="acts"><button class="btn small" onclick="mailExit('${m.id}','replied')">返信した</button></div>`:''}</div>`;
+  </div>${compact?`<div class="acts mini" onclick="event.stopPropagation()"><button class="btn ghost xs" onclick="mailToTask('${m.id}')" title="タスク化">＋</button><button class="btn small" onclick="mailExit('${m.id}','replied')">返信</button></div>`:''}</div>`;
 }
 
 /* ===== メールの中身を見る ===== */
