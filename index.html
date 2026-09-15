@@ -348,7 +348,7 @@ h2{font-family:var(--pix);font-size:12px;color:var(--gray);margin:24px 0 8px;let
 .rsreason{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
 .rsreason .btn.on{background:var(--ink);color:var(--panel);border-color:var(--ink)}
 /* 手順の開閉バッジ */
-.stepbadge{display:inline-flex;align-items:center;gap:3px;font-family:var(--pix);font-size:10px;background:var(--panel2);border:2px solid var(--rule);border-radius:6px;padding:1px 7px;margin-left:7px;color:var(--gray);vertical-align:2px}
+.stepbadge{display:inline-flex;align-items:center;gap:3px;user-select:none;font-family:var(--pix);font-size:10px;background:var(--panel2);border:2px solid var(--rule);border-radius:6px;padding:1px 7px;margin-left:7px;color:var(--gray);vertical-align:2px}
 .stepbadge.all{background:var(--person-tint);border-color:var(--person);color:var(--person-deep)}
 .row.person .stepbadge{background:#fff}
 /* 見出しの開閉 */
@@ -1250,7 +1250,7 @@ h2{font-family:var(--pix);font-size:12px;color:var(--gray);margin:24px 0 8px;let
 .rsreason{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
 .rsreason .btn.on{background:var(--ink);color:var(--panel);border-color:var(--ink)}
 /* 手順の開閉バッジ */
-.stepbadge{display:inline-flex;align-items:center;gap:3px;font-family:var(--pix);font-size:10px;background:var(--panel2);border:2px solid var(--rule);border-radius:6px;padding:1px 7px;margin-left:7px;color:var(--gray);vertical-align:2px}
+.stepbadge{display:inline-flex;align-items:center;gap:3px;user-select:none;font-family:var(--pix);font-size:10px;background:var(--panel2);border:2px solid var(--rule);border-radius:6px;padding:1px 7px;margin-left:7px;color:var(--gray);vertical-align:2px}
 .stepbadge.all{background:var(--person-tint);border-color:var(--person);color:var(--person-deep)}
 .row.person .stepbadge{background:#fff}
 /* 見出しの開閉 */
@@ -2563,10 +2563,12 @@ function rowTask(t,compact){
   const src={mail:'メール',meeting:'会議',shortcut:'ショートカット',manual:''}[t.source]||'';
   const st=stepStat(t);
   const show=st.n&&isOpen('s-'+t.id,false);
-  const badge=st.n?`<button class="stepbadge ${st.done===st.n?'all':''}" onclick="toggleFold('s-${t.id}',false);event.stopPropagation()">${show?'−':'＋'} ${st.done}/${st.n}</button>`:'';
-  return `<div class="row ${sd>=3?'stale':''} ${due?'due':''}"><div class="t"><div class="ttl">${esc(t.title)}${badge}</div><div class="sub">${src?src+'から　':''}${t.due?'期限 <span class="'+(due?'due-today':'')+'">'+fmtMD(t.due)+'</span>':'期限なし'}　${sd?sd+'日経過':'今日'}</div>
-  ${show?stepsHtml(t):''}
-  ${compact?'':`<div class="exits"><button class="btn small" onclick="taskDone('${t.id}')">${st.n?'まとめて完了':'今すぐ・完了'}</button><button class="btn small" onclick="taskToEvent('${t.id}')">予定にする</button><button class="btn small person" onclick="taskDelegate('${t.id}')">人に振る</button><button class="btn ghost small" onclick="openStepAdd('${t.id}')">手順を足す</button><button class="btn ghost small" onclick="openTaskModal('${t.id}')">編集</button></div>`}
+  const badge=st.n?`<span class="stepbadge ${st.done===st.n?'all':''}">${show?'−':'＋'} ${st.done}/${st.n}</span>`:'';
+  // 手順があれば、行のどこを押しても開閉する
+  const tap=st.n?` onclick="toggleFold('s-${t.id}',false)" style="cursor:pointer"`:'';
+  return `<div class="row ${sd>=3?'stale':''} ${due?'due':''}"><div class="t"${tap}><div class="ttl">${esc(t.title)}${badge}</div><div class="sub">${src?src+'から　':''}${t.due?'期限 <span class="'+(due?'due-today':'')+'">'+fmtMD(t.due)+'</span>':'期限なし'}　${sd?sd+'日経過':'今日'}</div>
+  ${show?`<div onclick="event.stopPropagation()">${stepsHtml(t)}</div>`:''}
+  ${compact?'':`<div class="exits" onclick="event.stopPropagation()"><button class="btn small" onclick="taskDone('${t.id}')">${st.n?'まとめて完了':'今すぐ・完了'}</button><button class="btn small" onclick="taskToEvent('${t.id}')">予定にする</button><button class="btn small person" onclick="taskDelegate('${t.id}')">人に振る</button><button class="btn ghost small" onclick="openStepAdd('${t.id}')">手順を足す</button><button class="btn ghost small" onclick="openTaskModal('${t.id}')">編集</button></div>`}
   </div>${compact?`<div class="acts"><button class="btn small" onclick="taskDone('${t.id}')">完了</button></div>`:''}</div>`;
 }
 function taskDone(id){const t=D.tasks.find(x=>x.id===id);
