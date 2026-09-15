@@ -905,6 +905,11 @@ const store={
             {tries:3,timeout:90000,onRetry:(n,t)=>setSave('busy','保存し直しています '+n+'/'+t)});
           window._forceSave=false;
           if(j&&j.conflict){
+            // 自分で編集した直後の自動取り込みなら、こちらを優先して保存し直す
+            if(window._silentSave&&window._edited&&!window._forceSave){
+              window._forceSave=true;window._silentSave=false;
+              store.save();return;
+            }
             // 自分で編集していなければ、聞かずに新しい方へ合わせる
             if(!window._edited||window._silentSave){
               const remote=j.data;
@@ -977,8 +982,13 @@ const store={
       if(!j.ok)throw new Error(j.error||'取り込みに失敗しました');
       D.notes=D.notes||[];
       let added=0;
+      const keyOf=r=>'f:'+(r.at||'')+':'+String(r.items.map(i=>i.a).join('|')).length+':'+String(r.items.map(i=>i.a).join('|')).slice(0,40);
+      const del=D.noteDeleted||[];
       (j.rows||[]).forEach(r=>{
-        if(D.notes.some(n=>n.formKey===r.key))return;
+        const k2=keyOf(r);
+        if(D.notes.some(n=>n.formKey===r.key||n.formKey===k2))return;
+        if(del.includes(r.key)||del.includes(k2))return;
+        r.key=k2;
         // 「名前」らしい項目は差出人、それ以外は本文に
         let from='',body=[];
         r.items.forEach(it=>{
@@ -1341,7 +1351,12 @@ function reopenNote(id,ev){
   const n=(D.notes||[]).find(x=>x.id===id);if(!n)return;
   n.done=false;n.doneAt='';store.save();render();
 }
-function delNote(id){if(!confirm('削除しますか？'))return;D.notes=(D.notes||[]).filter(x=>x.id!==id);closeModal();store.save();render()}
+function delNote(id){
+  if(!confirm('削除しますか？'))return;
+  const n=(D.notes||[]).find(x=>x.id===id);
+  if(n&&n.formKey){D.noteDeleted=D.noteDeleted||[];if(!D.noteDeleted.includes(n.formKey))D.noteDeleted.push(n.formKey)}
+  D.notes=(D.notes||[]).filter(x=>x.id!==id);closeModal();store.save();render();
+}
 function notesOf(staffId,name){
   return (D.notes||[]).filter(n=>n.staffId===staffId||(n.from&&normName(n.from)===normName(name))).sort((a,b)=>(b.at||'').localeCompare(a.at||''));
 }
