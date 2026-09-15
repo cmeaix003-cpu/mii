@@ -365,6 +365,14 @@ h2{font-family:var(--pix);font-size:12px;color:var(--gray);margin:24px 0 8px;let
 .thnoteview{border-top:2px solid var(--rule);background:var(--panel);font-size:12px;padding:7px 9px;color:var(--gray)}
 .thadd{display:flex;gap:6px;margin-top:8px}
 .thadd input{flex:1}
+/* 大きな選択肢 */
+.pick{display:block;width:100%;text-align:left;background:var(--panel);border:3px solid var(--ink);border-radius:10px;box-shadow:inset 0 0 0 3px var(--panel),inset 0 0 0 4px var(--rule);padding:13px;margin-bottom:10px}
+.pick:active{transform:translate(1px,1px)}
+.pick .pt{display:block;font-weight:700;font-size:15px}
+.pick .pt i{font-style:normal;font-family:var(--pix);font-size:10px;background:var(--person);color:#fff;border-radius:5px;padding:2px 7px;margin-left:8px;vertical-align:2px}
+.pick .pd{display:block;font-size:12px;color:var(--gray);margin-top:5px;line-height:1.6}
+.pick.rec{background:var(--person-tint);border-color:var(--person-deep);box-shadow:inset 0 0 0 3px var(--person-tint),inset 0 0 0 5px var(--person-deep)}
+.pick.rec .pd{color:var(--person-deep)}
 /* 自分の勤務 */
 .myshift{display:flex;align-items:center;gap:9px;background:var(--panel);border:3px solid var(--ink);border-radius:10px;box-shadow:inset 0 0 0 3px var(--panel),inset 0 0 0 4px var(--rule);padding:9px 12px;margin:10px 0}
 .myshift .ml{font-family:var(--pix);font-size:10px;color:var(--gray);flex:none}
@@ -984,9 +992,13 @@ function showConflict(j){
   const t=j.updatedAt?new Date(j.updatedAt).toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}):'';
   openModal(`<h3>他の端末で先に更新されています</h3>
   <div class="hint">別の端末（PCかスマホ）で${t?'<b>'+t+'</b>に':''}保存された内容が、こちらより新しくなっています。どちらを残すか選んでください。</div>
-  <div class="warn"><b>向こうの内容を取り込む</b>（おすすめ）<br>いま画面で編集した内容は失われます。</div>
-  <div class="warn"><b>こちらの内容で上書きする</b><br>向こうの端末で加えた変更が失われます。</div>
-  <div class="foot"><button class="btn ghost" onclick="closeModal()">あとで決める</button><button class="btn" onclick="conflictOverwrite()">こちらで上書き</button><button class="btn solid" onclick="conflictReload()">向こうを取り込む</button></div>`);
+  <button class="pick rec" onclick="conflictReload()">
+    <span class="pt">向こうの内容を取り込む<i>おすすめ</i></span>
+    <span class="pd">いま画面で編集した内容は失われます</span></button>
+  <button class="pick" onclick="conflictOverwrite()">
+    <span class="pt">こちらの内容で上書きする</span>
+    <span class="pd">向こうの端末で加えた変更が失われます</span></button>
+  <div class="foot"><button class="btn ghost small" onclick="closeModal()">あとで決める</button></div>`);
   window._conflictData=j.data;
 }
 function conflictReload(){
