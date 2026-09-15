@@ -333,6 +333,14 @@ h2{font-family:var(--pix);font-size:12px;color:var(--gray);margin:24px 0 8px;let
 .btn.evdone{border-color:var(--person);color:var(--person-deep);box-shadow:2px 2px 0 var(--person)}
 .btn.evdone:hover{background:var(--person);color:#fff}
 .row.evfin .btn.evdone{border-color:var(--rule);color:var(--gray);box-shadow:2px 2px 0 var(--rule)}
+/* タグ */
+.tagrow{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+.tagc{display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:3px 9px;border:2px solid var(--rule);border-radius:12px;background:var(--panel);color:var(--gray)}
+.tagc.on{background:var(--ink);color:var(--panel);border-color:var(--ink)}
+.tagc.sug{border-style:dashed;border-color:var(--person);color:var(--person-deep)}
+.tagc i{font-style:normal;font-family:var(--pix);font-size:9px;background:var(--person);color:#fff;border-radius:50%;width:12px;height:12px;display:inline-flex;align-items:center;justify-content:center}
+.tagc b{font-family:var(--pix);font-size:9px;background:var(--today);color:#fff;border-radius:6px;padding:0 4px;margin-left:2px}
+.tagc.on b{background:var(--panel);color:var(--ink)}
 /* 声のカード */
 .notecard{background:var(--panel);border:3px solid var(--ink);border-radius:10px;box-shadow:inset 0 0 0 3px var(--panel),inset 0 0 0 4px var(--rule);padding:12px;margin-bottom:12px}
 .notecard.unread{border-color:var(--today);box-shadow:inset 0 0 0 3px var(--panel),inset 0 0 0 4px var(--today)}
@@ -822,7 +830,7 @@ const TYPES={
   '私用':{cat:'私用',fields:['place']}
 };
 const CATS=['会議','打合せ','人','作業','移動','私用'];
-const DEFAULT_SETTINGS={gasUrl:'',myEmail:'',vip:[],exclude:[],deadlineWords:['至急','本日中','〆切','締切','までに','確認願います','ご確認ください'],calDays:30,icsUrls:[],formSheetUrl:'',nameAliases:{},forwardTo:'',forwardLabel:'',roomTo:'',roomCc:'',roomSubject:'【会議室のお願い】{date} {start}〜{end} 面談',roomBody:'お疲れ様です。\n\n下記のとおり面談を予定しております。会議室のご手配をお願いいたします。\n\n・日時：{date}（{dow}） {start}〜{end}\n・対象：{name} さん\n・場所：{place}\n\nお手数をおかけしますが、よろしくお願いいたします。',weeklyGoal:5,weekGoals:{},fetchDays:2};
+const DEFAULT_SETTINGS={gasUrl:'',myEmail:'',vip:[],exclude:[],deadlineWords:['至急','本日中','〆切','締切','までに','確認願います','ご確認ください'],calDays:30,icsUrls:[],formSheetUrl:'',noteTags:['シフト','設備','人間関係','業務量','手順・ルール','待遇','感謝・良かったこと','その他'],nameAliases:{},forwardTo:'',forwardLabel:'',roomTo:'',roomCc:'',roomSubject:'【会議室のお願い】{date} {start}〜{end} 面談',roomBody:'お疲れ様です。\n\n下記のとおり面談を予定しております。会議室のご手配をお願いいたします。\n\n・日時：{date}（{dow}） {start}〜{end}\n・対象：{name} さん\n・場所：{place}\n\nお手数をおかけしますが、よろしくお願いいたします。',weeklyGoal:5,weekGoals:{},fetchDays:2};
 
 let D={events:[],tasks:[],mails:[],staff:[],shifts:{},duty:{},settings:{...DEFAULT_SETTINGS},meta:{updatedAt:0}};
 let view='today', calMode='week', calAnchor=today(), peopleFilter='全', mailTab='reply', inboxTab='open', peopleDate=null;
@@ -1152,6 +1160,128 @@ function saveNote(){
   D.notes.push({id:uid(),from,staffId:p?p.id:'',body,via:document.getElementById('nt-via').value.trim(),at:new Date().toISOString(),read:true});
   closeModal();store.save();render();toast('お預かりしました');
 }
+
+/* ========== 声のタグ付け・束ね・傾向 ========== */
+const TAG_HINTS={
+  'シフト':/シフト|勤務|休み|出勤|遅番|早番|夜勤|希望|入れ|連勤|時間帯/,
+  '設備':/椅子|机|壊れ|故障|エアコン|空調|暑|寒|トイレ|休憩室|モニター|パソコン|PC|プリンタ|照明|電気|Wi-?Fi|回線/i,
+  '人間関係':/態度|言い方|怒|無視|苦手|合わない|気まずい|嫌|パワハラ|相談しにくい|話しかけ/,
+  '業務量':/多い|回らない|間に合わ|残業|きつい|忙し|人が足りない|人員|負担|手が回/,
+  '手順・ルール':/手順|ルール|やり方|マニュアル|決まり|分からない|どこに|誰に|教えて|基準/,
+  '待遇':/給料|時給|賃金|手当|評価|昇給|契約|更新|交通費/,
+  '感謝・良かったこと':/ありがと|助か|嬉し|良かった|感謝|楽しい|やりやす/
+};
+function noteTags(){const a=(D.settings.noteTags||[]).filter(Boolean);return a.length?a:['その他']}
+function suggestTags(text){
+  const t=String(text||'');
+  return noteTags().filter(tag=>TAG_HINTS[tag]&&TAG_HINTS[tag].test(t));
+}
+function toggleNoteTag(id,tag,ev){
+  if(ev&&ev.stopPropagation)ev.stopPropagation();
+  const n=(D.notes||[]).find(x=>x.id===id);if(!n)return;
+  n.tags=n.tags||[];
+  const i=n.tags.indexOf(tag);
+  if(i>=0)n.tags.splice(i,1);else n.tags.push(tag);
+  store.save();render();
+}
+function tagChips(n,editable){
+  const cur=n.tags||[];
+  const sug=editable&&!cur.length?suggestTags(n.body):[];
+  let h=`<div class="tagrow">`;
+  if(editable){
+    h+=noteTags().map(t=>`<button class="tagc ${cur.includes(t)?'on':''} ${sug.includes(t)?'sug':''}" onclick="toggleNoteTag('${n.id}','${esc(t)}',event)">${esc(t)}${sug.includes(t)&&!cur.includes(t)?'<i>?</i>':''}</button>`).join('');
+  }else{
+    h+=cur.map(t=>`<span class="tagc on">${esc(t)}</span>`).join('');
+  }
+  h+=`</div>`;
+  return h;
+}
+function tagStats(days){
+  const from=days?addDays(today(),-days):'';
+  const list=(D.notes||[]).filter(n=>!from||(n.at||'').slice(0,10)>=from);
+  const by={};
+  noteTags().forEach(t=>by[t]={n:0,open:0,items:[]});
+  by['（未分類）']={n:0,open:0,items:[]};
+  list.forEach(n=>{
+    const ts=(n.tags&&n.tags.length)?n.tags:['（未分類）'];
+    ts.forEach(t=>{if(!by[t])by[t]={n:0,open:0,items:[]};by[t].n++;if(!n.done)by[t].open++;by[t].items.push(n)});
+  });
+  return by;
+}
+function bundleNotes(tag){
+  const by=tagStats(0);
+  const items=(by[tag]?by[tag].items:[]).filter(n=>!n.done&&!n.bundleId);
+  if(!items.length){toast('束ねられる声がありません');return}
+  openModal('<h3>まとまった声として扱う</h3>'
+   +'<div class="hint">「'+esc(tag)+'」の声 <b>'+items.length+'件</b> を1つの案件にまとめます。対応が済めば、束ねた声はすべて対応済みになります。</div>'
+   +'<div class="f"><label>案件の名前</label><input id="bd-title" value="'+esc(tag+'の声への対応（'+items.length+'件）')+'"></div>'
+   +'<div class="f"><label>いつまでに</label><input id="bd-due" type="date" value="'+addDays(today(),14)+'"></div>'
+   +'<div class="warn" style="max-height:30vh;overflow:auto">'+items.map(n=>'<div style="margin-bottom:6px">・'+esc((n.body||'').slice(0,60))+((n.body||'').length>60?'…':'')+(n.from?'（'+esc(n.from)+'）':'')+'</div>').join('')+'</div>'
+   +'<div class="foot"><button class="btn ghost" onclick="closeModal()">やめる</button><button class="btn solid" onclick="doBundle(\''+esc(tag)+'\')">案件にする</button></div>');
+}
+function doBundle(tag){
+  const by=tagStats(0);
+  const items=(by[tag]?by[tag].items:[]).filter(n=>!n.done&&!n.bundleId);
+  const title=(document.getElementById('bd-title').value||'').trim()||tag+'の声への対応';
+  const due=document.getElementById('bd-due').value||addDays(today(),14);
+  const id=uid();
+  D.tasks=D.tasks||[];
+  D.tasks.push({id,title,due,memo:'いただいた声 '+items.length+'件をまとめたもの\n'+items.map(n=>'・'+(n.body||'')).join('\n'),
+    source:'manual',status:'open',createdAt:new Date().toISOString(),bundleTag:tag,bundleNoteIds:items.map(n=>n.id),
+    steps:[{id:uid(),t:'声の内容を整理する',done:false},{id:uid(),t:'対応の方向を決める',done:false},{id:uid(),t:'対応する',done:false},{id:uid(),t:'全体に返す',done:false}]});
+  items.forEach(n=>{n.bundleId=id;n.read=true});
+  closeModal();store.save();render();toast(items.length+'件を束ねて、DESKに置きました');
+}
+function closeBundle(task){
+  if(!task||!task.bundleNoteIds)return;
+  (D.notes||[]).forEach(n=>{
+    if(task.bundleNoteIds.includes(n.id)&&!n.done){n.done=true;n.doneAt=new Date().toISOString();n.reply=n.reply||('「'+task.title+'」として対応');}
+  });
+}
+function draftReply(task){
+  const tag=task.bundleTag||'';
+  const n=(task.bundleNoteIds||[]).length;
+  return ['みなさん、おつかれさまです。','',
+    (tag?tag+'について、':'')+(n?n+'件の':'')+'お声をいただきました。ありがとうございました。','',
+    '【対応】','（ここに、決めたこと・変えたことを書いてください）','',
+    'すぐに変えられないこともありますが、いただいた声は必ず目を通しています。','引き続き、投げ込みボックスへどうぞ。'].join('\n');
+}
+function openDraft(taskId){
+  const t=D.tasks.find(x=>x.id===taskId);if(!t)return;
+  const txt=t.replyDraft||draftReply(t);
+  openModal('<h3>全体への返し文</h3><div class="hint">LINEなどに貼れる下書きです。【対応】の部分を書き換えてお使いください。</div>'
+   +'<div class="f"><textarea id="dr-t" style="min-height:220px">'+esc(txt)+'</textarea></div>'
+   +'<div class="foot"><button class="btn ghost" onclick="closeModal()">閉じる</button>'
+   +'<button class="btn" onclick="saveDraft(\''+taskId+'\')">下書きを保存</button>'
+   +'<button class="btn solid" onclick="copyDraft()">コピー</button></div>');
+}
+function saveDraft(taskId){const t=D.tasks.find(x=>x.id===taskId);if(!t)return;t.replyDraft=document.getElementById('dr-t').value;store.save();toast('保存しました')}
+function copyDraft(){
+  const v=document.getElementById('dr-t').value;
+  if(navigator.clipboard)navigator.clipboard.writeText(v).then(()=>toast('コピーしました'),()=>toast('コピーできませんでした'));
+  else toast('長押しで選択してコピーしてください');
+}
+function vNoteTrend(){
+  const by=tagStats(90);
+  const from=addDays(today(),-179),to=addDays(today(),-90);const prev={};
+  (D.notes||[]).filter(n=>{const d=(n.at||'').slice(0,10);return d>=from&&d<to}).forEach(n=>((n.tags&&n.tags.length)?n.tags:['（未分類）']).forEach(t=>prev[t]=(prev[t]||0)+1));
+  const keys=Object.keys(by).filter(k=>by[k].n).sort((a,b)=>by[b].n-by[a].n);
+  let h=`<h2>声の傾向（90日）</h2>`;
+  if(!keys.length)return h+`<div class="empty">まだ声がありません。</div>`;
+  const max=Math.max(...keys.map(k=>by[k].n));
+  h+=`<div class="condbox">`+keys.map(k=>{
+    const o=by[k];const p=prev[k]||0;const ar=o.n>p?'<i class="up">▲</i>':o.n<p?'<i class="down">▼</i>':'';
+    return `<div class="biasrow" onclick="noteFilter='${esc(k)}';render()" style="cursor:pointer"><div class="bk">${esc(k)}</div>
+      <div class="bbar"><div class="bfill" style="width:${Math.round(o.n/max*100)}%;${k==='感謝・良かったこと'?'':'background:var(--gray)'}"></div></div>
+      <div class="bnum">${o.n}件${ar}<span>未対応 ${o.open}</span></div></div>`}).join('')+
+    `<div class="clegend" style="margin-top:8px"><span>▲▼は前の90日との比較</span></div></div>`;
+  const top=keys.find(k=>k!=='感謝・良かったこと'&&k!=='（未分類）'&&by[k].open>=3);
+  if(top)h+=`<div class="warn"><b>「${esc(top)}」の声が${by[top].open}件、対応待ちです。</b><br>個別に返すより、まとめて方向を決める方がよいかもしれません。<div style="margin-top:8px"><button class="btn small" onclick="bundleNotes('${esc(top)}')">束ねて案件にする</button></div></div>`;
+  if(by['（未分類）']&&by['（未分類）'].n)h+=`<p class="small muted">タグの付いていない声が${by['（未分類）'].n}件あります。上の一覧で付けられます。</p>`;
+  return h;
+}
+let noteFilter='';
+
 function replyNote(id,ev){
   if(ev&&ev.stopPropagation)ev.stopPropagation();
   const n=(D.notes||[]).find(x=>x.id===id);if(!n)return;
@@ -1198,9 +1328,16 @@ function vNotes(){
       store.fetchForm(true).finally(()=>{window._formFetching=false});
     }
   }
-  const all=inboxNotes();
+  const all0=inboxNotes();
+  const all=noteFilter?all0.filter(n=>noteFilter==='（未分類）'?!(n.tags&&n.tags.length):(n.tags||[]).includes(noteFilter)):all0;
   const open=all.filter(n=>!n.done), done=all.filter(n=>n.done);
-  let h=`<h2>いただいた声</h2><div class="toolbar"><span class="small muted">未対応 ${open.length}件　対応済み ${done.length}件</span><span class="sp"></span>${D.settings.formSheetUrl?`<button class="btn ghost small" onclick="store.fetchForm()">取り込む</button>`:''}<button class="btn small" onclick="openNoteModal()">書き留める</button></div>`;
+  const by=tagStats(0);
+  let h=`<h2>いただいた声</h2>`;
+  h+=`<div class="tagrow" style="margin-bottom:10px"><button class="tagc ${!noteFilter?'on':''}" onclick="noteFilter='';render()">すべて ${all0.length}</button>${Object.keys(by).filter(k=>by[k].n).map(k=>`<button class="tagc ${noteFilter===k?'on':''}" onclick="noteFilter='${esc(k)}';render()">${esc(k)} ${by[k].n}${by[k].open?`<b>${by[k].open}</b>`:''}</button>`).join('')}</div>`;
+  if(noteFilter&&noteFilter!=='（未分類）'&&by[noteFilter]&&by[noteFilter].open>=2){
+    h+=`<div class="warn person"><b>「${esc(noteFilter)}」の声が${by[noteFilter].open}件たまっています。</b><div style="margin-top:8px"><button class="btn small" onclick="bundleNotes('${esc(noteFilter)}')">束ねて案件にする</button></div></div>`;
+  }
+  h+=`<div class="toolbar"><span class="small muted">未対応 ${open.length}件　対応済み ${done.length}件</span><span class="sp"></span>${D.settings.formSheetUrl?`<button class="btn ghost small" onclick="store.fetchForm()">取り込む</button>`:''}<button class="btn small" onclick="openNoteModal()">書き留める</button></div>`;
   if(!all.length)return h+`<div class="empty">まだ何もありません。<br><span class="small">現場で聞いた一言を残しておくと、面談のときに効いてきます。</span></div>`;
   const card=n=>`<div class="notecard ${n.done?'fin':''} ${n.read||n.done?'':'unread'}">
     <div class="nhd"><span class="nfrom">${esc(n.from||'匿名')}</span>
@@ -1209,6 +1346,8 @@ function vNotes(){
       <span class="sp"></span>
       <span class="nwhen">${n.at?fmtMD(n.at.slice(0,10)).replace(/（.）/,''):''}${n.via?'　'+esc(n.via):''}</span></div>
     <div class="nbody">${esc(n.body)}</div>
+    ${tagChips(n,!n.done)}
+    ${n.bundleId?`<div class="small muted" style="margin-top:6px">→ 束ねて対応中：${esc((D.tasks.find(t=>t.id===n.bundleId)||{}).title||'')}</div>`:''}
     ${n.reply?`<div class="nreply"><b>対応</b>　${esc(n.reply)}</div>`:''}
     <div class="nact">
       ${n.done?`<button class="btn ghost small" onclick="reopenNote('${n.id}',event)">未対応に戻す</button>`
@@ -1223,6 +1362,7 @@ function vNotes(){
   if(open.length)h+=open.map(card).join('');
   else h+=`<div class="empty">未対応の声はありません。</div>`;
   if(done.length)h+=`<details><summary>対応済み ${done.length}件</summary>${done.map(card).join('')}</details>`;
+  if(!noteFilter)h+=vNoteTrend();
   return h;
 }
 function noteMarkRead(id){
@@ -1340,6 +1480,8 @@ const LIST_DEF={
           p:['15','30','60','90']},
   condLabels:{t:'コンディションの言い方', h:'1から5の順に、ちょうど5つ。1行に1つ。',
           p:['絶好調','良い','ふつう','疲れ気味','限界']},
+  noteTags:{t:'声のタグ', h:'声を分類する言葉を1行に1つ。設備、シフト、人間関係など。',
+          p:['シフト','設備','人間関係','業務量','手順・ルール','待遇','感謝・良かったこと','その他']},
   extraTypes:{t:'予定の型を足す', h:'「名前/カテゴリ」の形で1行に1つ。カテゴリは 会議・打合せ・人・作業・移動・私用 から選びます。時間の集計はカテゴリ単位で行われます。',
           p:['研修/作業','出張/移動','現場巡回/人']}
 };
@@ -1360,7 +1502,7 @@ function saveList(key){
   D.settings[key]=v;closeModal();store.save();render();toast('保存しました');
 }
 function resetList(key){
-  const def={themes:[],slots:DEFAULT_SETTINGS.slots,durs:DEFAULT_SETTINGS.durs,condLabels:DEFAULT_SETTINGS.condLabels,extraTypes:[]};
+  const def={themes:[],slots:DEFAULT_SETTINGS.slots,durs:DEFAULT_SETTINGS.durs,condLabels:DEFAULT_SETTINGS.condLabels,extraTypes:[],noteTags:DEFAULT_SETTINGS.noteTags};
   D.settings[key]=(def[key]||[]).slice();closeModal();store.save();render();toast('初期に戻しました');
 }
 
@@ -1843,11 +1985,12 @@ function rowTask(t,compact){
   const tap=st.n?` onclick="toggleFold('s-${t.id}',false)" style="cursor:pointer"`:'';
   return `<div class="row ${sd>=3?'stale':''} ${due?'due':''}"><div class="t"${tap}><div class="ttl">${esc(t.title)}${badge}</div><div class="sub">${src?src+'から　':''}${t.due?'期限 <span class="'+(due?'due-today':'')+'">'+fmtMD(t.due)+'</span>':'期限なし'}　${sd?sd+'日経過':'今日'}</div>
   ${show?`<div onclick="event.stopPropagation()">${stepsHtml(t)}</div>`:''}
-  ${compact?'':`<div class="exits" onclick="event.stopPropagation()"><button class="btn small" onclick="taskDone('${t.id}')">${st.n?'まとめて完了':'今すぐ・完了'}</button><button class="btn small" onclick="taskToEvent('${t.id}')">予定にする</button><button class="btn small person" onclick="taskDelegate('${t.id}')">人に振る</button><button class="btn ghost small" onclick="openStepAdd('${t.id}')">手順を足す</button><button class="btn ghost small" onclick="openTaskModal('${t.id}')">編集</button></div>`}
+  ${compact?'':`<div class="exits" onclick="event.stopPropagation()"><button class="btn small" onclick="taskDone('${t.id}')">${st.n?'まとめて完了':'今すぐ・完了'}</button><button class="btn small" onclick="taskToEvent('${t.id}')">予定にする</button><button class="btn small person" onclick="taskDelegate('${t.id}')">人に振る</button><button class="btn ghost small" onclick="openStepAdd('${t.id}')">手順を足す</button>${t.bundleTag?`<button class="btn ghost small person" onclick="openDraft('${t.id}')">返し文</button>`:''}<button class="btn ghost small" onclick="openTaskModal('${t.id}')">編集</button></div>`}
   </div>${compact?`<div class="acts mini" onclick="event.stopPropagation()"><button class="btn ghost xs" onclick="openStepAdd('${t.id}')" title="手順を足す">＋</button><button class="btn ghost xs" onclick="openTaskModal('${t.id}')" title="編集">✎</button><button class="btn small" onclick="taskDone('${t.id}')">${st.n?'まとめて':'完了'}</button></div>`:''}</div>`;
 }
 function taskDone(id){const t=D.tasks.find(x=>x.id===id);
   if(t.status==='delegated'&&t.delegId){const g=delegLog().find(x=>x.id===t.delegId);if(g&&!g.doneAt)g.doneAt=today()}
+  closeBundle(t);
   t.status='done';t.doneAt=today();if(t.mailId){const m=D.mails.find(x=>x.id===t.mailId);if(m&&m.status==='tasked')m.status='replied'}store.save();render();toast('お見事です、完了しました')}
 function taskReopen(id){const t=D.tasks.find(x=>x.id===id);t.status='open';t.assignee='';store.save();render()}
 function taskToEvent(id){const t=D.tasks.find(x=>x.id===id);openEventModal({date:t.due||today(),title:t.title,type:'作業',taskId:id})}
@@ -3974,7 +4117,7 @@ function toggleStep(taskId,sid,ev){
   s.done=!s.done;
   const st=stepStat(t);
   if(st.n&&st.done===st.n&&t.status==='open'){
-    t.status='done';t.doneAt=today();
+    t.status='done';t.doneAt=today();closeBundle(t);
     store.save();render();toast('すべて片付きました');
     return;
   }
@@ -4557,6 +4700,7 @@ function vSetting(){
     <div class="row"><div class="t"><div class="ttl">面談の開始時刻</div><div class="sub">${esc(optSlots().join('　'))}</div></div><div class="acts"><button class="btn ghost small" onclick="openListEdit('slots')">編集</button></div></div>
     <div class="row"><div class="t"><div class="ttl">面談の所要時間</div><div class="sub">${optDurs().map(n=>n>=60&&n%60===0?(n/60)+'時間':n+'分').join('　')}</div></div><div class="acts"><button class="btn ghost small" onclick="openListEdit('durs')">編集</button></div></div>
     <div class="row"><div class="t"><div class="ttl">コンディションの言い方</div><div class="sub">${esc(optCondLabels().join('／'))}</div></div><div class="acts"><button class="btn ghost small" onclick="openListEdit('condLabels')">編集</button></div></div>
+    <div class="row"><div class="t"><div class="ttl">声のタグ</div><div class="sub">${esc(noteTags().join('／'))}</div></div><div class="acts"><button class="btn ghost small" onclick="openListEdit('noteTags')">編集</button></div></div>
     <div class="row"><div class="t"><div class="ttl">予定の型を足す</div><div class="sub">${(s.extraTypes||[]).length?esc((s.extraTypes||[]).join('／')):'既定：'+Object.keys(TYPES).join('／')}</div></div><div class="acts"><button class="btn ghost small" onclick="openListEdit('extraTypes')">編集</button></div></div>
   </div>
   <h2>投稿ボックス（フォームの回答）</h2>
