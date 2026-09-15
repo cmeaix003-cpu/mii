@@ -325,6 +325,9 @@ h2{font-family:var(--pix);font-size:12px;color:var(--gray);margin:24px 0 8px;let
 .sc .sm{position:absolute;top:2px;right:2px;width:6px;height:6px;background:var(--today)}
 .smft{font-family:var(--pix);font-size:11px;color:var(--gray);margin-top:8px;line-height:1.6}
 .smnote{font-size:10px;color:var(--gray);margin-top:4px}
+/* 取り消し */
+.row.evcancel{opacity:.55;background:repeating-linear-gradient(-45deg,transparent 0 6px,rgba(34,36,31,.05) 6px 8px)}
+.row.evcancel .ttl{text-decoration:line-through}
 /* 済んだ予定 */
 .row.evfin{opacity:.5}
 .row.evfin .ttl{text-decoration:line-through;text-decoration-thickness:1px}
@@ -333,6 +336,10 @@ h2{font-family:var(--pix);font-size:12px;color:var(--gray);margin:24px 0 8px;let
 .btn.evdone{border-color:var(--person);color:var(--person-deep);box-shadow:2px 2px 0 var(--person)}
 .btn.evdone:hover{background:var(--person);color:#fff}
 .row.evfin .btn.evdone{border-color:var(--rule);color:var(--gray);box-shadow:2px 2px 0 var(--rule)}
+/* 引き継ぎの履歴 */
+.hand{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+.hand span{font-size:11px;background:var(--panel2);border:1px solid var(--rule);border-radius:6px;padding:2px 7px;color:var(--gray)}
+.hand span i{font-family:var(--pix);font-style:normal;font-size:9px;margin-left:5px;opacity:.8}
 /* 束ねた声 */
 .bundle{margin-top:10px;background:var(--person-tint);border:2px solid var(--person);border-radius:8px;padding:8px 10px}
 .bhd{display:flex;align-items:center;gap:7px;font-family:var(--pix);font-size:11px;color:var(--person-deep);cursor:pointer;user-select:none}
@@ -343,6 +350,8 @@ h2{font-family:var(--pix);font-size:12px;color:var(--gray);margin:24px 0 8px;let
 .bitem .bfrom{font-weight:700;flex:none}
 .bitem .bbody{flex:1;min-width:0;word-break:break-word}
 .bitem .bwhen{font-family:var(--pix);font-size:9px;color:var(--gray);flex:none}
+.bitem .bx{flex:none;font-weight:400;color:var(--rule);padding:0 3px}
+.bitem .bx:hover{color:var(--today)}
 /* タグ */
 .tagrow{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
 .tagc{display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:3px 9px;border:2px solid var(--rule);border-radius:12px;background:var(--panel);color:var(--gray)}
@@ -840,7 +849,7 @@ const TYPES={
   '私用':{cat:'私用',fields:['place']}
 };
 const CATS=['会議','打合せ','人','作業','移動','私用'];
-const DEFAULT_SETTINGS={gasUrl:'',myEmail:'',vip:[],exclude:[],deadlineWords:['至急','本日中','〆切','締切','までに','確認願います','ご確認ください'],calDays:30,icsUrls:[],formSheetUrl:'',noteTags:['シフト','設備','人間関係','業務量','手順・ルール','待遇','感謝・良かったこと','その他'],nameAliases:{},forwardTo:'',forwardLabel:'',roomTo:'',roomCc:'',roomSubject:'【会議室のお願い】{date} {start}〜{end} 面談',roomBody:'お疲れ様です。\n\n下記のとおり面談を予定しております。会議室のご手配をお願いいたします。\n\n・日時：{date}（{dow}） {start}〜{end}\n・対象：{name} さん\n・場所：{place}\n\nお手数をおかけしますが、よろしくお願いいたします。',weeklyGoal:5,weekGoals:{},fetchDays:2};
+const DEFAULT_SETTINGS={gasUrl:'',myEmail:'',vip:[],exclude:[],deadlineWords:['至急','本日中','〆切','締切','までに','確認願います','ご確認ください'],calDays:30,calAuto:true,icsUrls:[],formSheetUrl:'',noteTags:['シフト','設備','人間関係','業務量','手順・ルール','待遇','感謝・良かったこと','その他'],nameAliases:{},forwardTo:'',forwardLabel:'',roomTo:'',roomCc:'',roomSubject:'【会議室のお願い】{date} {start}〜{end} 面談',roomBody:'お疲れ様です。\n\n下記のとおり面談を予定しております。会議室のご手配をお願いいたします。\n\n・日時：{date}（{dow}） {start}〜{end}\n・対象：{name} さん\n・場所：{place}\n\nお手数をおかけしますが、よろしくお願いいたします。',weeklyGoal:5,weekGoals:{},fetchDays:2};
 
 let D={events:[],tasks:[],mails:[],staff:[],shifts:{},duty:{},settings:{...DEFAULT_SETTINGS},meta:{updatedAt:0}};
 let view='today', calMode='week', calAnchor=today(), peopleFilter='全', mailTab='reply', inboxTab='open', peopleDate=null;
@@ -927,12 +936,14 @@ const store={
     }else setSave(okLocal?'ok':'','この端末に保存');
   },
 
-  async fetchEvents(){
-    if(!D.settings.gasUrl){toast('先に設定でシートの接続先を登録してください');return}
+  async fetchEvents(silent){
+    if(!D.settings.gasUrl){if(!silent)toast('先に設定でシートの接続先を登録してください');return}
     const total=Number(D.settings.calDays)||30;
     const chunk=14;
     const parts=Math.ceil(total/chunk);
     let added=0,upd=0,part=0;
+    const seen=new Set();               // 今回の取り込みに含まれていたID
+    const rangeFrom=today(), rangeTo=addDays(today(),total);
     try{
       for(let i=0;i<parts;i++){
         part=i+1;
@@ -941,14 +952,17 @@ const store={
           {onRetry:(n,t)=>setSave('busy','再試行中 '+n+'/'+t)});
         if(!j.ok)throw new Error(j.error||'取り込みに失敗しました');
         (j.events||[]).forEach(e=>{
+          seen.add(e.gcalId);
           const ex=D.events.find(x=>x.gcalId===e.gcalId);
           if(ex){
+            const changed=ex.date!==e.date||ex.start!==e.start||ex.end!==e.end;
             Object.assign(ex,{title:e.title,date:e.date,start:e.start,end:e.end,place:e.place});
+            if(ex.cancelled){delete ex.cancelled;delete ex.cancelledAt}   // 復活していれば戻す
+            if(changed)ex.moved=(ex.moved||0)+1;
             if(e.desc&&!ex.memo)ex.memo=e.desc;
             if(e.desc&&!evSteps(ex).length){const ck=extractChecks(e.desc);if(ck.length)ex.steps=ck.map(c=>({id:uid(),t:c.t,done:c.done}))}
             upd++;
-          }
-          else{
+          }else{
             let type='作業';const ti=e.title||'';
             if(/面談|1on1/.test(ti))type='面談';else if(/定例/.test(ti))type='定例会議';
             else if(/会議|ミーティング|MTG/i.test(ti))type='臨時会議';
@@ -960,12 +974,19 @@ const store={
         });
         store.save({silent:true});render();
       }
+      // 取り込み範囲内にあるのに、今回の結果に無かった予定 → 取り消し
+      let gone=0;
+      D.events.forEach(ev=>{
+        if(!ev.gcalId||ev.cancelled)return;
+        if(ev.date<rangeFrom||ev.date>rangeTo)return;
+        if(!seen.has(ev.gcalId)){ev.cancelled=true;ev.cancelledAt=new Date().toISOString();gone++}
+      });
+      if(gone)store.save({silent:true});
       window._silentSave=false;setSave('ok','取り込み完了');
-      toast(added+'件を取り込み、'+upd+'件を更新しました');
+      if(added||upd||gone||!silent)toast(added+'件を取り込み、'+upd+'件を更新'+(gone?'、'+gone+'件が取り消し':'')+'しました');
     }catch(e){
       setSave('err','カレンダー取り込み失敗');
-      if(added||upd)toast(part+'回目で中断（'+added+'件は取り込み済み）：'+e.message);
-      else toast('取り込みに失敗しました：'+e.message);
+      if(!silent){if(added||upd)toast(part+'回目で中断（'+added+'件は取り込み済み）：'+e.message);else toast('取り込みに失敗しました：'+e.message)}
     }
   },
   async checkForm(){
@@ -1261,9 +1282,135 @@ function bundledNotesHtml(t,full){
   const show=full||isOpen('b-'+t.id,true);
   let h=`<div class="bundle" onclick="event.stopPropagation()">
     <div class="bhd" onclick="toggleFold('b-${t.id}',true)"><span class="fmark">${show?'−':'＋'}</span>束ねた声 <b>${list.length}</b>件${t.bundleTag?`<span class="pill">${esc(t.bundleTag)}</span>`:''}</div>`;
-  if(show)h+=`<div class="blist">${list.map(n=>`<div class="bitem" onclick="openNoteModal('${n.id}')"><span class="bfrom">${esc(n.from||'匿名')}</span><span class="bbody">${esc(n.body||'')}</span>${n.at?`<span class="bwhen">${fmtMD(n.at.slice(0,10)).replace(/（.）/,'')}</span>`:''}</div>`).join('')}</div>`;
+  if(show)h+=`<div class="blist">${list.map(n=>`<div class="bitem" onclick="openNoteModal('${n.id}')"><span class="bfrom">${esc(n.from||'匿名')}</span><span class="bbody">${esc(n.body||'')}</span>${n.at?`<span class="bwhen">${fmtMD(n.at.slice(0,10)).replace(/（.）/,'')}</span>`:''}${t.status!=='done'?`<b class="bx" onclick="removeFromBundle('${n.id}','${t.id}',event)">×</b>`:''}</div>`).join('')}
+    ${t.status!=='done'?`<button class="btn ghost small" style="align-self:flex-start" onclick="openAddNotesToTask('${t.id}')">＋ 声を足す</button>`:''}</div>`;
   h+=`</div>`;
   return h;
+}
+
+
+
+/* 依頼中の案件の行（手順・引き継ぎ履歴つき） */
+function handoffs(t){return (t&&t.handoffs)||[]}
+function rowDelegated(t){
+  const st=stepStat(t);
+  const show=st.n&&isOpen('s-'+t.id,false);
+  const badge=(st.n?`<span class="stepbadge ${st.done===st.n?'all':''}">${show?'−':'＋'} ${st.done}/${st.n}</span>`:'')+((t.bundleNoteIds&&t.bundleNoteIds.length)?`<span class="pill" style="margin-left:5px">声 ${t.bundleNoteIds.length}件</span>`:'');
+  const over=t.due&&t.due<today();
+  const o=delegStats(89).by[t.assignee];
+  const hist=handoffs(t);
+  const tap=st.n?` onclick="toggleFold('s-${t.id}',false)" style="cursor:pointer"`:'';
+  return `<div class="row person ${over?'due':''}"><div class="t"${tap}>
+    <div class="ttl">${esc(t.title)}${badge}</div>
+    <div class="sub"><b>${esc(t.assignee||'')}</b>さんへ　期限 ${t.due?fmtMD(t.due):'なし'}${over?'　<span class="due-today">超過</span>':''}${o&&o.n>1?`　これまで${o.n}件（完了${o.done}）`:''}</div>
+    ${hist.length?`<div class="hand">${hist.map(x=>`<span>${esc(x.from||'自分')} → ${esc(x.to)}<i>${fmtMD(x.at.slice(0,10)).replace(/（.）/,'')}</i></span>`).join('')}</div>`:''}
+    ${show?`<div onclick="event.stopPropagation()">${stepsHtml(t)}</div>`:''}
+    ${bundledNotesHtml(t)}
+    <div class="exits" onclick="event.stopPropagation()">
+      <button class="btn small" onclick="taskDone('${t.id}')">戻ってきた・完了</button>
+      <button class="btn small person" onclick="openHandoff('${t.id}')">別の人へ</button>
+      <button class="btn ghost small" onclick="takeBack('${t.id}')">引き取る</button>
+      <button class="btn ghost small" onclick="openStepAdd('${t.id}')">手順を足す</button>
+      <button class="btn ghost small" onclick="openTaskModal('${t.id}')">編集</button>
+    </div>
+  </div></div>`;
+}
+/* 別の人へ渡し直す（履歴を残す） */
+function openHandoff(id){
+  const t=D.tasks.find(x=>x.id===id);if(!t)return;
+  const act=targetStaff();
+  const onShift=act.filter(p=>inRecentShift(p.name)), rest=act.filter(p=>!inRecentShift(p.name));
+  const past=[...new Set(delegLog().map(x=>x.to).filter(n=>n&&!resolveStaff(n)))];
+  const opt=p=>`<option value="${esc(p.name)}">${esc(p.name)}（${esc(p.kind)}）</option>`;
+  openModal(`<h3>別の人へ渡す</h3><div class="hint">${esc(t.title)}<br>いまは <b>${esc(t.assignee||'')}</b> さんがお持ちです。</div>
+  <div class="f"><label>誰に</label>
+    <select id="ho-sel" onchange="document.getElementById('ho-otherbox').style.display=this.value==='__other'?'':'none'">
+      <option value="">選んでください</option>
+      ${onShift.length?`<optgroup label="直近の勤務表にいる方">${onShift.map(opt).join('')}</optgroup>`:''}
+      ${rest.length?`<optgroup label="その他の在籍者">${rest.map(opt).join('')}</optgroup>`:''}
+      ${past.length?`<optgroup label="他部署・社外">${past.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('')}</optgroup>`:''}
+      <option value="__other">他部署・社外の方（新しく入力）</option>
+    </select></div>
+  <div class="f" id="ho-otherbox" style="display:none"><label>お名前・部署</label><input id="ho-other" placeholder="例：技術部 鈴木"></div>
+  <div class="f"><label>いつまでに</label><input id="ho-due" type="date" value="${t.due||addDays(today(),7)}"></div>
+  <div class="f"><label>ひとこと（任意）</label><input id="ho-note" placeholder="例：前任が体調不良のため"></div>
+  <div class="foot"><button class="btn ghost" onclick="closeModal()">やめる</button><button class="btn solid" onclick="doHandoff('${id}')">渡す</button></div>`);
+}
+function doHandoff(id){
+  const t=D.tasks.find(x=>x.id===id);if(!t)return;
+  const sel=document.getElementById('ho-sel').value;
+  const who=(sel==='__other')?document.getElementById('ho-other').value.trim():sel;
+  if(!who){toast('渡す相手を選んでください');return}
+  const p=resolveStaff(who);const to=p?p.name:who;
+  const prev=t.assignee||'';
+  // 前の依頼の記録を閉じる（引き継ぎとして）
+  if(t.delegId){const g=delegLog().find(x=>x.id===t.delegId);if(g&&!g.doneAt){g.doneAt=today();g.handedOff=to}}
+  t.handoffs=t.handoffs||[];
+  t.handoffs.push({from:prev,to,at:new Date().toISOString(),note:document.getElementById('ho-note').value.trim()});
+  t.assignee=to;t.due=document.getElementById('ho-due').value||t.due;
+  t.delegId=uid();
+  delegLog().push({id:t.delegId,taskId:id,at:new Date().toISOString(),to,staffId:p?p.id:'',title:t.title,due:t.due,doneAt:'',handoffFrom:prev});
+  t.steps=t.steps||[];
+  t.steps.push({id:uid(),t:to+'さんへ引き継ぎ済み（'+prev+'さんから）',done:true});
+  closeModal();store.save();render();toast(prev+'さんから'+to+'さんへ渡しました');
+}
+/* 自分の手元に戻す */
+function takeBack(id){
+  const t=D.tasks.find(x=>x.id===id);if(!t)return;
+  if(!confirm(t.assignee+'さんから引き取って、自分の案件に戻しますか？'))return;
+  if(t.delegId){const g=delegLog().find(x=>x.id===t.delegId);if(g&&!g.doneAt){g.doneAt=today();g.takenBack=true}}
+  t.handoffs=t.handoffs||[];
+  t.handoffs.push({from:t.assignee||'',to:'自分',at:new Date().toISOString()});
+  t.status='open';t.assignee='';
+  store.save();render();toast('引き取りました');
+}
+
+/* 既存の束ねた案件に、声を追加する */
+function bundleTasks(){return (D.tasks||[]).filter(t=>t.status!=='done'&&t.bundleNoteIds)}
+function openAddToBundle(noteId){
+  const n=(D.notes||[]).find(x=>x.id===noteId);if(!n)return;
+  const list=bundleTasks();
+  if(!list.length){toast('束ねた案件がまだありません。まず「束ねて案件にする」から作ってください');return}
+  openModal('<h3>どの案件に足しますか</h3><div class="hint">'+esc((n.body||'').slice(0,80))+'</div>'
+   +list.map(t=>'<button class="pick" onclick="addNoteToBundle(\''+noteId+'\',\''+t.id+'\')"><span class="pt">'+esc(t.title)+'</span><span class="pd">'+(t.bundleTag?esc(t.bundleTag)+'　':'')+'束ねた声 '+t.bundleNoteIds.length+'件'+(t.due?'　期限 '+fmtMD(t.due):'')+'</span></button>').join('')
+   +'<div class="foot"><button class="btn ghost small" onclick="closeModal()">やめる</button></div>');
+}
+function addNoteToBundle(noteId,taskId){
+  const n=(D.notes||[]).find(x=>x.id===noteId);const t=D.tasks.find(x=>x.id===taskId);
+  if(!n||!t)return;
+  if(!t.bundleNoteIds.includes(noteId))t.bundleNoteIds.push(noteId);
+  n.bundleId=taskId;n.read=true;
+  if(t.bundleTag&&!(n.tags||[]).includes(t.bundleTag)){n.tags=n.tags||[];n.tags.push(t.bundleTag)}
+  closeModal();store.save();render();toast('「'+t.title+'」に足しました');
+}
+/* 案件の側から：同じタグの未対応の声をまとめて足す */
+function openAddNotesToTask(taskId){
+  const t=D.tasks.find(x=>x.id===taskId);if(!t)return;
+  const cand=(D.notes||[]).filter(n=>!n.done&&!n.bundleId&&(!t.bundleTag||(n.tags||[]).includes(t.bundleTag)||!(n.tags||[]).length));
+  if(!cand.length){toast('足せる声がありません');return}
+  openModal('<h3>声を足す</h3><div class="hint">'+esc(t.title)+'<br>チェックした声を、この案件に束ねます。</div>'
+   +'<div class="stlist">'+cand.map(n=>'<label class="stitem" style="cursor:pointer"><input type="checkbox" class="an-ck" value="'+n.id+'" '+((t.bundleTag&&(n.tags||[]).includes(t.bundleTag))?'checked':'')+' style="width:auto;margin:0 8px 0 0"><span><b>'+esc(n.from||'匿名')+'</b>　'+esc((n.body||'').slice(0,70))+((n.body||'').length>70?'…':'')+'</span></label>').join('')+'</div>'
+   +'<div class="foot"><button class="btn ghost" onclick="closeModal()">やめる</button><button class="btn solid" onclick="doAddNotesToTask(\''+taskId+'\')">足す</button></div>');
+}
+function doAddNotesToTask(taskId){
+  const t=D.tasks.find(x=>x.id===taskId);if(!t)return;
+  const ids=[...document.querySelectorAll('.an-ck:checked')].map(e=>e.value);
+  if(!ids.length){toast('声を選んでください');return}
+  ids.forEach(id=>{
+    const n=(D.notes||[]).find(x=>x.id===id);if(!n)return;
+    if(!t.bundleNoteIds.includes(id))t.bundleNoteIds.push(id);
+    n.bundleId=taskId;n.read=true;
+    if(t.bundleTag&&!(n.tags||[]).includes(t.bundleTag)){n.tags=n.tags||[];n.tags.push(t.bundleTag)}
+  });
+  closeModal();store.save();render();toast(ids.length+'件を足しました');
+}
+/* 束ねから外す */
+function removeFromBundle(noteId,taskId,ev){
+  if(ev&&ev.stopPropagation)ev.stopPropagation();
+  const n=(D.notes||[]).find(x=>x.id===noteId);const t=D.tasks.find(x=>x.id===taskId);
+  if(t)t.bundleNoteIds=(t.bundleNoteIds||[]).filter(x=>x!==noteId);
+  if(n)delete n.bundleId;
+  store.save();render();toast('外しました');
 }
 
 function closeBundle(task){
@@ -1392,6 +1539,7 @@ function vNotes(){
     <div class="nact">
       ${n.done?`<button class="btn ghost small" onclick="reopenNote('${n.id}',event)">未対応に戻す</button>`
               :`<button class="btn small" onclick="replyNote('${n.id}',event)">対応を書く</button>
+                ${!n.bundleId&&bundleTasks().length?`<button class="btn ghost small person" onclick="openAddToBundle('${n.id}')">案件に足す</button>`:''}
                 <button class="btn ghost small" onclick="noteMarkRead('${n.id}')">${n.read?'既読':'読んだ'}</button>`}
       ${(()=>{const p=n.staffId?D.staff.find(x=>x.id===n.staffId):(n.from?resolveStaff(n.from):null);
         return p?`<button class="btn ghost small person" onclick="openStaffDetail('${p.id}')">${esc(p.name)}</button>`:''})()}
@@ -1831,7 +1979,7 @@ function vStatus(){
 /* ========== みーの言葉 ========== */
 function voice(){
   const h=new Date().getHours();const t=today();
-  const ev=eventsOn(t).filter(e=>!e.done);const people=ev.filter(e=>e.cat==='人');
+  const ev=eventsOn(t).filter(e=>!e.done&&!e.cancelled);const people=ev.filter(e=>e.cat==='人');
   const reply=D.mails.filter(m=>m.status==='open'&&mailBucket(m)==='reply');
   const staleMail=reply.filter(m=>mailStaleDays(m)>=3);
   const due=openTasks().filter(x=>x.due&&x.due<=t);
@@ -1879,6 +2027,19 @@ function voice(){
 function go(v){
   view=v;render();window.scrollTo(0,0);
   if(v==='mail')autoFetchMail();
+  if(v==='cal')autoFetchCal();
+}
+let calFetching=false;
+function autoFetchCal(){
+  if(calFetching)return;
+  if(!D.settings.gasUrl)return;
+  if(!D.settings.calAuto)return;
+  const last=Number(localStorage.getItem('mii-calfetch')||0);
+  if(Date.now()-last < 10*60*1000)return;
+  calFetching=true;
+  localStorage.setItem('mii-calfetch',String(Date.now()));
+  window._silentSave=true;
+  store.fetchEvents(true).finally(()=>{calFetching=false;setTimeout(()=>{window._silentSave=false},3000)});
 }
 let mailFetching=false;
 function autoFetchMail(){
@@ -1907,7 +2068,7 @@ function fabAction(){({today:()=>openQuickModal(new Date().getHours()>=15?'night
 /* --- 今日 --- */
 function vToday(){
   const t=today();const ev=eventsOn(t);const people=ev.filter(e=>e.cat==='人');const rest=ev.filter(e=>e.cat!=='人');
-  const openEv=ev.filter(e=>!eventDone(e));
+  const openEv=ev.filter(e=>!eventDone(e)&&!eventCancelled(e));
   const due=[...openTasks().filter(x=>x.due&&x.due<=t).map(x=>({k:'task',x})),...D.mails.filter(m=>m.status==='open'&&mailBucket(m)==='reply').map(x=>({k:'mail',x}))];
   const oi=openTasks().length;const stale=openTasks().filter(x=>staleDays(x)>=3).length;
   const hrs=weekPeopleHours(t),goal=weekGoal(t);const pct=goal?Math.min(100,hrs/goal*100):0;
@@ -1964,7 +2125,7 @@ function vToday(){
   if(bits.length)h+=`<h2>気になること</h2>`+bits.join('');
 
   // ④ 今日の予定は件数だけ。詳しくはSCHEDULEへ
-  const restOpen=rest.filter(e=>!eventDone(e)), restDone=rest.filter(eventDone);
+  const restOpen=rest.filter(e=>!eventDone(e)&&!eventCancelled(e)), restDone=rest.filter(e=>eventDone(e)||eventCancelled(e));
   h+=foldHead('t-ev','本日のご予定',restOpen.length);
   if(isOpen('t-ev')){
     h+=restOpen.length?restOpen.map(e=>rowEvent(e,{check:true})).join('')
@@ -1975,6 +2136,8 @@ function vToday(){
   return h;
 }
 function eventDone(e){return !!e.done}
+function eventCancelled(e){return !!e.cancelled}
+function uncancel(id,ev){if(ev&&ev.stopPropagation)ev.stopPropagation();const e=D.events.find(x=>x.id===id);if(!e)return;delete e.cancelled;delete e.cancelledAt;store.save();render()}
 function toggleEventDone(id,ev){
   if(ev&&ev.stopPropagation)ev.stopPropagation();
   const e=D.events.find(x=>x.id===id);if(!e)return;
@@ -1999,7 +2162,7 @@ function rowEvent(e,opt){
   const tap=est.n&&(opt&&opt.check)
     ? ` onclick="toggleFold('s-${e.id}',false)" style="cursor:pointer"`
     : ` onclick="openEventModal(${JSON.stringify(e).replace(/"/g,'&quot;')})" style="cursor:pointer"`;
-  return `<div class="row ${p?'person':''} ${eventDone(e)?'evfin':''}"><div class="time">${e.start||'終日'}${e.end?'<br>'+e.end:''}</div><div class="t"${tap}><div class="ttl">${esc(e.title)}${badge}</div><div class="sub">${esc(e.type)}${e.place?'　'+esc(e.place):''}${e.party?'　'+esc(e.party):''}</div>${show?`<div onclick="event.stopPropagation()">${evStepsHtml(e)}</div>`:''}</div>${chk}</div>`;
+  return `<div class="row ${p?'person':''} ${eventDone(e)?'evfin':''} ${eventCancelled(e)?'evcancel':''}"><div class="time">${e.start||'終日'}${e.end?'<br>'+e.end:''}</div><div class="t"${tap}><div class="ttl">${eventCancelled(e)?'<span class="warnpill">取り消し</span>':''}${esc(e.title)}${badge}</div><div class="sub">${esc(e.type)}${e.place?'　'+esc(e.place):''}${e.party?'　'+esc(e.party):''}</div>${show?`<div onclick="event.stopPropagation()">${evStepsHtml(e)}</div>`:''}</div>${chk}</div>`;
 }
 
 /* --- DESK --- */
@@ -2011,7 +2174,7 @@ function vInbox(){
   if(inboxTab==='open'){
     h+=open.length?open.map(t=>rowTask(t)).join(''):`<div class="empty"><b>机の上は空っぽです。</b><br>届いたものは右下の＋からどうぞ。</div>`;
   }else{
-    h+=deleg.length?deleg.map(t=>`<div class="row"><div class="t"><div class="ttl">${esc(t.title)}</div><div class="sub">${esc(t.assignee)}さんへ　期限 ${t.due?fmtMD(t.due):'なし'}${t.due&&t.due<today()?'　<span class="due-today">超過</span>':''}${(()=>{const o=delegStats(89).by[t.assignee];return o&&o.n>1?`　これまで${o.n}件（完了${o.done}）`:''})()}</div></div><div class="acts"><button class="btn small" onclick="taskDone('${t.id}')">完了</button><button class="btn ghost small" onclick="taskReopen('${t.id}')">戻す</button></div></div>`).join(''):`<div class="empty">人に振った案件はありません。</div>`;
+    h+=deleg.length?deleg.map(t=>rowDelegated(t)).join(''):`<div class="empty">人に振っている案件はありません。</div>`;
   }
   return h;
 }
@@ -2082,6 +2245,7 @@ function doDelegate(id){
   const t=D.tasks.find(x=>x.id===id);
   t.status='delegated';t.assignee=who;t.due=document.getElementById('dg-due').value;
   const p=resolveStaff(who);
+  t.handoffs=t.handoffs||[];t.handoffs.push({from:'自分',to:(p?p.name:who),at:new Date().toISOString()});
   t.delegId=uid();
   delegLog().push({id:t.delegId,taskId:id,at:new Date().toISOString(),to:p?p.name:who,staffId:p?p.id:'',title:t.title,due:t.due,doneAt:''});
   closeModal();store.save();render();toast((p?p.name:who)+'さんにお任せしました');
@@ -2216,6 +2380,7 @@ function openEventModal(e){
   <div class="f"><label>${(!isNew&&evSteps(e).length)?'手順を書き換える':'手順（1行に1つ・任意）'}</label><textarea id="ev-steps" style="min-height:70px" placeholder="資料を印刷する&#10;前回の議事録を確認">${esc(evSteps(e).map(x=>x.t).join('\n'))}</textarea>
   ${(!isNew&&extractChecks(e.memo||'').length)?`<div style="margin-top:6px"><button class="btn ghost small" onclick="useMemoChecks('${e.id}')">メモの中のリスト${extractChecks(e.memo||'').length}件を取り込む</button></div>`:''}</div>
   <div id="ev-warn"></div>
+  ${(!isNew&&e.cancelled)?`<div class="warn"><b>カレンダー側で消えています</b>（${e.cancelledAt?fmtMD(e.cancelledAt.slice(0,10)):''}に確認）<br>記録として残しています。<button class="btn ghost small" style="margin-top:6px" onclick="uncancel('${e.id}');closeModal()">取り消しを解除</button></div>`:''}
   <div class="foot">${isNew?'':`<button class="btn ghost" onclick="delEvent('${e.id}')">削除</button><button class="btn ghost" onclick="openReschedule('event','${e.id}')">組み直す</button>`}<button class="btn ghost" onclick="closeModal()">やめる</button><button class="btn solid" onclick="saveEvent('${e.id||''}','${e.taskId||''}')">${isNew?'登録':'保存'}</button></div>
   <datalist id="staff-list">${staffOpts}</datalist>`);
   window._evExtra=e;evTypeChange();
@@ -3883,7 +4048,7 @@ function vDeleg(){
     if(never.length)h+=`<div class="warn"><b>90日間、一度もお任せしていない方が${never.length}名</b><br>${never.slice(0,8).map(p=>esc(p.name)).join('　')}${never.length>8?' ほか':''}<br><span class="small">任せることは、信頼を示すことでもあります。</span></div>`;
   }
   h+=`<h2>これまでの記録</h2>`;
-  h+=s.list.slice().reverse().slice(0,12).map(x=>`<div class="row ${x.doneAt?'':'due'}"><div class="time">${fmtMD(x.at.slice(0,10)).replace(/（.）/,'')}</div><div class="t"><div class="ttl">${esc(x.title)}</div><div class="sub">${esc(x.to)}さんへ${x.due?'　期限 '+fmtMD(x.due).replace(/（.）/,''):''}${x.doneAt?'　→ 完了 '+fmtMD(x.doneAt).replace(/（.）/,''):'　→ 依頼中'}</div></div></div>`).join('');
+  h+=s.list.slice().reverse().slice(0,12).map(x=>`<div class="row ${x.doneAt?'':'due'}"><div class="time">${fmtMD(x.at.slice(0,10)).replace(/（.）/,'')}</div><div class="t"><div class="ttl">${esc(x.title)}</div><div class="sub">${x.handoffFrom?esc(x.handoffFrom)+'さんから ':''}${esc(x.to)}さんへ${x.due?'　期限 '+fmtMD(x.due).replace(/（.）/,''):''}${x.handedOff?'　→ '+esc(x.handedOff)+'さんへ引き継ぎ':x.takenBack?'　→ 引き取り':x.doneAt?'　→ 完了 '+fmtMD(x.doneAt).replace(/（.）/,''):'　→ 依頼中'}</div></div></div>`).join('');
   return h;
 }
 
