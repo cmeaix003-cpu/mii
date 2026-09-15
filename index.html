@@ -2486,9 +2486,9 @@ function vToday(){
     h+=`<div class="toolbar" style="margin:8px 0 20px"><span class="small muted">${t.slice(0,7)}の勤務表を入れると、本日の出勤者が出ます</span><span class="sp"></span><button class="btn ghost small" onclick="openShiftModal('${t.slice(0,7)}')">勤務表</button></div>`;
   }else if(wk.length){
     const over=wk.filter(x=>{const g=x.p.lastContact?diffDays(x.p.lastContact,t):null;const tg=x.p.contactDays||KIND_DAYS[x.p.kind]||90;return g===null||g>tg}).length;
-    h+=foldHead('t-shift','本日の出勤',wk.length,false);
-    if(!isOpen('t-shift',false)&&over)h+=`<div class="row person" onclick="toggleFold('t-shift',false)"><div class="t"><div class="ttl">${over}名としばらくお話しできていません</div><div class="sub">タップして出勤者を見る</div></div><div class="acts"><button class="btn person small">開く</button></div></div>`;
-    if(isOpen('t-shift',false))h+=vShiftDay(t);
+    h+=foldHead('t-shift','本日の出勤',wk.length);
+    if(!isOpen('t-shift')&&over)h+=`<div class="row person" onclick="toggleFold('t-shift')"><div class="t"><div class="ttl">${over}名としばらくお話しできていません</div><div class="sub">タップして出勤者を見る</div></div><div class="acts"><button class="btn person small">開く</button></div></div>`;
+    if(isOpen('t-shift'))h+=vShiftDay(t);
     h+=`<div style="height:12px"></div>`;
   }else{
     h+=`<div style="height:12px"></div>`;
@@ -2509,9 +2509,13 @@ function vToday(){
   if(bits.length)h+=`<h2>気になること</h2>`+bits.join('');
 
   // ④ 今日の予定は件数だけ。詳しくはSCHEDULEへ
-  const restOpen=rest.filter(e=>!eventDone(e));
-  h+=`<h2>本日のご予定</h2>`;
-  h+=`<div class="row" onclick="calMode='day';calAnchor='${t}';go('cal')"><div class="t"><div class="ttl">${openEv.length?`残り ${restOpen.length}件${ev.length-openEv.length?`（済 ${ev.length-openEv.length}件）`:''}`:(ev.length?'すべて終わりました':'予定はありません')}</div><div class="sub">${restOpen.length?restOpen.slice(0,3).map(e=>(e.start||'')+' '+e.title).join('　'):'タップして一日の詳しい画面へ'}</div></div><div class="acts"><button class="btn small">開く</button></div></div>`;
+  const restOpen=rest.filter(e=>!eventDone(e)), restDone=rest.filter(eventDone);
+  h+=foldHead('t-ev','本日のご予定',restOpen.length);
+  if(isOpen('t-ev')){
+    h+=restOpen.length?restOpen.map(e=>rowEvent(e,{check:true})).join('')
+      :(rest.length?`<div class="empty">本日のご予定はすべて終わりました。</div>`:`<div class="empty">予定はありません。</div>`);
+    if(restDone.length)h+=`<details><summary>済んだ予定 ${restDone.length}件</summary>${restDone.map(e=>rowEvent(e,{check:true})).join('')}</details>`;
+  }
   h+=`<div class="toolbar" style="margin-bottom:10px"><span class="sp"></span><button class="btn ghost small" onclick="openEventModal({date:'${t}'})">予定を足す</button><button class="btn ghost small" onclick="openTaskModal(null,{due:'${t}'})">案件を足す</button></div>`;
   return h;
 }
