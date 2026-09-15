@@ -885,6 +885,10 @@ const store={
       else toast('取り込みに失敗しました：'+e.message);
     }
   },
+  async checkForm(){
+    const j=await callGas({action:'checkForm',settings:D.settings},{tries:2});
+    return j;
+  },
   async fetchForm(silent){
     if(!D.settings.formSheetUrl){if(!silent)toast('設定で回答シートのURLを登録してください');return}
     if(!D.settings.gasUrl){if(!silent)toast('シートの接続先が必要です');return}
@@ -911,7 +915,7 @@ const store={
       store.save({silent:true});render();
       setSave('ok','取り込み完了');
       if(added)toast(added+'件の投稿が届いています');
-      else if(!silent)toast('新しい投稿はありません');
+      else if(!silent)toast((j.rows||[]).length?'新しい投稿はありません（取り込み済み '+(j.rows||[]).length+'件）':'回答が見つかりませんでした');
     }catch(e){setSave('err','投稿の取り込み失敗');if(!silent)toast('取り込めませんでした：'+e.message)}
   },
   async fetchMails(silent){
@@ -1818,6 +1822,10 @@ const store={
       else toast('取り込みに失敗しました：'+e.message);
     }
   },
+  async checkForm(){
+    const j=await callGas({action:'checkForm',settings:D.settings},{tries:2});
+    return j;
+  },
   async fetchForm(silent){
     if(!D.settings.formSheetUrl){if(!silent)toast('設定で回答シートのURLを登録してください');return}
     if(!D.settings.gasUrl){if(!silent)toast('シートの接続先が必要です');return}
@@ -1844,7 +1852,7 @@ const store={
       store.save({silent:true});render();
       setSave('ok','取り込み完了');
       if(added)toast(added+'件の投稿が届いています');
-      else if(!silent)toast('新しい投稿はありません');
+      else if(!silent)toast((j.rows||[]).length?'新しい投稿はありません（取り込み済み '+(j.rows||[]).length+'件）':'回答が見つかりませんでした');
     }catch(e){setSave('err','投稿の取り込み失敗');if(!silent)toast('取り込めませんでした：'+e.message)}
   },
   async fetchMails(silent){
@@ -5272,7 +5280,7 @@ function vSetting(){
   <h2>投稿ボックス（フォームの回答）</h2>
   <div class="f"><label>回答シートのURL</label><input id="s-fsheet" value="${esc(s.formSheetUrl||'')}" placeholder="https://docs.google.com/spreadsheets/d/..."></div>
   <p class="small muted">フォームの「回答」タブから作ったスプレッドシートのURLを貼ってください。届いた投稿を「声」に取り込みます。</p>
-  ${s.formSheetUrl?`<div class="toolbar"><span class="sp"></span><button class="btn small" onclick="store.fetchForm()">いま取り込む</button></div>`:''}
+  ${s.formSheetUrl?`<div class="toolbar"><span class="sp"></span><button class="btn ghost small" onclick="checkFormSheet()">接続を確かめる</button><button class="btn small" onclick="store.fetchForm()">いま取り込む</button></div><div id="fs-check"></div>`:''}
   <h2>名前の読み替え</h2>
   ${(()=>{const al=D.settings.nameAliases||{};const ks=Object.keys(al);
     return ks.length?ks.map(k=>`<div class="row"><div class="t"><div class="ttl">${esc(k)} → ${esc(al[k])}</div><div class="sub">勤務表の「${esc(k)}」を、名簿の「${esc(al[k])}」として扱います</div></div><div class="acts"><button class="btn ghost small" onclick="delAlias('${esc(k)}')">解除</button></div></div>`).join('')
@@ -5293,6 +5301,17 @@ function vSetting(){
   <div class="toolbar"><button class="btn ghost small" onclick="exportData()">JSONで書き出す</button><button class="btn ghost small" onclick="importData()">JSONを読み込む</button><button class="btn ghost small" onclick="resetData()">すべて消す</button></div>
   <p class="small muted" style="margin-top:20px">予定 ${D.events.length}件／案件 ${D.tasks.length}件／メール ${D.mails.length}件／名簿 ${D.staff.length}名</p>
   </div>`;
+}
+async function checkFormSheet(){
+  const box=document.getElementById('fs-check');
+  if(box)box.innerHTML='<div class="small muted">確認しています…</div>';
+  try{
+    const j=await store.checkForm();
+    if(!j.ok){box.innerHTML='<div class="warn"><b>つながりません</b><br>'+esc(j.error||'')+'</div>';return}
+    box.innerHTML='<div class="warn"><b>'+esc(j.title)+'</b><br>'+
+      j.sheets.map(s=>esc(s.name)+'：'+s.rows+'行 × '+s.cols+'列').join('<br>')+
+      '<br><span class="small">回答が入っているシートの行数が2以上あれば取り込めます</span></div>';
+  }catch(e){box.innerHTML='<div class="warn"><b>確認できませんでした</b><br>'+esc(e.message)+'</div>'}
 }
 function saveSettings(){
   const g=i=>document.getElementById(i).value;const lines=i=>g(i).split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
