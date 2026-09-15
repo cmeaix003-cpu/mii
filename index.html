@@ -1186,7 +1186,7 @@ function toggleNoteTag(id,tag,ev){
 }
 function tagChips(n,editable){
   const cur=n.tags||[];
-  const sug=editable&&!cur.length?suggestTags(n.body):[];
+  const sug=editable&&!cur.length?suggestTags(n.body||''):[];
   let h=`<div class="tagrow">`;
   if(editable){
     h+=noteTags().map(t=>`<button class="tagc ${cur.includes(t)?'on':''} ${sug.includes(t)?'sug':''}" onclick="toggleNoteTag('${n.id}','${esc(t)}',event)">${esc(t)}${sug.includes(t)&&!cur.includes(t)?'<i>?</i>':''}</button>`).join('');
@@ -1345,7 +1345,7 @@ function vNotes(){
       ${n.tasked?'<span class="pill">案件化</span>':''}
       <span class="sp"></span>
       <span class="nwhen">${n.at?fmtMD(n.at.slice(0,10)).replace(/（.）/,''):''}${n.via?'　'+esc(n.via):''}</span></div>
-    <div class="nbody">${esc(n.body)}</div>
+    <div class="nbody">${esc(n.body||'')}</div>
     ${tagChips(n,!n.done)}
     ${n.bundleId?`<div class="small muted" style="margin-top:6px">→ 束ねて対応中：${esc((D.tasks.find(t=>t.id===n.bundleId)||{}).title||'')}</div>`:''}
     ${n.reply?`<div class="nreply"><b>対応</b>　${esc(n.reply)}</div>`:''}
@@ -1917,7 +1917,7 @@ function vToday(){
   if(pend.length)bits.push(`<div class="row person" onclick="openReport('${pend[0].id}')"><div class="t"><div class="ttl">面談の記録が${pend.length}件たまっています</div><div class="sub">最も古いのは ${fmtMD(pend[pend.length-1].date)}</div></div><div class="acts"><button class="btn person small">記録</button></div></div>`);
   if(un.length){
     bits.push(`<div class="row due"><div class="t" onclick="repTab='notes';go('report')" style="cursor:pointer"><div class="ttl">いただいた声が${un.length}件</div><div class="sub">タップしてすべて見る</div></div><div class="acts"><button class="btn small" onclick="repTab='notes';go('report')">一覧</button></div></div>`);
-    un.slice(0,3).forEach(n=>bits.push(`<div class="row" onclick="openNoteModal('${n.id}')"><div class="t"><div class="ttl">${esc(n.from||'匿名')}</div><div class="sub">${esc((n.body||'').slice(0,60))}${(n.body||'').length>60?'…':''}</div></div></div>`));
+    un.slice(0,3).forEach(n=>bits.push(`<div class="row" onclick="openNoteModal('${n.id}')"><div class="t"><div class="ttl">${esc(n.from||'匿名')}</div><div class="sub">${esc(String(n.body||'').slice(0,60))}${String(n.body||'').length>60?'…':''}</div></div></div>`));
     if(un.length>3)bits.push(`<div class="row" onclick="repTab='notes';go('report')"><div class="t"><div class="sub">ほか ${un.length-3}件</div></div></div>`);
   }
   if(stale)bits.push(`<div class="row" onclick="go('inbox')"><div class="t"><div class="ttl">机に${stale}件、3日以上止まっています</div><div class="sub">出口を決めてしまいましょう</div></div><div class="acts"><button class="btn small">机を見る</button></div></div>`);
@@ -3372,8 +3372,6 @@ function buildPlan(ws){
   })();
   const stale=openTasks().filter(x=>staleDays(x)>=3);
   const mailStale=D.mails.filter(m=>m.status==='open'&&mailBucket(m)==='reply'&&mailStaleDays(m)>=3);
-  const un=unreadNotes();
-  if(un.length)h+=`<h2>いただいた声</h2>`+un.slice(0,2).map(n=>`<div class="row due" onclick="openNoteModal('${n.id}')"><div class="t"><div class="ttl">${esc(n.from||'匿名')}さんから</div><div class="sub">${esc(n.body.slice(0,50))}${n.body.length>50?'…':''}</div></div></div>`).join('');
   const pend=pendingReports();
   const zero=targetStaff().filter(p=>!p.lastContact||diffDays(p.lastContact,today())>=120);
   const sig=(shiftSignals()||[]).filter(s=>s.sev>=50);
