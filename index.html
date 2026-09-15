@@ -2496,7 +2496,12 @@ function vToday(){
 
   // ② 今日中に片付けたいこと
   h+=`<h2>本日中</h2>`;
-  if(due.length)h+=due.map(d=>d.k==='task'?rowTask(d.x,true):rowMail(d.x,true)).join('');
+  if(due.length)h+=due.map(d=>{
+    if(d.k!=='task')return rowMail(d.x,true);
+    // 手順がある案件は最初から開いておく
+    if(stepStat(d.x).n&&FOLD['s-'+d.x.id]===undefined)FOLD['s-'+d.x.id]=true;
+    return rowTask(d.x,true);
+  }).join('');
   else h+=`<div class="empty">本日中の案件はありません。</div>`;
 
   // ③ 気づいてほしいこと（記録忘れ・声・停滞）
@@ -2557,7 +2562,7 @@ function rowTask(t,compact){
   const sd=staleDays(t);const due=t.due&&t.due<=today();
   const src={mail:'メール',meeting:'会議',shortcut:'ショートカット',manual:''}[t.source]||'';
   const st=stepStat(t);
-  const show=!compact&&st.n&&isOpen('s-'+t.id,false);
+  const show=st.n&&isOpen('s-'+t.id,false);
   const badge=st.n?`<button class="stepbadge ${st.done===st.n?'all':''}" onclick="toggleFold('s-${t.id}',false);event.stopPropagation()">${show?'−':'＋'} ${st.done}/${st.n}</button>`:'';
   return `<div class="row ${sd>=3?'stale':''} ${due?'due':''}"><div class="t"><div class="ttl">${esc(t.title)}${badge}</div><div class="sub">${src?src+'から　':''}${t.due?'期限 <span class="'+(due?'due-today':'')+'">'+fmtMD(t.due)+'</span>':'期限なし'}　${sd?sd+'日経過':'今日'}</div>
   ${show?stepsHtml(t):''}
