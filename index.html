@@ -146,17 +146,36 @@ h2{font-family:var(--pix);font-size:12px;color:var(--gray);margin:24px 0 8px;let
 .cal-head h1{margin:0;flex:1;font-size:16px}
 .month{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
 .month .dow{font-family:var(--pix);font-size:11px;color:var(--gray);text-align:center;padding:4px 0}
-.month .cell{min-height:62px;background:var(--panel);border:2px solid var(--rule);border-radius:6px;padding:4px;font-size:11px;cursor:pointer}
-.month .cell .d{font-family:var(--pix);color:var(--gray)}
+.month .cell{min-height:52px;background:var(--panel);border:2px solid var(--rule);border-radius:6px;padding:3px 2px;font-size:10px;cursor:pointer;overflow:hidden;display:flex;flex-direction:column;align-items:center}
+.month .cell.sel{border-color:var(--ink);box-shadow:0 0 0 2px var(--ink) inset}
+.month .cell .d{font-family:var(--pix);font-size:13px;color:var(--gray);line-height:1.2}
+.month .cell.sun .d{color:var(--today)}
+.month .cell.sat .d{color:#3C6E9E}
+.month .wn2{font-family:var(--pix);font-size:8px;color:var(--gray);margin-top:auto}
+.month .dots2{display:flex;flex-wrap:wrap;gap:2px;justify-content:center;margin-top:3px;min-height:8px}
+.month .dots2 i{display:inline-flex;align-items:center;justify-content:center;min-width:8px;height:8px;border-radius:2px;font-style:normal;font-family:var(--pix);font-size:7px;color:#fff;padding:0 1px}
+.month .dots2 .dp{background:var(--person)}
+.month .dots2 .dm{background:var(--ink)}
+.month .dots2 .dw2{background:var(--rule)}
+.month .dots2 .dt{background:var(--today)}
+.mpick{margin-top:14px}
+.mpickhd{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+.mpickhd b{font-family:var(--pix);font-size:15px}
+.mpickhd .sp{flex:1}
 .month .cell.today{background:var(--screen);border-color:var(--ink)}
 .month .cell.today .d{color:var(--screen-dark)}
-.month .cell.other{background:transparent;border-color:transparent;color:var(--rule)}
-.month .cell .ev{display:block;height:5px;margin-top:3px;background:var(--gray)}
-.month .cell .ev.cat-会議{background:var(--ink)}
-.month .cell .ev.cat-作業,.month .cell .ev.cat-移動{background:var(--rule)}
-.month .cell .ev.cat-私用{background:var(--c2)}
-.month .cell .ev.cat-打合せ{background:var(--gray)}
-.month .cell .ev.cat-人{background:var(--person)}
+.month .cell.other{background:transparent;border-color:transparent;opacity:.4}
+.month .mev{display:block;background:var(--panel2);border-left:3px solid var(--gray);border-radius:3px;padding:1px 3px;margin-bottom:2px;line-height:1.35;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px}
+.month .mev i{font-family:var(--pix);font-style:normal;font-size:8px;color:var(--gray);margin-right:3px}
+.month .mev.cat-会議{border-left-color:var(--ink);background:#E4E4E1}
+.month .mev.cat-打合せ{border-left-color:var(--gray)}
+.month .mev.cat-人{border-left-color:var(--person);background:var(--person-tint);color:var(--person-deep);font-weight:700}
+.month .mev.cat-私用{border-left-color:var(--c2)}
+.month .mev.task{border-left-color:var(--today);background:var(--today-tint)}
+.month .mev.fin{opacity:.45;text-decoration:line-through}
+.month .mmore{font-size:9px;color:var(--gray);padding-left:3px}
+.month .mduty{font-size:9px;color:var(--gray);border-top:1px solid var(--rule);margin-top:2px;padding-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* 週＝縦積み */
 .wk{display:flex;flex-direction:column;gap:10px}
 .wkday{background:var(--panel);border:3px solid var(--rule);border-radius:10px;padding:8px 10px 10px}
@@ -1098,17 +1117,36 @@ h2{font-family:var(--pix);font-size:12px;color:var(--gray);margin:24px 0 8px;let
 .cal-head h1{margin:0;flex:1;font-size:16px}
 .month{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
 .month .dow{font-family:var(--pix);font-size:11px;color:var(--gray);text-align:center;padding:4px 0}
-.month .cell{min-height:62px;background:var(--panel);border:2px solid var(--rule);border-radius:6px;padding:4px;font-size:11px;cursor:pointer}
-.month .cell .d{font-family:var(--pix);color:var(--gray)}
+.month .cell{min-height:52px;background:var(--panel);border:2px solid var(--rule);border-radius:6px;padding:3px 2px;font-size:10px;cursor:pointer;overflow:hidden;display:flex;flex-direction:column;align-items:center}
+.month .cell.sel{border-color:var(--ink);box-shadow:0 0 0 2px var(--ink) inset}
+.month .cell .d{font-family:var(--pix);font-size:13px;color:var(--gray);line-height:1.2}
+.month .cell.sun .d{color:var(--today)}
+.month .cell.sat .d{color:#3C6E9E}
+.month .wn2{font-family:var(--pix);font-size:8px;color:var(--gray);margin-top:auto}
+.month .dots2{display:flex;flex-wrap:wrap;gap:2px;justify-content:center;margin-top:3px;min-height:8px}
+.month .dots2 i{display:inline-flex;align-items:center;justify-content:center;min-width:8px;height:8px;border-radius:2px;font-style:normal;font-family:var(--pix);font-size:7px;color:#fff;padding:0 1px}
+.month .dots2 .dp{background:var(--person)}
+.month .dots2 .dm{background:var(--ink)}
+.month .dots2 .dw2{background:var(--rule)}
+.month .dots2 .dt{background:var(--today)}
+.mpick{margin-top:14px}
+.mpickhd{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+.mpickhd b{font-family:var(--pix);font-size:15px}
+.mpickhd .sp{flex:1}
 .month .cell.today{background:var(--screen);border-color:var(--ink)}
 .month .cell.today .d{color:var(--screen-dark)}
-.month .cell.other{background:transparent;border-color:transparent;color:var(--rule)}
-.month .cell .ev{display:block;height:5px;margin-top:3px;background:var(--gray)}
-.month .cell .ev.cat-会議{background:var(--ink)}
-.month .cell .ev.cat-作業,.month .cell .ev.cat-移動{background:var(--rule)}
-.month .cell .ev.cat-私用{background:var(--c2)}
-.month .cell .ev.cat-打合せ{background:var(--gray)}
-.month .cell .ev.cat-人{background:var(--person)}
+.month .cell.other{background:transparent;border-color:transparent;opacity:.4}
+.month .mev{display:block;background:var(--panel2);border-left:3px solid var(--gray);border-radius:3px;padding:1px 3px;margin-bottom:2px;line-height:1.35;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px}
+.month .mev i{font-family:var(--pix);font-style:normal;font-size:8px;color:var(--gray);margin-right:3px}
+.month .mev.cat-会議{border-left-color:var(--ink);background:#E4E4E1}
+.month .mev.cat-打合せ{border-left-color:var(--gray)}
+.month .mev.cat-人{border-left-color:var(--person);background:var(--person-tint);color:var(--person-deep);font-weight:700}
+.month .mev.cat-私用{border-left-color:var(--c2)}
+.month .mev.task{border-left-color:var(--today);background:var(--today-tint)}
+.month .mev.fin{opacity:.45;text-decoration:line-through}
+.month .mmore{font-size:9px;color:var(--gray);padding-left:3px}
+.month .mduty{font-size:9px;color:var(--gray);border-top:1px solid var(--rule);margin-top:2px;padding-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* 週＝縦積み */
 .wk{display:flex;flex-direction:column;gap:10px}
 .wkday{background:var(--panel);border:3px solid var(--rule);border-radius:10px;padding:8px 10px 10px}
@@ -2705,15 +2743,22 @@ function toggleEventDone(id,ev){
 }
 function rowEvent(e,opt){
   const p=e.cat==='人';
-  const chk=(opt&&opt.check)?`<div class="acts"><button class="btn ghost small evdone" onclick="toggleEventDone('${e.id}',event)">済</button></div>`:'';
+  const est=evStepStat(e);
+  const chk=(opt&&opt.check)?`<div class="acts mini" onclick="event.stopPropagation()">
+    <button class="btn ghost xs" onclick="openEvStepAdd('${e.id}')" title="手順を足す">＋</button>
+    <button class="btn ghost xs" onclick="openEventModal(${JSON.stringify(e).replace(/"/g,'&quot;')})" title="編集">✎</button>
+    <button class="btn ghost small evdone" onclick="toggleEventDone('${e.id}',event)">${eventDone(e)?'戻す':'済'}</button>
+  </div>`:'';
   if(e.type==='面談'){
     const t=today();const ended=e.date<t||(e.date===t&&mins(e.end||e.start||'23:59')<=new Date().getHours()*60+new Date().getMinutes());
-    return `<div class="row person ${eventDone(e)?'evfin':''}" onclick="openReport('${e.id}')"><div class="time">${e.start||''}${e.end?'<br>'+e.end:''}</div><div class="t"><div class="ttl">${esc(e.title)}${e.report?'<span class="pill">記録済</span>':(ended?'<span class="pill warnpill">要記録</span>':'')}</div><div class="sub">${(()=>{const ts=themeStat(e);return ts.n?`テーマ ${ts.done}/${ts.n}　`+esc(themeList(e).map(x=>x.t).join('／')):'面談'})()}${e.place?'　'+esc(e.place):''}</div></div>${chk}</div>`;
+    return `<div class="row person ${eventDone(e)?'evfin':''}"><div class="t" onclick="openReport('${e.id}')" style="cursor:pointer"><div class="ttl">${esc(e.title)}${e.report?'<span class="pill">記録済</span>':(ended?'<span class="pill warnpill">要記録</span>':'')}</div><div class="sub">${(()=>{const ts=themeStat(e);return ts.n?`テーマ ${ts.done}/${ts.n}　`+esc(themeList(e).map(x=>x.t).join('／')):'面談'})()}${e.place?'　'+esc(e.place):''}</div></div>${chk}</div>`;
   }
-  const est=evStepStat(e);
   const show=(opt&&opt.check)&&est.n&&isOpen('s-'+e.id,false);
-  const badge=est.n?`<button class="stepbadge ${est.done===est.n?'all':''}" onclick="toggleFold('s-${e.id}',false);event.stopPropagation()">${show?'−':'＋'} ${est.done}/${est.n}</button>`:'';
-  return `<div class="row ${p?'person':''} ${eventDone(e)?'evfin':''}" onclick="openEventModal(${JSON.stringify(e).replace(/"/g,'&quot;')})"><div class="time">${e.start||'終日'}${e.end?'<br>'+e.end:''}</div><div class="t"><div class="ttl">${esc(e.title)}${badge}</div><div class="sub">${esc(e.type)}${e.place?'　'+esc(e.place):''}${e.party?'　'+esc(e.party):''}</div>${show?evStepsHtml(e):''}</div>${chk}</div>`;
+  const badge=est.n?`<span class="stepbadge ${est.done===est.n?'all':''}">${show?'−':'＋'} ${est.done}/${est.n}</span>`:'';
+  const tap=est.n&&(opt&&opt.check)
+    ? ` onclick="toggleFold('s-${e.id}',false)" style="cursor:pointer"`
+    : ` onclick="openEventModal(${JSON.stringify(e).replace(/"/g,'&quot;')})" style="cursor:pointer"`;
+  return `<div class="row ${p?'person':''} ${eventDone(e)?'evfin':''}"><div class="time">${e.start||'終日'}${e.end?'<br>'+e.end:''}</div><div class="t"${tap}><div class="ttl">${esc(e.title)}${badge}</div><div class="sub">${esc(e.type)}${e.place?'　'+esc(e.place):''}${e.party?'　'+esc(e.party):''}</div>${show?`<div onclick="event.stopPropagation()">${evStepsHtml(e)}</div>`:''}</div>${chk}</div>`;
 }
 
 /* --- DESK --- */
@@ -2876,8 +2921,36 @@ function vCal(){
   }else{
     const first=addMonths(calAnchor,0);const fd=parse(first);const lead=(fd.getDay()+6)%7;const start=addDays(first,-lead);
     h+=`<div class="month">`+'月火水木金土日'.split('').map(d=>`<div class="dow">${d}</div>`).join('');
-    for(let i=0;i<42;i++){const d=addDays(start,i);const other=d.slice(0,7)!==first.slice(0,7);const ev=eventsOn(d);
-      h+=`<div class="cell ${d===today()?'today':''} ${other?'other':''}" onclick="calAnchor='${d}';calMode='day';render()"><div class="d">${parse(d).getDate()}</div>${ev.slice(0,4).map(e=>`<span class="ev cat-${e.cat}" title="${esc(e.title)}"></span>`).join('')}${ev.length>4?'<div class="d">+'+(ev.length-4)+'</div>':''}</div>`}
+    for(let i=0;i<42;i++){
+      const d=addDays(start,i);
+      const other=d.slice(0,7)!==first.slice(0,7);
+      const ev=eventsOn(d);
+      const tasks=D.tasks.filter(x=>x.status==='open'&&x.due===d);
+      const wk=workingOn(d);
+      const wd=parse(d).getDay();
+      const people=ev.filter(e=>e.cat==='人').length;
+      const meet=ev.filter(e=>e.cat==='会議'||e.cat==='打合せ').length;
+      const work=ev.length-people-meet;
+      h+=`<div class="cell ${d===calAnchor?'sel':''} ${d===today()?'today':''} ${other?'other':''} ${wd===0?'sun':''} ${wd===6?'sat':''}" onclick="calAnchor='${d}';render()">
+        <div class="d">${parse(d).getDate()}</div>
+        <div class="dots2">
+          ${people?`<i class="dp" title="人">${people>1?people:''}</i>`:''}
+          ${meet?`<i class="dm">${meet>1?meet:''}</i>`:''}
+          ${work?`<i class="dw2">${work>1?work:''}</i>`:''}
+          ${tasks.length?`<i class="dt">${tasks.length>1?tasks.length:''}</i>`:''}
+        </div>
+        ${wk&&wk.length?`<div class="wn2">${wk.length}</div>`:''}
+      </div>`;
+    }
+    h+=`</div>`;
+    // 選んだ日の中身を下に出す
+    const sd2=calAnchor;
+    const sev=eventsOn(sd2), stk=D.tasks.filter(x=>x.status==='open'&&x.due===sd2), sdt=dutyOn(sd2), swk=workingOn(sd2);
+    h+=`<div class="mpick"><div class="mpickhd"><b>${fmtMD(sd2)}</b>${swk&&swk.length?`<span class="pill">出勤 ${swk.length}名</span>`:''}<span class="sp"></span><button class="btn small" onclick="calMode='day';render()">この日を開く</button></div>`;
+    if(sdt.length)h+=dutyChips(sd2);
+    if(sev.length)h+=sev.map(e=>rowEvent(e,{check:true})).join('');
+    if(stk.length)h+=stk.map(t=>rowTask(t,true)).join('');
+    if(!sev.length&&!stk.length)h+=`<div class="empty">予定も案件もありません。<div style="margin-top:10px"><button class="btn small" onclick="openEventModal({date:'${sd2}'})">予定を足す</button> <button class="btn ghost small" onclick="openTaskModal(null,{due:'${sd2}'})">案件を足す</button></div></div>`;
     h+=`</div>`;
   }
   return h;
