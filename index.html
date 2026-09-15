@@ -762,7 +762,7 @@ const TYPES={
   '私用':{cat:'私用',fields:['place']}
 };
 const CATS=['会議','打合せ','人','作業','移動','私用'];
-const DEFAULT_SETTINGS={gasUrl:'',myEmail:'',vip:[],exclude:[],deadlineWords:['至急','本日中','〆切','締切','までに','確認願います','ご確認ください'],calDays:30,icsUrls:[],nameAliases:{},forwardTo:'',forwardLabel:'',roomTo:'',roomCc:'',roomSubject:'【会議室のお願い】{date} {start}〜{end} 面談',roomBody:'お疲れ様です。\n\n下記のとおり面談を予定しております。会議室のご手配をお願いいたします。\n\n・日時：{date}（{dow}） {start}〜{end}\n・対象：{name} さん\n・場所：{place}\n\nお手数をおかけしますが、よろしくお願いいたします。',weeklyGoal:5,weekGoals:{},fetchDays:2};
+const DEFAULT_SETTINGS={gasUrl:'',myEmail:'',vip:[],exclude:[],deadlineWords:['至急','本日中','〆切','締切','までに','確認願います','ご確認ください'],calDays:30,icsUrls:[],formSheetUrl:'',nameAliases:{},forwardTo:'',forwardLabel:'',roomTo:'',roomCc:'',roomSubject:'【会議室のお願い】{date} {start}〜{end} 面談',roomBody:'お疲れ様です。\n\n下記のとおり面談を予定しております。会議室のご手配をお願いいたします。\n\n・日時：{date}（{dow}） {start}〜{end}\n・対象：{name} さん\n・場所：{place}\n\nお手数をおかけしますが、よろしくお願いいたします。',weeklyGoal:5,weekGoals:{},fetchDays:2};
 
 let D={events:[],tasks:[],mails:[],staff:[],shifts:{},duty:{},settings:{...DEFAULT_SETTINGS},meta:{updatedAt:0}};
 let view='today', calMode='week', calAnchor=today(), peopleFilter='全', mailTab='reply', inboxTab='open', peopleDate=null;
@@ -884,6 +884,35 @@ const store={
       if(added||upd)toast(part+'回目で中断（'+added+'件は取り込み済み）：'+e.message);
       else toast('取り込みに失敗しました：'+e.message);
     }
+  },
+  async fetchForm(silent){
+    if(!D.settings.formSheetUrl){if(!silent)toast('設定で回答シートのURLを登録してください');return}
+    if(!D.settings.gasUrl){if(!silent)toast('シートの接続先が必要です');return}
+    setSave('busy','投稿を取り込み中');
+    try{
+      const j=await callGas({action:'fetchForm',settings:D.settings},
+        {onRetry:(n,t)=>setSave('busy','再試行中 '+n+'/'+t)});
+      if(!j.ok)throw new Error(j.error||'取り込みに失敗しました');
+      D.notes=D.notes||[];
+      let added=0;
+      (j.rows||[]).forEach(r=>{
+        if(D.notes.some(n=>n.formKey===r.key))return;
+        // 「名前」らしい項目は差出人、それ以外は本文に
+        let from='',body=[];
+        r.items.forEach(it=>{
+          if(/名前|氏名|お名前|name/i.test(it.q)&&!from)from=it.a;
+          else body.push(r.items.length>2?it.q+'：'+it.a:it.a);
+        });
+        const p=from?resolveStaff(from):null;
+        D.notes.push({id:uid(),formKey:r.key,from,staffId:p?p.id:'',body:body.join('\n'),
+          via:'投稿ボックス',at:(r.at||new Date().toISOString()),read:false});
+        added++;
+      });
+      store.save({silent:true});render();
+      setSave('ok','取り込み完了');
+      if(added)toast(added+'件の投稿が届いています');
+      else if(!silent)toast('新しい投稿はありません');
+    }catch(e){setSave('err','投稿の取り込み失敗');if(!silent)toast('取り込めませんでした：'+e.message)}
   },
   async fetchMails(silent){
     if(!D.settings.gasUrl){if(!silent)toast('設定でシートの接続先を登録してください');return}
@@ -1666,7 +1695,7 @@ const TYPES={
   '私用':{cat:'私用',fields:['place']}
 };
 const CATS=['会議','打合せ','人','作業','移動','私用'];
-const DEFAULT_SETTINGS={gasUrl:'',myEmail:'',vip:[],exclude:[],deadlineWords:['至急','本日中','〆切','締切','までに','確認願います','ご確認ください'],calDays:30,icsUrls:[],nameAliases:{},forwardTo:'',forwardLabel:'',roomTo:'',roomCc:'',roomSubject:'【会議室のお願い】{date} {start}〜{end} 面談',roomBody:'お疲れ様です。\n\n下記のとおり面談を予定しております。会議室のご手配をお願いいたします。\n\n・日時：{date}（{dow}） {start}〜{end}\n・対象：{name} さん\n・場所：{place}\n\nお手数をおかけしますが、よろしくお願いいたします。',weeklyGoal:5,weekGoals:{},fetchDays:2};
+const DEFAULT_SETTINGS={gasUrl:'',myEmail:'',vip:[],exclude:[],deadlineWords:['至急','本日中','〆切','締切','までに','確認願います','ご確認ください'],calDays:30,icsUrls:[],formSheetUrl:'',nameAliases:{},forwardTo:'',forwardLabel:'',roomTo:'',roomCc:'',roomSubject:'【会議室のお願い】{date} {start}〜{end} 面談',roomBody:'お疲れ様です。\n\n下記のとおり面談を予定しております。会議室のご手配をお願いいたします。\n\n・日時：{date}（{dow}） {start}〜{end}\n・対象：{name} さん\n・場所：{place}\n\nお手数をおかけしますが、よろしくお願いいたします。',weeklyGoal:5,weekGoals:{},fetchDays:2};
 
 let D={events:[],tasks:[],mails:[],staff:[],shifts:{},duty:{},settings:{...DEFAULT_SETTINGS},meta:{updatedAt:0}};
 let view='today', calMode='week', calAnchor=today(), peopleFilter='全', mailTab='reply', inboxTab='open', peopleDate=null;
@@ -1788,6 +1817,35 @@ const store={
       if(added||upd)toast(part+'回目で中断（'+added+'件は取り込み済み）：'+e.message);
       else toast('取り込みに失敗しました：'+e.message);
     }
+  },
+  async fetchForm(silent){
+    if(!D.settings.formSheetUrl){if(!silent)toast('設定で回答シートのURLを登録してください');return}
+    if(!D.settings.gasUrl){if(!silent)toast('シートの接続先が必要です');return}
+    setSave('busy','投稿を取り込み中');
+    try{
+      const j=await callGas({action:'fetchForm',settings:D.settings},
+        {onRetry:(n,t)=>setSave('busy','再試行中 '+n+'/'+t)});
+      if(!j.ok)throw new Error(j.error||'取り込みに失敗しました');
+      D.notes=D.notes||[];
+      let added=0;
+      (j.rows||[]).forEach(r=>{
+        if(D.notes.some(n=>n.formKey===r.key))return;
+        // 「名前」らしい項目は差出人、それ以外は本文に
+        let from='',body=[];
+        r.items.forEach(it=>{
+          if(/名前|氏名|お名前|name/i.test(it.q)&&!from)from=it.a;
+          else body.push(r.items.length>2?it.q+'：'+it.a:it.a);
+        });
+        const p=from?resolveStaff(from):null;
+        D.notes.push({id:uid(),formKey:r.key,from,staffId:p?p.id:'',body:body.join('\n'),
+          via:'投稿ボックス',at:(r.at||new Date().toISOString()),read:false});
+        added++;
+      });
+      store.save({silent:true});render();
+      setSave('ok','取り込み完了');
+      if(added)toast(added+'件の投稿が届いています');
+      else if(!silent)toast('新しい投稿はありません');
+    }catch(e){setSave('err','投稿の取り込み失敗');if(!silent)toast('取り込めませんでした：'+e.message)}
   },
   async fetchMails(silent){
     if(!D.settings.gasUrl){if(!silent)toast('設定でシートの接続先を登録してください');return}
@@ -1964,10 +2022,17 @@ function notesOf(staffId,name){
   return (D.notes||[]).filter(n=>n.staffId===staffId||(n.from&&normName(n.from)===normName(name))).sort((a,b)=>(b.at||'').localeCompare(a.at||''));
 }
 function vNotes(){
+  if(D.settings.formSheetUrl&&!window._formFetching){
+    const last=Number(localStorage.getItem('mii-formfetch')||0);
+    if(Date.now()-last>10*60*1000){
+      window._formFetching=true;localStorage.setItem('mii-formfetch',String(Date.now()));
+      store.fetchForm(true).finally(()=>{window._formFetching=false});
+    }
+  }
   const list=inboxNotes();
-  let h=`<h2>いただいた声</h2><div class="toolbar"><span class="small muted">スタッフから聞いた話を溜めておく場所です</span><span class="sp"></span><button class="btn small" onclick="openNoteModal()">書き留める</button></div>`;
+  let h=`<h2>いただいた声</h2><div class="toolbar"><span class="small muted">スタッフから聞いた話を溜めておく場所です</span><span class="sp"></span>${D.settings.formSheetUrl?`<button class="btn ghost small" onclick="store.fetchForm()">投稿を取り込む</button>`:''}<button class="btn small" onclick="openNoteModal()">書き留める</button></div>`;
   if(!list.length)return h+`<div class="empty">まだ何もありません。<br><span class="small">現場で聞いた一言を残しておくと、面談のときに効いてきます。</span></div>`;
-  return h+list.map(n=>`<div class="row ${n.read?'':'due'}" onclick="openNoteModal('${n.id}')"><div class="t"><div class="ttl">${n.read?'':'<span class="pill warnpill">未読</span>'}${esc(n.from||'匿名')}</div><div class="sub">${esc(n.body.slice(0,60))}${n.body.length>60?'…':''}　${n.at?fmtMD(n.at.slice(0,10)):''}</div></div></div>`).join('');
+  return h+list.map(n=>`<div class="row ${n.read?'':'due'}" onclick="openNoteModal('${n.id}')"><div class="t"><div class="ttl">${n.read?'':'<span class="pill warnpill">未読</span>'}${esc(n.from||'匿名')}</div><div class="sub">${esc(n.body.slice(0,60))}${n.body.length>60?'…':''}　${n.at?fmtMD(n.at.slice(0,10)):''}${n.via?'　'+esc(n.via):''}</div></div></div>`).join('');
 }
 
 /* ========== E. 顔写真（この端末にだけ保存） ========== */
@@ -5204,6 +5269,10 @@ function vSetting(){
     <div class="row"><div class="t"><div class="ttl">コンディションの言い方</div><div class="sub">${esc(optCondLabels().join('／'))}</div></div><div class="acts"><button class="btn ghost small" onclick="openListEdit('condLabels')">編集</button></div></div>
     <div class="row"><div class="t"><div class="ttl">予定の型を足す</div><div class="sub">${(s.extraTypes||[]).length?esc((s.extraTypes||[]).join('／')):'既定：'+Object.keys(TYPES).join('／')}</div></div><div class="acts"><button class="btn ghost small" onclick="openListEdit('extraTypes')">編集</button></div></div>
   </div>
+  <h2>投稿ボックス（フォームの回答）</h2>
+  <div class="f"><label>回答シートのURL</label><input id="s-fsheet" value="${esc(s.formSheetUrl||'')}" placeholder="https://docs.google.com/spreadsheets/d/..."></div>
+  <p class="small muted">フォームの「回答」タブから作ったスプレッドシートのURLを貼ってください。届いた投稿を「声」に取り込みます。</p>
+  ${s.formSheetUrl?`<div class="toolbar"><span class="sp"></span><button class="btn small" onclick="store.fetchForm()">いま取り込む</button></div>`:''}
   <h2>名前の読み替え</h2>
   ${(()=>{const al=D.settings.nameAliases||{};const ks=Object.keys(al);
     return ks.length?ks.map(k=>`<div class="row"><div class="t"><div class="ttl">${esc(k)} → ${esc(al[k])}</div><div class="sub">勤務表の「${esc(k)}」を、名簿の「${esc(al[k])}」として扱います</div></div><div class="acts"><button class="btn ghost small" onclick="delAlias('${esc(k)}')">解除</button></div></div>`).join('')
@@ -5227,7 +5296,7 @@ function vSetting(){
 }
 function saveSettings(){
   const g=i=>document.getElementById(i).value;const lines=i=>g(i).split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
-  Object.assign(D.settings,{gasUrl:g('s-gas').trim(),myEmail:g('s-me').trim(),vip:lines('s-vip'),exclude:lines('s-ex'),deadlineWords:lines('s-dw'),icsUrls:lines('s-ics'),forwardTo:g('s-fwd').trim(),forwardLabel:g('s-flabel').trim(),roomTo:g('s-rto').trim(),roomCc:g('s-rcc').trim(),roomSubject:g('s-rsub'),roomBody:g('s-rbody'),fetchDays:Number(g('s-fd'))||2,calDays:Number(g('s-cd2'))||30,weeklyGoal:Number(g('s-goal'))||0});
+  Object.assign(D.settings,{gasUrl:g('s-gas').trim(),myEmail:g('s-me').trim(),vip:lines('s-vip'),exclude:lines('s-ex'),deadlineWords:lines('s-dw'),icsUrls:lines('s-ics'),formSheetUrl:g('s-fsheet').trim(),forwardTo:g('s-fwd').trim(),forwardLabel:g('s-flabel').trim(),roomTo:g('s-rto').trim(),roomCc:g('s-rcc').trim(),roomSubject:g('s-rsub'),roomBody:g('s-rbody'),fetchDays:Number(g('s-fd'))||2,calDays:Number(g('s-cd2'))||30,weeklyGoal:Number(g('s-goal'))||0});
   store.save();
 }
 function exportData(){const b=new Blob([JSON.stringify(D,null,1)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='mii-'+today()+'.json';a.click()}
