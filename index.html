@@ -365,8 +365,19 @@ h2{font-family:var(--pix);font-size:12px;color:var(--gray);margin:24px 0 8px;let
 .thnoteview{border-top:2px solid var(--rule);background:var(--panel);font-size:12px;padding:7px 9px;color:var(--gray)}
 .thadd{display:flex;gap:6px;margin-top:8px}
 .thadd input{flex:1}
+/* 自分の勤務 */
+.myshift{display:flex;align-items:center;gap:9px;background:var(--panel);border:3px solid var(--ink);border-radius:10px;box-shadow:inset 0 0 0 3px var(--panel),inset 0 0 0 4px var(--rule);padding:9px 12px;margin:10px 0}
+.myshift .ml{font-family:var(--pix);font-size:10px;color:var(--gray);flex:none}
+.myshift b{font-size:16px}
+.myshift .mt{font-family:var(--pix);font-size:12px;color:var(--gray)}
+.myshift .mp2{font-size:11px;color:var(--gray);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right}
+.myshift.off{background:var(--panel2);border-color:var(--rule);box-shadow:none}
+.myshift.off b{color:var(--gray)}
+.wchip.self{border-color:var(--ink);box-shadow:2px 2px 0 var(--ink)}
+.mytag{font-family:var(--pix);font-style:normal;font-size:8px;background:var(--ink);color:var(--panel);padding:1px 4px;border-radius:3px;margin-right:5px;vertical-align:1px}
 /* 退職 */
 .card.gone{opacity:.45}
+.card.me{border-color:var(--ink)}
 .card.gone .nm{text-decoration:line-through}
 /* お任せ */
 .dbar{height:6px;background:var(--panel2);border:2px solid var(--rule);margin:6px 0 5px}
@@ -1521,11 +1532,11 @@ function vTrend(){
 /* ========== 今の状態（4つのパラメータ） ========== */
 function statusParams(){
   const t=today(), ws=weekStart(t);
-  const n=Math.max(1,activeStaff().length);
+  const n=Math.max(1,targetStaff().length);
   // ① 人：30日で話せた割合＋長期沈黙の重み
   const from30=addDays(t,-29);
   const met=new Set(D.events.filter(e=>e.cat==='人'&&e.date>=from30&&e.date<=t&&e.staffName).map(e=>e.staffName)).size;
-  const long=activeStaff().filter(p=>!p.lastContact||diffDays(p.lastContact,t)>=90).length;
+  const long=targetStaff().filter(p=>!p.lastContact||diffDays(p.lastContact,t)>=90).length;
   const goal=weekGoal(t), hrs=weekPeopleHours(t);
   let people=D.staff.length? Math.round( (met/n)*60 + (1-Math.min(1,long/n))*25 + Math.min(1,goal?hrs/goal:0)*15 ) : 50;
   // ② 捌き：未処理と停滞
@@ -1653,7 +1664,7 @@ function voice(){
     if(tc&&(new Date().getDay()===1||b.k==='busy'||b.k==='hard'))last=tc;
     else if(b.k==='hard'||b.k==='busy')last=b.s+'。';
     else{
-      const cand=activeStaff().map(p=>({p,sc:staffScore(p)})).filter(x=>x.sc>=40).sort((x,y)=>y.sc-x.sc)[0];
+      const cand=targetStaff().map(p=>({p,sc:staffScore(p)})).filter(x=>x.sc>=40).sort((x,y)=>y.sc-x.sc)[0];
       if(cand)last='今週は'+cand.p.name.split(' ')[0]+'さんにお声がけを。';
       else if(b.k==='calm')last='ゆとりがございます。人に時間を。';
     }
@@ -1824,7 +1835,7 @@ function taskToEvent(id){const t=D.tasks.find(x=>x.id===id);openEventModal({date
 function taskDelegate(id){
   const t=D.tasks.find(x=>x.id===id);
   // 直近の勤務表にいる人を先に、その他の在籍者を後に
-  const act=activeStaff();
+  const act=targetStaff();
   const onShift=act.filter(p=>inRecentShift(p.name));
   const rest=act.filter(p=>!inRecentShift(p.name));
   const past=[...new Set(delegLog().map(x=>x.to).filter(n=>n&&!resolveStaff(n)))];  // 過去に頼んだ他部署
@@ -2134,7 +2145,7 @@ function saveManualMail(){
 /* --- 人 --- */
 function vPeople(){
   const pd=peopleDate||today();
-  const all=activeStaff().map(p=>({p,sc:staffScore(p)}));
+  const all=targetStaff().map(p=>({p,sc:staffScore(p)}));
   const pick=all.filter(x=>x.sc>=40).sort((a,b)=>b.sc-a.sc).slice(0,5);
   let list;
   if(peopleFilter==='退')list=retiredStaff().map(p=>({p,sc:0}));
@@ -2143,6 +2154,12 @@ function vPeople(){
   else if(peopleFilter==='出')list=all.filter(x=>{const c=shiftOf(x.p.name,pd);return c!==null&&!isOff(c)});
   else list=all.filter(x=>x.p.kind===peopleFilter);
   list.sort((a,b)=>b.sc-a.sc);
+  // 自分は一覧の最後に
+  if(peopleFilter==='全'){
+    const me=D.staff.find(isSelf);
+    if(me&&!list.some(x=>x.p.id===me.id))list.push({p:me,sc:-1});
+    else if(me){list=list.filter(x=>x.p.id!==me.id);list.push({p:me,sc:-1})}
+  }
   let h=`<h1>PEOPLE</h1>`;
   if(!D.staff.length)return h+`<div class="empty"><b>まだ名簿がありません。</b><br>エクセルファイルを選ぶだけで一括登録できます。<div style="margin-top:10px"><button class="btn" onclick="openImportModal()">名簿を取り込む</button> <button class="btn ghost" onclick="openStaffModal()">1人ずつ登録</button></div></div>`;
   // 日付切替バー
@@ -2156,6 +2173,14 @@ function vPeople(){
     ${pd!==today()?`<button class="btn ghost small" onclick="peopleDate=null;render()">今日へ</button>`:''}
     <span class="wcount">${hasShift?(w?w.length+'名 出勤':''):'勤務表なし'}</span>
   </div>`;
+  {
+    const me1=selfStaff();
+    const r1=me1?shiftRaw(me1.name,pd):null;
+    if(me1&&r1!==null){
+      const i1=splitCell(r1);const o1=isOff(i1.l);
+      h+=`<div class="myshift ${o1?'off':''}"><span class="ml">自分の勤務</span><b>${o1?'お休み':esc(i1.l||'')}</b>${!o1&&i1.s?`<span class="mt">${esc(i1.s)}</span>`:''}${!o1&&i1.p?`<span class="mp2">${esc(i1.p)}</span>`:''}</div>`;
+    }
+  }
   if(!hasShift)h+=`<div class="toolbar"><span class="small muted">${pd.slice(0,7)}の勤務表を入れると、出勤状況がカードに出ます</span><span class="sp"></span><button class="btn ghost small" onclick="openShiftModal('${pd.slice(0,7)}')">勤務表を取り込む</button></div>`;
   const gone=goneFromShift();
   if(gone.length)h+=`<div class="warn"><b>勤務表から名前が消えている方が${gone.length}名</b><br>${gone.slice(0,6).map(p=>esc(p.name)).join('　')}${gone.length>6?' ほか':''}<br><span class="small">退職・異動でしたら、その方を開いて「退職として記録」を押してください。集計から外れます。</span></div>`;
@@ -2174,10 +2199,11 @@ function cardStaff(p,big,pd){
   const code=shiftOf(p.name,pd);const off=code!==null&&isOff(code);const work=code!==null&&!off;
   const dots=[0,1,2].map(i=>{const v=c[i-(3-c.length)];const sz=i===2?14:i===1?10:7;return v?`<i class="c${v.v}" style="width:${sz}px;height:${sz}px"></i>`:`<i style="width:${sz}px;height:${sz}px"></i>`}).join('');
   const shiftTag=code===null?'':(off?`<span class="shbadge off">休</span>`:`<span class="shbadge on">${esc(code)}</span>`);
-  return `<div class="card cond${lc} ${big?'big':''} ${off?'isoff':''} ${work?'iswork':''} ${isActive(p)?'':'gone'}" onclick="onCardTap('${p.id}','${pd}')">${isActive(p)?'':'<span class="ren" style="background:var(--gray)">退職</span>'}${ren?`<span class="ren">更新 ${r}日前</span>`:''}<div class="nmrow">${avatarTag(p)}<span class="nm">${esc(p.name)}</span></div><span class="kd">${esc(p.kind)}</span>${shiftTag}<div class="dots">${dots}</div>${condSpark(p)}<div class="last ${gap!==null&&gap>target?'over':''}">${gap===null?'未接触':gap+'日前に接触'}</div>${big?`<div class="why">${esc(staffWhy(p))}</div>`:''}</div>`;
+  return `<div class="card cond${lc} ${big?'big':''} ${off?'isoff':''} ${work?'iswork':''} ${isActive(p)?'':'gone'} ${isSelf(p)?'me':''}" onclick="onCardTap('${p.id}','${pd}')">${isActive(p)?(isSelf(p)?'<span class="ren" style="background:var(--ink)">自分</span>':''):'<span class="ren" style="background:var(--gray)">退職</span>'}${ren?`<span class="ren">更新 ${r}日前</span>`:''}<div class="nmrow">${avatarTag(p)}<span class="nm">${esc(p.name)}</span></div><span class="kd">${esc(p.kind)}</span>${shiftTag}<div class="dots">${dots}</div>${condSpark(p)}<div class="last ${gap!==null&&gap>target?'over':''}">${gap===null?'未接触':gap+'日前に接触'}</div>${big?`<div class="why">${esc(staffWhy(p))}</div>`:''}</div>`;
 }
 function onCardTap(id,pd){
   const p=D.staff.find(x=>x.id===id);
+  if(isSelf(p)){openStaffDetail(id);return}
   const code=shiftOf(p.name,pd);const work=code!==null&&!isOff(code);
   if(work)openMeetingPicker(id,pd);else openStaffDetail(id);
 }
@@ -2294,7 +2320,8 @@ function openStaffDetail(id){
   <div class="f"><label>次回までの宿題（任意）</label><input id="st-hw" value=""></div>
   ${p.homework?`<div class="warn">前回の宿題：${esc(p.homework)}</div>`:''}
   ${isActive(p)?'':`<div class="warn"><b>退職として記録されています</b>（${esc(p.retiredAt||'')}）<br>集計や提案の対象から外れています。</div>`}
-  <div class="foot">${isActive(p)?`<button class="btn ghost" onclick="askRetire('${id}')">退職として記録</button>`:`<button class="btn ghost" onclick="setReturned('${id}');closeModal()">在籍に戻す</button>`}<button class="btn ghost" onclick="openStaffModal('${id}')">情報を編集</button><button class="btn ghost" onclick="toggleFlag('${id}')">${p.flag?'気になる印を外す':'気になる印'}</button><button class="btn solid" onclick="logContact('${id}')">記録する</button></div>
+  ${isSelf(p)?`<div class="warn"><b>「自分」として登録されています</b><br>面談の提案や、話せていない人の集計からは外れます。勤務表の出勤者には表示されます。</div>`:''}
+  <div class="foot">${isSelf(p)?`<button class="btn ghost" onclick="clearSelf('${id}');closeModal()">自分の登録を外す</button>`:`<button class="btn ghost" onclick="setSelf('${id}');closeModal()">自分として登録</button>`}${isActive(p)?`<button class="btn ghost" onclick="askRetire('${id}')">退職として記録</button>`:`<button class="btn ghost" onclick="setReturned('${id}');closeModal()">在籍に戻す</button>`}<button class="btn ghost" onclick="openStaffModal('${id}')">情報を編集</button><button class="btn ghost" onclick="toggleFlag('${id}')">${p.flag?'気になる印を外す':'気になる印'}</button><button class="btn solid" onclick="logContact('${id}')">記録する</button></div>
   ${(p.conditions||[]).length>=2?`<h2>コンディションの推移</h2><div class="sparkbig">${condSpark(p,280,72)}<div class="sparkax"><span>良好</span><span>要注意</span></div></div>`:''}
   ${(()=>{const ns=notesOf(id,p.name).slice(0,3);if(!ns.length)return '';return `<h2>いただいた声</h2>`+ns.map(n=>`<div class="row" onclick="closeModal();openNoteModal('${n.id}')"><div class="time">${n.at?fmtMD(n.at.slice(0,10)).replace(/（.）/,''):''}</div><div class="t"><div class="ttl">${esc(n.body.slice(0,40))}${n.body.length>40?'…':''}</div></div></div>`).join('')})()}
   ${(()=>{const ms=meetingsOf(id).slice(0,6);if(!ms.length)return '';return `<h2>面談の記録</h2>`+ms.map(e=>`<div class="row" onclick="openReport('${e.id}')"><div class="time">${fmtMD(e.date).replace(/（.）/,'')}</div><div class="t"><div class="ttl">${e.report?esc(e.report.slice(0,40))+(e.report.length>40?'…':''):'<span class="muted">未記録</span>'}</div><div class="sub">${e.theme?'テーマ：'+esc(e.theme):''}${e.nextTask?'　→ '+esc(e.nextTask.slice(0,30)):''}</div></div></div>`).join('')})()}
@@ -2725,7 +2752,7 @@ function openBulkKind(){
 }
 function bulkRow(p){
   return `<div class="bkrow" id="bk-${p.id}">
-    <span class="bkname">${esc(p.name)}</span>
+    <span class="bkname">${esc(p.name)}${isSelf(p)?'<span class="pill">自分</span>':''}</span>
     <span class="bkpick">${KINDS.map(k=>`<button class="bkbtn ${p.kind===k?'on':''}" onclick="setKind('${p.id}','${k}')">${k}</button>`).join('')}</span>
   </div>`;
 }
@@ -2920,7 +2947,7 @@ function doImport(){
   window._imRows=null;
   // 今回の名簿に載っていない在籍者を知らせる
   const names=src.map(r=>normName(r.name));
-  const missing=activeStaff().filter(p=>!names.includes(normName(p.name)));
+  const missing=targetStaff().filter(p=>!names.includes(normName(p.name)));
   closeModal();store.save();render();
   toast(n+'名を追加、'+u+'名を更新しました');
   if(missing.length&&src.length>=Math.max(3,D.staff.length*0.5))openMissingModal(missing);
@@ -3018,19 +3045,19 @@ function vBias(){
   let h=`<h2>この30日の偏り</h2>`;
   if(!s.count)return h+`<div class="empty">この30日に面談の記録がありません。</div>`;
   const rows=KINDS.map(k=>{
-    const n=activeStaff().filter(p=>p.kind===k).length;if(!n)return '';
+    const n=targetStaff().filter(p=>p.kind===k).length;if(!n)return '';
     const hrs=s.byKind[k]||0;
     const per=n?hrs/n:0;
     const met=new Set(D.events.filter(e=>e.cat==='人'&&e.date>=from&&e.date<=to).map(e=>e.staffName)).size;
-    const kmet=activeStaff().filter(p=>p.kind===k&&D.events.some(e=>e.cat==='人'&&e.date>=from&&e.date<=to&&e.staffName===p.name)).length;
+    const kmet=targetStaff().filter(p=>p.kind===k&&D.events.some(e=>e.cat==='人'&&e.date>=from&&e.date<=to&&e.staffName===p.name)).length;
     const pct=s.total?Math.round(hrs/s.total*100):0;
     return `<div class="biasrow"><div class="bk">${k}<span>${n}名</span></div>
       <div class="bbar"><div class="bfill" style="width:${pct}%"></div></div>
       <div class="bnum">${hrs.toFixed(1)}h<span>${kmet}/${n}名</span></div></div>`;
   }).join('');
-  const zero=activeStaff().filter(p=>!D.events.some(e=>e.cat==='人'&&e.date>=from&&e.date<=to&&e.staffName===p.name));
+  const zero=targetStaff().filter(p=>!D.events.some(e=>e.cat==='人'&&e.date>=from&&e.date<=to&&e.staffName===p.name));
   return h+`<div class="condbox">${rows}
-    <div class="clegend" style="margin-top:10px"><span>合計 ${s.total.toFixed(1)}h ／ ${s.count}件</span><span class="sp"></span>1人あたり ${(s.total/Math.max(1,activeStaff().length)).toFixed(2)}h</div>
+    <div class="clegend" style="margin-top:10px"><span>合計 ${s.total.toFixed(1)}h ／ ${s.count}件</span><span class="sp"></span>1人あたり ${(s.total/Math.max(1,targetStaff().length)).toFixed(2)}h</div>
     ${zero.length?`<div class="warn" style="margin:10px 0 0">30日間ひとりも話せていない方が <b>${zero.length}名</b>：${zero.slice(0,6).map(p=>esc(p.name)).join('　')}${zero.length>6?' ほか':''}</div>`:''}
     </div>`;
 }
@@ -3146,7 +3173,7 @@ function buildPlan(ws){
   const doneH=already.reduce((a,e)=>a+durH(e),0);
   const booked=new Set(already.map(e=>e.staffName).filter(Boolean));
   // 候補：浮上順、すでに予約済みの人は除く
-  const cand=activeStaff().map(p=>({p,sc:staffScore(p)})).filter(x=>!booked.has(x.p.name)&&x.sc>=35&&staffWhy(x.p)).sort((a,b)=>b.sc-a.sc);
+  const cand=targetStaff().map(p=>({p,sc:staffScore(p)})).filter(x=>!booked.has(x.p.name)&&x.sc>=35&&staffWhy(x.p)).sort((a,b)=>b.sc-a.sc);
   const used={};
   const picks=[];
   const remain=Math.max(0,goal-doneH);
@@ -3185,7 +3212,7 @@ function buildPlan(ws){
   const un=unreadNotes();
   if(un.length)h+=`<h2>いただいた声</h2>`+un.slice(0,2).map(n=>`<div class="row due" onclick="openNoteModal('${n.id}')"><div class="t"><div class="ttl">${esc(n.from||'匿名')}さんから</div><div class="sub">${esc(n.body.slice(0,50))}${n.body.length>50?'…':''}</div></div></div>`).join('');
   const pend=pendingReports();
-  const zero=activeStaff().filter(p=>!p.lastContact||diffDays(p.lastContact,today())>=120);
+  const zero=targetStaff().filter(p=>!p.lastContact||diffDays(p.lastContact,today())>=120);
   const sig=(shiftSignals()||[]).filter(s=>s.sev>=50);
   return {ws,we,goal,doneH,remain,picks,audit,stale,mailStale,pend,zero,sig,booked:already.length};
 }
@@ -3258,7 +3285,7 @@ function shiftSignals(){
   const cur=ms[0],prev=ms[1];
   if(!(D.shifts||{})[cur]||!(D.shifts||{})[prev])return null;
   const out=[];
-  activeStaff().forEach(p=>{
+  targetStaff().forEach(p=>{
     const a=shiftProfile(p.name,cur),b=shiftProfile(p.name,prev);
     if(!a||!b||!b.work)return;
     const reasons=[];let sev=0;
@@ -3429,7 +3456,7 @@ function vRoutine(){
 function silenceBuckets(){
   const t=today();
   const B=[{k:'7日以内',max:7,n:[],c:'c1'},{k:'8〜30日',max:30,n:[],c:'c2'},{k:'31〜60日',max:60,n:[],c:'c3'},{k:'61〜90日',max:90,n:[],c:'c4'},{k:'91日以上',max:1e9,n:[],c:'c5'}];
-  activeStaff().forEach(p=>{
+  targetStaff().forEach(p=>{
     const g=p.lastContact?diffDays(p.lastContact,t):99999;
     (B.find(b=>g<=b.max)||B[4]).n.push({p,g});
   });
@@ -3437,7 +3464,7 @@ function silenceBuckets(){
   return B;
 }
 function vSilence(){
-  const B=silenceBuckets();const total=activeStaff().length;
+  const B=silenceBuckets();const total=targetStaff().length;
   let h=`<h2>沈黙の分布</h2>`;
   if(!total)return h+`<div class="empty">名簿がまだありません。</div>`;
   const max=Math.max(...B.map(b=>b.n.length));
@@ -3460,6 +3487,20 @@ function vSilence(){
 
 /* ===== 在籍と退職 ===== */
 function isActive(p){return !p.retiredAt}
+function isSelf(p){return !!(p&&p.self)}
+function selfStaff(){return D.staff.find(isSelf)||null}
+function setSelf(id){
+  D.staff.forEach(p=>{if(p.id===id)p.self=true;else delete p.self});
+  store.save();render();
+  const p=D.staff.find(x=>x.id===id);
+  toast((p?p.name:'')+'さんを「自分」として登録しました');
+}
+function clearSelf(id){
+  const p=D.staff.find(x=>x.id===id);if(p)delete p.self;
+  store.save();render();toast('「自分」の登録を外しました');
+}
+/** 面談などの対象になる人（退職者と自分を除く） */
+function targetStaff(){return D.staff.filter(p=>isActive(p)&&!isSelf(p))}
 function activeStaff(){return D.staff.filter(isActive)}
 function retiredStaff(){return D.staff.filter(p=>!isActive(p))}
 /** 勤務表に名前があるか（直近2か月） */
@@ -3499,7 +3540,7 @@ function setReturned(id){
 function goneFromShift(){
   const ms=monthKeys(3);
   if(!ms.slice(0,2).some(ym=>(D.shifts||{})[ym]))return [];
-  return activeStaff().filter(p=>{
+  return targetStaff().filter(p=>{
     // 3か月前にはいたのに、直近2か月にいない
     const old=(D.shifts||{})[ms[2]];
     if(!old)return false;
@@ -3601,7 +3642,7 @@ function delegStats(days){
 /** 任せていない人（社内のみ） */
 function neverDelegated(days){
   const s=delegStats(days);
-  return activeStaff().filter(p=>!s.by[p.name]);
+  return targetStaff().filter(p=>!s.by[p.name]);
 }
 function vDeleg(){
   const s=delegStats(89);
@@ -4351,20 +4392,34 @@ function vShiftDay(date){
   };
   const list=w.map(x=>({...x,...info(x)}));
   const over=list.filter(x=>x.over).length;
-  let h=`<div class="toolbar"><span class="small muted">${w.length}名 出勤${over?`／<b style="color:var(--person-deep)">${over}名</b>はしばらく話せていません`:''}</span><span class="sp"></span>
+  const me0=selfStaff();
+  const myInfo=me0?shiftInfo(me0.name,date):null;
+  const myRaw=me0?shiftRaw(me0.name,date):null;
+  let h='';
+  if(me0&&myRaw!==null){
+    const off0=isOff(myInfo?myInfo.l:'');
+    h+=`<div class="myshift ${off0?'off':''}"><span class="ml">自分の勤務</span><b>${off0?'お休み':esc(myInfo.l||'')}</b>${!off0&&myInfo.s?`<span class="mt">${esc(myInfo.s)}</span>`:''}${!off0&&myInfo.p?`<span class="mp2">${esc(myInfo.p)}</span>`:''}</div>`;
+  }
+  h+=`<div class="toolbar"><span class="small muted">${w.length}名 出勤${over?`／<b style="color:var(--person-deep)">${over}名</b>はしばらく話せていません`:''}</span><span class="sp"></span>
     <div class="seg"><button class="${shiftView==='pri'?'on':''}" onclick="shiftView='pri';render()">優先順</button><button class="${shiftView==='code'?'on':''}" onclick="shiftView='code';render()">区分順</button></div></div>`;
   const chip=x=>{
     const inf=shiftInfo(x.p.name,date)||{l:x.code,s:'',p:''};
-    return `<button class="wchip ${x.over?'over':''}" onclick="onCardTap('${x.p.id}','${date}')">
-    <span class="wtxt"><span class="wn">${esc(x.p.name)}</span>${inf.p?`<span class="wp">${esc(inf.p)}</span>`:''}</span>
+    return `<button class="wchip ${x.over?'over':''} ${isSelf(x.p)?'self':''}" onclick="onCardTap('${x.p.id}','${date}')">
+    <span class="wtxt"><span class="wn">${isSelf(x.p)?'<i class="mytag">自分</i>':''}${esc(x.p.name)}</span>${inf.p?`<span class="wp">${esc(inf.p)}</span>`:''}</span>
     <span class="wcol"><span class="wc">${esc(inf.l||x.code)}</span>${inf.s?`<span class="ws">${esc(inf.s)}</span>`:''}</span>
     ${x.over?`<span class="wg">${x.gap===null?'未':x.gap+'日'}</span>`:''}
   </button>`};
   if(shiftView==='pri'){
-    list.sort((a,b)=>b.sc-a.sc);
+    list.sort((a,b)=>{
+      if(isSelf(a.p))return -1;            // 自分はいつでも先頭
+      if(isSelf(b.p))return 1;
+      return b.sc-a.sc;
+    });
     h+=`<div class="wgrid">${list.map(chip).join('')}</div>`;
   }else{
-    const by={};list.forEach(x=>{(by[x.code]=by[x.code]||[]).push(x)});
+    const me=list.find(x=>isSelf(x.p));
+    if(me)h+=`<div class="wgrp"><div class="wghd">自分<span>1</span></div><div class="wgrid">${chip(me)}</div></div>`;
+    const by={};list.filter(x=>!isSelf(x.p)).forEach(x=>{(by[x.code]=by[x.code]||[]).push(x)});
     h+=Object.keys(by).sort((a,b)=>by[b].length-by[a].length||a.localeCompare(b))
       .map(code=>`<div class="wgrp"><div class="wghd">${esc(code)}<span>${by[code].length}</span></div><div class="wgrid">${by[code].map(chip).join('')}</div></div>`).join('');
   }
@@ -4384,15 +4439,15 @@ function condSpark(p,w,hh){
 }
 function condStats(){
   const n=[0,0,0,0,0,0];let rec=0;
-  activeStaff().forEach(p=>{const v=lastCond(p);if(v){n[v]++;rec++}});
-  return {n,rec,total:activeStaff().length};
+  targetStaff().forEach(p=>{const v=lastCond(p);if(v){n[v]++;rec++}});
+  return {n,rec,total:targetStaff().length};
 }
 function condBar(){
   const s=condStats();if(!s.rec)return '';
   const seg=[1,2,3,4,5].map(v=>s.n[v]?`<div class="cseg c${v}" style="flex:${s.n[v]}" title="${v}：${s.n[v]}名"><span>${s.n[v]}</span></div>`:'').join('');
   const cov=Math.round(s.rec/Math.max(1,s.total)*100);
   const t=today();
-  const long=activeStaff().filter(p=>!p.lastContact||diffDays(p.lastContact,t)>=90).length;
+  const long=targetStaff().filter(p=>!p.lastContact||diffDays(p.lastContact,t)>=90).length;
   const down=D.staff.filter(p=>{const c=p.conditions||[];return c.length>=2&&c[c.length-1].v>c[c.length-2].v}).length;
   return `<div class="condbox">
     <div class="cbar">${seg}</div>
