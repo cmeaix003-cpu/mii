@@ -333,6 +333,16 @@ h2{font-family:var(--pix);font-size:12px;color:var(--gray);margin:24px 0 8px;let
 .btn.evdone{border-color:var(--person);color:var(--person-deep);box-shadow:2px 2px 0 var(--person)}
 .btn.evdone:hover{background:var(--person);color:#fff}
 .row.evfin .btn.evdone{border-color:var(--rule);color:var(--gray);box-shadow:2px 2px 0 var(--rule)}
+/* 束ねた声 */
+.bundle{margin-top:10px;background:var(--person-tint);border:2px solid var(--person);border-radius:8px;padding:8px 10px}
+.bhd{display:flex;align-items:center;gap:7px;font-family:var(--pix);font-size:11px;color:var(--person-deep);cursor:pointer;user-select:none}
+.bhd b{font-size:14px}
+.bhd .fmark{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border:2px solid var(--person);background:#fff;color:var(--person-deep);font-size:10px;line-height:1}
+.blist{margin-top:7px;display:flex;flex-direction:column;gap:5px}
+.bitem{display:flex;flex-wrap:wrap;gap:6px;align-items:baseline;background:#fff;border:1px solid var(--person);border-radius:6px;padding:6px 8px;font-size:12px;line-height:1.6;cursor:pointer}
+.bitem .bfrom{font-weight:700;flex:none}
+.bitem .bbody{flex:1;min-width:0;word-break:break-word}
+.bitem .bwhen{font-family:var(--pix);font-size:9px;color:var(--gray);flex:none}
 /* タグ */
 .tagrow{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
 .tagc{display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:3px 9px;border:2px solid var(--rule);border-radius:12px;background:var(--panel);color:var(--gray)}
@@ -1232,6 +1242,20 @@ function doBundle(tag){
   items.forEach(n=>{n.bundleId=id;n.read=true});
   closeModal();store.save();render();toast(items.length+'件を束ねて、DESKに置きました');
 }
+
+/* 束ねた案件に、元の声を並べる */
+function bundledNotesHtml(t,full){
+  if(!t||!t.bundleNoteIds||!t.bundleNoteIds.length)return '';
+  const list=t.bundleNoteIds.map(id=>(D.notes||[]).find(n=>n.id===id)).filter(Boolean);
+  if(!list.length)return '';
+  const show=full||isOpen('b-'+t.id,true);
+  let h=`<div class="bundle" onclick="event.stopPropagation()">
+    <div class="bhd" onclick="toggleFold('b-${t.id}',true)"><span class="fmark">${show?'−':'＋'}</span>束ねた声 <b>${list.length}</b>件${t.bundleTag?`<span class="pill">${esc(t.bundleTag)}</span>`:''}</div>`;
+  if(show)h+=`<div class="blist">${list.map(n=>`<div class="bitem" onclick="openNoteModal('${n.id}')"><span class="bfrom">${esc(n.from||'匿名')}</span><span class="bbody">${esc(n.body||'')}</span>${n.at?`<span class="bwhen">${fmtMD(n.at.slice(0,10)).replace(/（.）/,'')}</span>`:''}</div>`).join('')}</div>`;
+  h+=`</div>`;
+  return h;
+}
+
 function closeBundle(task){
   if(!task||!task.bundleNoteIds)return;
   (D.notes||[]).forEach(n=>{
@@ -1250,6 +1274,7 @@ function openDraft(taskId){
   const t=D.tasks.find(x=>x.id===taskId);if(!t)return;
   const txt=t.replyDraft||draftReply(t);
   openModal('<h3>全体への返し文</h3><div class="hint">LINEなどに貼れる下書きです。【対応】の部分を書き換えてお使いください。</div>'
+   +bundledNotesHtml(t,true)
    +'<div class="f"><textarea id="dr-t" style="min-height:220px">'+esc(txt)+'</textarea></div>'
    +'<div class="foot"><button class="btn ghost" onclick="closeModal()">閉じる</button>'
    +'<button class="btn" onclick="saveDraft(\''+taskId+'\')">下書きを保存</button>'
@@ -1347,7 +1372,7 @@ function vNotes(){
       <span class="nwhen">${n.at?fmtMD(n.at.slice(0,10)).replace(/（.）/,''):''}${n.via?'　'+esc(n.via):''}</span></div>
     <div class="nbody">${esc(n.body||'')}</div>
     ${tagChips(n,!n.done)}
-    ${n.bundleId?`<div class="small muted" style="margin-top:6px">→ 束ねて対応中：${esc((D.tasks.find(t=>t.id===n.bundleId)||{}).title||'')}</div>`:''}
+    ${n.bundleId?`<div class="small" style="margin-top:6px"><button class="btn ghost small" onclick="event.stopPropagation();openTaskModal('${n.bundleId}')">→ 束ねた案件：${esc((D.tasks.find(t=>t.id===n.bundleId)||{}).title||'')}</button></div>`:''}
     ${n.reply?`<div class="nreply"><b>対応</b>　${esc(n.reply)}</div>`:''}
     <div class="nact">
       ${n.done?`<button class="btn ghost small" onclick="reopenNote('${n.id}',event)">未対応に戻す</button>`
@@ -1980,11 +2005,12 @@ function rowTask(t,compact){
   const src={mail:'メール',meeting:'会議',shortcut:'ショートカット',manual:''}[t.source]||'';
   const st=stepStat(t);
   const show=st.n&&isOpen('s-'+t.id,false);
-  const badge=st.n?`<span class="stepbadge ${st.done===st.n?'all':''}">${show?'−':'＋'} ${st.done}/${st.n}</span>`:'';
+  const badge=(st.n?`<span class="stepbadge ${st.done===st.n?'all':''}">${show?'−':'＋'} ${st.done}/${st.n}</span>`:'')+((t.bundleNoteIds&&t.bundleNoteIds.length)?`<span class="pill" style="margin-left:5px">声 ${t.bundleNoteIds.length}件</span>`:'');
   // 手順があれば、行のどこを押しても開閉する
   const tap=st.n?` onclick="toggleFold('s-${t.id}',false)" style="cursor:pointer"`:'';
   return `<div class="row ${sd>=3?'stale':''} ${due?'due':''}"><div class="t"${tap}><div class="ttl">${esc(t.title)}${badge}</div><div class="sub">${src?src+'から　':''}${t.due?'期限 <span class="'+(due?'due-today':'')+'">'+fmtMD(t.due)+'</span>':'期限なし'}　${sd?sd+'日経過':'今日'}</div>
   ${show?`<div onclick="event.stopPropagation()">${stepsHtml(t)}</div>`:''}
+  ${compact?'':bundledNotesHtml(t)}
   ${compact?'':`<div class="exits" onclick="event.stopPropagation()"><button class="btn small" onclick="taskDone('${t.id}')">${st.n?'まとめて完了':'今すぐ・完了'}</button><button class="btn small" onclick="taskToEvent('${t.id}')">予定にする</button><button class="btn small person" onclick="taskDelegate('${t.id}')">人に振る</button><button class="btn ghost small" onclick="openStepAdd('${t.id}')">手順を足す</button>${t.bundleTag?`<button class="btn ghost small person" onclick="openDraft('${t.id}')">返し文</button>`:''}<button class="btn ghost small" onclick="openTaskModal('${t.id}')">編集</button></div>`}
   </div>${compact?`<div class="acts mini" onclick="event.stopPropagation()"><button class="btn ghost xs" onclick="openStepAdd('${t.id}')" title="手順を足す">＋</button><button class="btn ghost xs" onclick="openTaskModal('${t.id}')" title="編集">✎</button><button class="btn small" onclick="taskDone('${t.id}')">${st.n?'まとめて':'完了'}</button></div>`:''}</div>`;
 }
@@ -2051,6 +2077,7 @@ function openTaskModal(id,preset){
   <div class="f"><label>内容</label><input id="tk-title" value="${esc(t.title)}" placeholder="例：派遣会社に来月の人数を返答"></div>
   <div class="f"><label>期限（必須ではありませんが、無いと沈みます）</label><input id="tk-due" type="date" value="${t.due||''}"></div>
   <div class="f"><label>メモ</label><textarea id="tk-memo">${esc(t.memo||'')}</textarea></div>
+  ${(id&&t.bundleNoteIds&&t.bundleNoteIds.length)?`<div class="f"><label>束ねた声</label>${bundledNotesHtml(t,true)}</div>`:''}
   ${(id&&stepsOf(t).length)?`<div class="f"><label>手順（タップで済／未を切り替え）</label><div id="tk-stlist">${stepsHtml(t,true)}</div></div>`:''}
   <div class="f"><label>${(id&&stepsOf(t).length)?'手順を書き換える':'手順（1行に1つ・任意）'}</label><textarea id="tk-steps" style="min-height:80px" placeholder="人数を確認する&#10;上長に相談する&#10;メールを送る">${esc(stepsOf(t).map(x=>x.t).join('\n'))}</textarea></div>
   <div class="foot">${id?`<button class="btn ghost" onclick="delTask('${id}')">削除</button><button class="btn ghost" onclick="openReschedule('task','${id}')">期限を動かす</button>`:''}<button class="btn ghost" onclick="closeModal()">やめる</button><button class="btn solid" onclick="saveTask('${id||''}')">${id?'保存':'入れる'}</button></div>`);
