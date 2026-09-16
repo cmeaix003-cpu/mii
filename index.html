@@ -1763,6 +1763,9 @@ function myCare(){
     const rs=rsStats(13);
     if(rs.minus>=4)msg.push({w:5,s:'この2週間で'+rs.minus+'件、やむを得ず予定を動かしております。詰め込みすぎかもしれません。'});
     else if(rs.minus>=2&&rs.plus===0)msg.push({w:3,s:'予定を動かすことが続いております。'});
+    const cx=cancelStats(13);
+    if(cx.self>=3)msg.push({w:5,s:'この2週間で'+cx.self+'件、ご自身の理由で予定を取りやめております。少しお疲れかもしれません。'});
+    if(cx.people>=2)msg.push({w:4,s:'人の枠を'+cx.people+'件、取りやめております。次は守れる日に入れましょう。'});
   }catch(e){}
   msg.sort((a,b)=>b.w-a.w);
   return {cur,streak,avg,ph,ow,say:msg.length?msg[0].s:''};
@@ -1795,6 +1798,18 @@ function vMe(){
     <div><b>${m.ph.toFixed(1)}h</b><span>私用の時間</span></div>
   </div>
   <div class="clegend" style="margin-top:10px"><span>20時以降の予定 ${m.ow.late}件${m.avg!==null?`　／　この1週間の平均 ${m.avg.toFixed(1)}`:''}</span></div></div>`;
+  {
+    const cx=cancelStats(29);
+    if(cx.all.length){
+      const rs=Object.keys(cx.byReason).sort((a,b)=>cx.byReason[b]-cx.byReason[a]);
+      h+=`<h2>取りやめた予定（30日）</h2><div class="condbox"><div class="cnums">
+        <div><b>${cx.cancel}</b><span>キャンセル</span></div>
+        <div><b>${cx.del}</b><span>削除</span></div>
+        <div><b>${cx.self}</b><span>自分側の理由</span></div>
+      </div><div class="clegend" style="margin-top:8px"><span>${rs.slice(0,4).map(r=>esc(r)+' '+cx.byReason[r]).join('　')}</span></div></div>`;
+      if(cx.people)h+=`<p class="small muted">うち人の枠 ${cx.people}件。相手には「後回しにされた」と映ることがあります。</p>`;
+    }
+  }
   if(rec.length){
     h+=`<h2>これまでの記録</h2>`;
     h+=rec.slice().reverse().slice(0,7).map(x=>`<div class="row"><div class="time">${fmtMD(x.d).replace(/（.）/,'')}</div><div class="t"><div class="ttl">${condLabel(x.v)}</div>${x.note?`<div class="sub">${esc(x.note)}</div>`:''}</div></div>`).join('');
@@ -2149,7 +2164,7 @@ function vToday(){
 }
 function eventDone(e){return !!e.done}
 function eventCancelled(e){return !!e.cancelled}
-function uncancel(id,ev){if(ev&&ev.stopPropagation)ev.stopPropagation();const e=D.events.find(x=>x.id===id);if(!e)return;delete e.cancelled;delete e.cancelledAt;store.save();render()}
+function uncancel(id,ev){if(ev&&ev.stopPropagation)ev.stopPropagation();const e=D.events.find(x=>x.id===id);if(!e)return;delete e.cancelled;delete e.cancelledAt;delete e.cancelReason;delete e.cancelBy;store.save();render()}
 function toggleEventDone(id,ev){
   if(ev&&ev.stopPropagation)ev.stopPropagation();
   const e=D.events.find(x=>x.id===id);if(!e)return;
@@ -2174,7 +2189,7 @@ function rowEvent(e,opt){
   const tap=est.n&&(opt&&opt.check)
     ? ` onclick="toggleFold('s-${e.id}',false)" style="cursor:pointer"`
     : ` onclick="openEventModal(${JSON.stringify(e).replace(/"/g,'&quot;')})" style="cursor:pointer"`;
-  return `<div class="row ${p?'person':''} ${eventDone(e)?'evfin':''} ${eventCancelled(e)?'evcancel':''}"><div class="time">${e.start||'終日'}${e.end?'<br>'+e.end:''}</div><div class="t"${tap}><div class="ttl">${eventCancelled(e)?'<span class="warnpill">取り消し</span>':''}${esc(e.title)}${badge}</div><div class="sub">${esc(e.type)}${e.place?'　'+esc(e.place):''}${e.party?'　'+esc(e.party):''}</div>${show?`<div onclick="event.stopPropagation()">${evStepsHtml(e)}</div>`:''}</div>${chk}</div>`;
+  return `<div class="row ${p?'person':''} ${eventDone(e)?'evfin':''} ${eventCancelled(e)?'evcancel':''}"><div class="time">${e.start||'終日'}${e.end?'<br>'+e.end:''}</div><div class="t"${tap}><div class="ttl">${eventCancelled(e)?`<span class="warnpill">${e.cancelBy==='self'?'キャンセル':'取り消し'}</span>`:''}${esc(e.title)}${badge}</div><div class="sub">${esc(e.type)}${e.place?'　'+esc(e.place):''}${e.party?'　'+esc(e.party):''}</div>${show?`<div onclick="event.stopPropagation()">${evStepsHtml(e)}</div>`:''}</div>${chk}</div>`;
 }
 
 /* --- DESK --- */
@@ -2392,8 +2407,9 @@ function openEventModal(e){
   <div class="f"><label>${(!isNew&&evSteps(e).length)?'手順を書き換える':'手順（1行に1つ・任意）'}</label><textarea id="ev-steps" style="min-height:70px" placeholder="資料を印刷する&#10;前回の議事録を確認">${esc(evSteps(e).map(x=>x.t).join('\n'))}</textarea>
   ${(!isNew&&extractChecks(e.memo||'').length)?`<div style="margin-top:6px"><button class="btn ghost small" onclick="useMemoChecks('${e.id}')">メモの中のリスト${extractChecks(e.memo||'').length}件を取り込む</button></div>`:''}</div>
   <div id="ev-warn"></div>
-  ${(!isNew&&e.cancelled)?`<div class="warn"><b>カレンダー側で消えています</b>（${e.cancelledAt?fmtMD(e.cancelledAt.slice(0,10)):''}に確認）<br>記録として残しています。<button class="btn ghost small" style="margin-top:6px" onclick="uncancel('${e.id}');closeModal()">取り消しを解除</button></div>`:''}
-  <div class="foot">${isNew?'':`<button class="btn ghost" onclick="delEvent('${e.id}')">削除</button><button class="btn ghost" onclick="openReschedule('event','${e.id}')">組み直す</button>`}<button class="btn ghost" onclick="closeModal()">やめる</button><button class="btn solid" onclick="saveEvent('${e.id||''}','${e.taskId||''}')">${isNew?'登録':'保存'}</button></div>
+  ${(!isNew&&e.cancelled&&e.cancelBy==='self')?`<div class="warn"><b>キャンセル</b>：${esc(e.cancelReason||'')}　<button class="btn ghost small" onclick="uncancel('${e.id}');closeModal()">戻す</button></div>`:''}
+  ${(!isNew&&e.cancelled&&e.cancelBy!=='self')?`<div class="warn"><b>カレンダー側で消えています</b>（${e.cancelledAt?fmtMD(e.cancelledAt.slice(0,10)):''}に確認）<br>記録として残しています。<button class="btn ghost small" style="margin-top:6px" onclick="uncancel('${e.id}');closeModal()">取り消しを解除</button></div>`:''}
+  <div class="foot">${isNew?'':`<button class="btn ghost" onclick="openCancelEvent('${e.id}','delete')">削除</button><button class="btn ghost" onclick="openCancelEvent('${e.id}','cancel')">キャンセル</button><button class="btn ghost" onclick="openReschedule('event','${e.id}')">組み直す</button>`}<button class="btn ghost" onclick="closeModal()">やめる</button><button class="btn solid" onclick="saveEvent('${e.id||''}','${e.taskId||''}')">${isNew?'登録':'保存'}</button></div>
   <datalist id="staff-list">${staffOpts}</datalist>`);
   window._evExtra=e;evTypeChange();
   const es=document.getElementById('ev-start'),ee=document.getElementById('ev-end');
@@ -4090,6 +4106,51 @@ function vDeleg(){
   return h;
 }
 
+
+/* ===== 予定の削除・キャンセル（理由つきで記録） ===== */
+const CANCEL_REASONS={
+  cancel:['相手の都合','会議が中止・延期','急な割り込み','体調・気力','優先度が下がった','その他'],
+  delete:['重複・入力ミス','不要になった','自分でやめた','その他']
+};
+function cancelLog(){D.cancels=D.cancels||[];return D.cancels}
+function openCancelEvent(id,kind){
+  const e=D.events.find(x=>x.id===id);if(!e)return;
+  const isDel=kind==='delete';
+  openModal('<h3>'+(isDel?'予定を削除する':'予定をキャンセルする')+'</h3>'
+   +'<div class="hint">'+esc(e.title)+'　'+fmtMD(e.date)+(e.start?' '+e.start:'')+'<br>'
+   +(isDel?'記録からも消えます。理由だけ残ります。':'予定は「キャンセル」として残ります。')+'</div>'
+   +'<div class="f"><label>理由</label><div class="rsreason">'+CANCEL_REASONS[kind].map(r=>'<button class="btn ghost small" onclick="pickCancelReason(this)">'+esc(r)+'</button>').join('')+'</div></div>'
+   +'<div class="f"><label>ひとこと（任意）</label><input id="cx-note" placeholder="補足があれば"></div>'
+   +'<div class="foot"><button class="btn ghost" onclick="closeModal()">やめる</button><button class="btn solid" onclick="doCancelEvent(\''+id+'\',\''+kind+'\')">'+(isDel?'削除する':'キャンセルにする')+'</button></div>');
+  window._cxReason='';
+}
+function pickCancelReason(b){window._cxReason=b.textContent;document.querySelectorAll('.rsreason .btn').forEach(x=>x.classList.toggle('on',x===b))}
+function doCancelEvent(id,kind){
+  const e=D.events.find(x=>x.id===id);if(!e)return;
+  const reason=window._cxReason||'';
+  if(!reason){toast('理由を選んでください');return}
+  const note=(document.getElementById('cx-note')||{}).value||'';
+  cancelLog().push({id:uid(),at:new Date().toISOString(),kind,reason,note:note.trim(),
+    title:e.title,cat:e.cat,date:e.date,staffName:e.staffName||'',lead:diffDays(today(),e.date)});
+  if(kind==='delete'){
+    if(e.gcalId){D.eventDeleted=D.eventDeleted||[];if(!D.eventDeleted.includes(e.gcalId))D.eventDeleted.push(e.gcalId)}
+    D.events=D.events.filter(x=>x.id!==id);
+  }else{
+    e.cancelled=true;e.cancelledAt=new Date().toISOString();e.cancelReason=reason;e.cancelBy='self';
+  }
+  closeModal();store.save();render();toast(kind==='delete'?'削除しました':'キャンセルにしました');
+}
+/* 分析：直近の削除・キャンセルの傾向 */
+function cancelStats(days){
+  const from=addDays(today(),-(days||29));
+  const a=cancelLog().filter(x=>(x.at||'').slice(0,10)>=from);
+  const cancel=a.filter(x=>x.kind==='cancel'), del=a.filter(x=>x.kind==='delete');
+  const byReason={};a.forEach(x=>{byReason[x.reason]=(byReason[x.reason]||0)+1});
+  const self=a.filter(x=>/体調|気力|自分でやめた|優先度/.test(x.reason)).length;   // 自分側の理由
+  const people=a.filter(x=>x.cat==='人').length;                                    // 人の枠を消した数
+  return {all:a,cancel:cancel.length,del:del.length,byReason,self,people};
+}
+
 /* ===== リスケ（予定の組み直し） ===== */
 const RS_REASONS={
   plus:['前倒しできた','先に片付いた','相手の都合が合った','より良い時間に変えた','急ぎでなくなった'],
@@ -4176,7 +4237,8 @@ function movedOften(name){
 function vResched(){
   const s=rsStats(60);
   let h=`<h2>組み直しの記録（60日）</h2>`;
-  if(!s.all.length)return h+`<div class="empty">まだ記録がありません。<br><span class="small">予定や案件を組み直すと、理由とあわせて残ります。</span></div>`;
+  if(!s.all.length&&!cancelLog().length)return h+`<div class="empty">まだ記録がありません。<br><span class="small">予定や案件を組み直すと、理由とあわせて残ります。</span></div>`;
+  if(!s.all.length){h=`<h2>組み直しの記録（60日）</h2><div class="empty">組み直しはまだありません。</div>`;}
   const tot=s.plus+s.minus;
   const pp=tot?Math.round(s.plus/tot*100):0;
   h+=`<div class="condbox"><div class="cnums">
@@ -4196,6 +4258,13 @@ function vResched(){
   if(st.length){
     h+=`<h2>予定を動かしてしまった方</h2><p class="small muted">こちらの都合で面談を動かすと、相手は「後回しにされた」と感じることがあります。</p>`;
     h+=st.map(n=>{const p=resolveStaff(n);return `<div class="row person" ${p?`onclick="openStaffDetail('${p.id}')"`:''}><div class="t"><div class="ttl">${esc(n)}<span class="pill">${s.byStaff[n]}回</span></div><div class="sub">次はこちらから日を合わせにいきましょう</div></div></div>`}).join('');
+  }
+  {
+    const cx=cancelStats(60);
+    if(cx.all.length){
+      h+=`<h2>取りやめた予定（60日）</h2>`;
+      h+=cx.all.slice().reverse().slice(0,10).map(x=>`<div class="row ${x.kind==='delete'?'':'due'}"><div class="time">${fmtMD(x.at.slice(0,10)).replace(/（.）/,'')}</div><div class="t"><div class="ttl">${x.kind==='delete'?'削除':'キャンセル'}　${esc(x.title)}</div><div class="sub">${esc(x.reason)}${x.note?'　'+esc(x.note):''}${x.staffName?'　'+esc(x.staffName)+'さん':''}</div></div></div>`).join('');
+    }
   }
   h+=`<h2>これまでの記録</h2>`;
   h+=s.all.slice().reverse().slice(0,12).map(x=>`<div class="row ${x.kind==='minus'?'due':''}"><div class="time">${fmtMD(x.at.slice(0,10)).replace(/（.）/,'')}</div><div class="t"><div class="ttl">${x.kind==='plus'?'＋':'−'} ${esc(x.title)}</div><div class="sub">${esc(x.reason||'')}${x.note?'　'+esc(x.note):''}　${x.from?fmtMD(x.from).replace(/（.）/,'')+' → '+fmtMD(x.to).replace(/（.）/,''):''}</div></div></div>`).join('');
