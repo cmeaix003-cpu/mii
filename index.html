@@ -445,14 +445,20 @@ h2.fold{display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none}
 h2.fold .fmark{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border:2px solid var(--rule);background:var(--panel);color:var(--gray);font-size:11px;line-height:1;flex:none}
 h2.fold.open .fmark{background:var(--ink);border-color:var(--ink);color:var(--panel)}
 h2.fold .fnum{background:var(--panel2);border:1px solid var(--rule);padding:0 6px;font-size:11px;color:var(--gray)}
+/* 並べ替えモード：案件の枠全体がつまみ */
+.row.sorting{cursor:grab;user-select:none;-webkit-user-select:none}
+.row.sorting .t,.row.sorting .exits,.row.sorting .steps,.row.sorting .bundle,.row.sorting .stepbadge{pointer-events:none;opacity:.85}
+.row.sorting .mvbtns{pointer-events:none}
+.grip.big{width:28px;min-width:28px;max-width:28px;height:36px;font-size:18px}
 /* ドラッグ */
 .grip{display:inline-flex;align-items:center;justify-content:center;width:22px;min-width:22px;max-width:22px;height:22px;flex:0 0 22px;padding:0;color:var(--gray);font-size:16px;cursor:grab;user-select:none;-webkit-user-select:none;touch-action:none;border:1px dashed var(--rule);border-radius:4px}
 .grip:active{cursor:grabbing}
 .dragging{opacity:.75;box-shadow:0 6px 16px rgba(34,36,31,.35);position:relative;z-index:5;transition:none}
 body.nodrag-scroll{overflow:hidden;overscroll-behavior:none}
-.mvbtns .grip{margin-bottom:2px}
+
 /* 並べ替え */
-.mvbtns{display:flex;flex-direction:column;gap:3px;margin-right:8px;flex:none}
+.mvbtns{display:flex;align-items:center;margin-right:8px;flex:none}
+.mvbtns .grip{width:28px;min-width:28px;max-width:28px;height:36px;font-size:18px}
 .row.sorting{border-style:dashed}
 .stitem .mv{display:inline-flex;gap:2px;flex:none;font-style:normal}
 .stitem .mv u{text-decoration:none;font-size:11px;color:var(--gray);padding:2px 5px;border:1px solid var(--rule);border-radius:4px;background:var(--panel)}
@@ -2230,8 +2236,10 @@ function rowTask(t,compact){
   const badge=(st.n?`<span class="stepbadge ${st.done===st.n?'all':''}">${show?'−':'＋'} ${st.done}/${st.n}</span>`:'')+((t.bundleNoteIds&&t.bundleNoteIds.length)?`<span class="pill" style="margin-left:5px">声 ${t.bundleNoteIds.length}件</span>`:'');
   // 手順があれば、行のどこを押しても開閉する
   const tap=st.n?` onclick="toggleFold('s-${t.id}',false)" style="cursor:pointer"`:'';
-  const mv=(sortMode&&!compact&&t.status==='open')?`<div class="mvbtns" onclick="event.stopPropagation()">${grip('task','',t.id)}<button class="btn ghost xs" onclick="moveTask('${t.id}',-1,event)">↑</button><button class="btn ghost xs" onclick="moveTask('${t.id}',1,event)">↓</button></div>`:'';
-  return `<div class="row ${sd>=3?'stale':''} ${due?'due':''} ${sortMode?'sorting':''}" ${(sortMode&&!compact)?`data-drag="${t.id}"`:''}>${mv}<div class="t"${tap}><div class="ttl">${esc(t.title)}${badge}</div><div class="sub">${src?src+'から　':''}${t.due?'期限 <span class="'+(due?'due-today':'')+'">'+fmtMD(t.due)+'</span>':'期限なし'}　${sd?sd+'日経過':'今日'}</div>
+  const sortOn=sortMode&&!compact&&t.status==='open';
+  const mv=sortOn?`<div class="mvbtns"><span class="grip big">≡</span></div>`:'';
+  const dragAttr=sortOn?` data-drag="${t.id}" onmousedown="dragStart(event,'task','','${t.id}')" ontouchstart="dragStart(event,'task','','${t.id}')"`:'';
+  return `<div class="row ${sd>=3?'stale':''} ${due?'due':''} ${sortMode?'sorting':''}"${dragAttr}>${mv}<div class="t"${tap}><div class="ttl">${esc(t.title)}${badge}</div><div class="sub">${src?src+'から　':''}${t.due?'期限 <span class="'+(due?'due-today':'')+'">'+fmtMD(t.due)+'</span>':'期限なし'}　${sd?sd+'日経過':'今日'}</div>
   ${show?`<div onclick="event.stopPropagation()">${stepsHtml(t)}</div>`:''}
   ${compact?'':bundledNotesHtml(t)}
   ${compact?'':`<div class="exits" onclick="event.stopPropagation()"><button class="btn small" onclick="taskDone('${t.id}')">${st.n?'まとめて完了':'今すぐ・完了'}</button><button class="btn small" onclick="taskToEvent('${t.id}')">予定にする</button><button class="btn small person" onclick="taskDelegate('${t.id}')">人に振る</button><button class="btn ghost small" onclick="openStepAdd('${t.id}')">手順を足す</button>${t.bundleTag?`<button class="btn ghost small person" onclick="openDraft('${t.id}')">返し文</button>`:''}<button class="btn ghost small" onclick="openTaskModal('${t.id}')">編集</button></div>`}
@@ -4389,8 +4397,8 @@ function evStepsHtml(e,inModal){
   return `<div class="steps" onclick="event.stopPropagation()">
     <div class="stbar"><span style="width:${pct}%"></span></div>
     <div class="stlist">${s.map((x,i)=>`<button class="stitem ${x.done?'on':''}" data-drag="${x.id}" onclick="toggleEvStep('${e.id}','${x.id}',event)">
-      ${grip('evstep',e.id,x.id)}<i>${x.done?'✓':''}</i><span>${esc(x.t)}</span>
-      <em class="mv"><u onclick="moveEvStep('${e.id}','${x.id}',-1,event)" ${i===0?'style="visibility:hidden"':''}>↑</u><u onclick="moveEvStep('${e.id}','${x.id}',1,event)" ${i===s.length-1?'style="visibility:hidden"':''}>↓</u></em>
+      <i>${x.done?'✓':''}</i><span>${esc(x.t)}</span>
+      ${grip('evstep',e.id,x.id)}
       <b onclick="delEvStep('${e.id}','${x.id}',event)">×</b></button>`).join('')}</div></div>`;
 }
 /** 文章からチェックリストを拾う（☑ ・ - [ ] □ 1. など） */
@@ -4591,8 +4599,8 @@ function stepsHtml(t,inModal){
   return `<div class="steps">
     <div class="stbar"><span style="width:${pct}%"></span></div>
     <div class="stlist">${s.map((x,i)=>`<button class="stitem ${x.done?'on':''}" data-drag="${x.id}" onclick="toggleStep('${t.id}','${x.id}',event)">
-      ${grip('step',t.id,x.id)}<i>${x.done?'✓':''}</i><span>${esc(x.t)}</span>
-      <em class="mv"><u onclick="moveStep('${t.id}','${x.id}',-1,event)" ${i===0?'style="visibility:hidden"':''}>↑</u><u onclick="moveStep('${t.id}','${x.id}',1,event)" ${i===s.length-1?'style="visibility:hidden"':''}>↓</u></em>
+      <i>${x.done?'✓':''}</i><span>${esc(x.t)}</span>
+      ${grip('step',t.id,x.id)}
       <b onclick="delStep('${t.id}','${x.id}',event)">×</b></button>`).join('')}</div>
   </div>`;
 }
