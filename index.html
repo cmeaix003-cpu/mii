@@ -445,6 +445,18 @@ h2.fold{display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none}
 h2.fold .fmark{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border:2px solid var(--rule);background:var(--panel);color:var(--gray);font-size:11px;line-height:1;flex:none}
 h2.fold.open .fmark{background:var(--ink);border-color:var(--ink);color:var(--panel)}
 h2.fold .fnum{background:var(--panel2);border:1px solid var(--rule);padding:0 6px;font-size:11px;color:var(--gray)}
+/* ドラッグ */
+.grip{display:inline-flex;align-items:center;justify-content:center;width:22px;min-width:22px;max-width:22px;height:22px;flex:0 0 22px;padding:0;color:var(--gray);font-size:16px;cursor:grab;user-select:none;-webkit-user-select:none;touch-action:none;border:1px dashed var(--rule);border-radius:4px}
+.grip:active{cursor:grabbing}
+.dragging{opacity:.75;box-shadow:0 6px 16px rgba(34,36,31,.35);position:relative;z-index:5;transition:none}
+body.nodrag-scroll{overflow:hidden;overscroll-behavior:none}
+.mvbtns .grip{margin-bottom:2px}
+/* 並べ替え */
+.mvbtns{display:flex;flex-direction:column;gap:3px;margin-right:8px;flex:none}
+.row.sorting{border-style:dashed}
+.stitem .mv{display:inline-flex;gap:2px;flex:none;font-style:normal}
+.stitem .mv u{text-decoration:none;font-size:11px;color:var(--gray);padding:2px 5px;border:1px solid var(--rule);border-radius:4px;background:var(--panel)}
+.stitem .mv u:active{background:var(--ink);color:var(--panel)}
 /* 案件の手順 */
 .steps{margin-top:10px}
 .stbar{height:6px;background:var(--panel2);border:2px solid var(--rule);margin-bottom:7px}
@@ -453,6 +465,7 @@ h2.fold .fnum{background:var(--panel2);border:1px solid var(--rule);padding:0 6p
 .stitem{display:flex;align-items:center;gap:8px;width:100%;text-align:left;background:var(--panel2);border:2px solid var(--rule);border-radius:7px;padding:7px 9px}
 .stitem i{width:18px;height:18px;flex:none;border:2px solid var(--rule);background:var(--panel);font-style:normal;font-size:12px;line-height:15px;text-align:center;color:var(--person-deep);font-weight:700}
 .stitem span{flex:1;min-width:0;font-size:13px;word-break:break-word}
+.stitem .grip{margin-right:2px}
 .stitem b{flex:none;font-weight:400;color:var(--rule);font-size:14px;padding:0 2px}
 .stitem.on{background:var(--person-tint);border-color:var(--person)}
 .stitem.on i{background:var(--person);border-color:var(--person);color:#fff}
@@ -2194,12 +2207,16 @@ function rowEvent(e,opt){
 
 /* --- DESK --- */
 function vInbox(){
-  const open=openTasks().sort((a,b)=>staleDays(b)-staleDays(a)||(a.due||'9').localeCompare(b.due||'9'));
+  const hasOrder=openTasks().some(t=>typeof t.order==='number');
+  const open=hasOrder
+    ? openTasks().sort((a,b)=>taskOrder(a)-taskOrder(b)||(a.createdAt||'').localeCompare(b.createdAt||''))
+    : openTasks().sort((a,b)=>staleDays(b)-staleDays(a)||(a.due||'9').localeCompare(b.due||'9'));
   const deleg=D.tasks.filter(t=>t.status==='delegated');
   let h=`<h1>DESK</h1><p class="muted small">みーの机。出口は3つだけで、「後で」はありません。</p>`;
   h+=`<div class="tabs"><button class="${inboxTab==='open'?'on':''}" onclick="inboxTab='open';render()">未処理<span class="n">${open.length}</span></button><button class="${inboxTab==='deleg'?'on':''}" onclick="inboxTab='deleg';render()">依頼中<span class="n">${deleg.length}</span></button></div>`;
   if(inboxTab==='open'){
-    h+=open.length?open.map(t=>rowTask(t)).join(''):`<div class="empty"><b>机の上は空っぽです。</b><br>届いたものは右下の＋からどうぞ。</div>`;
+    if(open.length)h+=`<div class="toolbar"><span class="small muted">${hasOrder?'自分で決めた順':'止まっている順・期限順'}</span><span class="sp"></span>${hasOrder?`<button class="btn ghost small" onclick="resetTaskOrder()">自動の順に戻す</button>`:''}<button class="btn ${sortMode?'':'ghost'} small" onclick="sortMode=!sortMode;render()">${sortMode?'並べ替え終了':'並べ替え'}</button></div>`;
+    h+=open.length?`<div class="draglist">${open.map(t=>rowTask(t)).join('')}</div>`:`<div class="empty"><b>机の上は空っぽです。</b><br>届いたものは右下の＋からどうぞ。</div>`;
   }else{
     h+=deleg.length?deleg.map(t=>rowDelegated(t)).join(''):`<div class="empty">人に振っている案件はありません。</div>`;
   }
@@ -2213,7 +2230,8 @@ function rowTask(t,compact){
   const badge=(st.n?`<span class="stepbadge ${st.done===st.n?'all':''}">${show?'−':'＋'} ${st.done}/${st.n}</span>`:'')+((t.bundleNoteIds&&t.bundleNoteIds.length)?`<span class="pill" style="margin-left:5px">声 ${t.bundleNoteIds.length}件</span>`:'');
   // 手順があれば、行のどこを押しても開閉する
   const tap=st.n?` onclick="toggleFold('s-${t.id}',false)" style="cursor:pointer"`:'';
-  return `<div class="row ${sd>=3?'stale':''} ${due?'due':''}"><div class="t"${tap}><div class="ttl">${esc(t.title)}${badge}</div><div class="sub">${src?src+'から　':''}${t.due?'期限 <span class="'+(due?'due-today':'')+'">'+fmtMD(t.due)+'</span>':'期限なし'}　${sd?sd+'日経過':'今日'}</div>
+  const mv=(sortMode&&!compact&&t.status==='open')?`<div class="mvbtns" onclick="event.stopPropagation()">${grip('task','',t.id)}<button class="btn ghost xs" onclick="moveTask('${t.id}',-1,event)">↑</button><button class="btn ghost xs" onclick="moveTask('${t.id}',1,event)">↓</button></div>`:'';
+  return `<div class="row ${sd>=3?'stale':''} ${due?'due':''} ${sortMode?'sorting':''}" ${(sortMode&&!compact)?`data-drag="${t.id}"`:''}>${mv}<div class="t"${tap}><div class="ttl">${esc(t.title)}${badge}</div><div class="sub">${src?src+'から　':''}${t.due?'期限 <span class="'+(due?'due-today':'')+'">'+fmtMD(t.due)+'</span>':'期限なし'}　${sd?sd+'日経過':'今日'}</div>
   ${show?`<div onclick="event.stopPropagation()">${stepsHtml(t)}</div>`:''}
   ${compact?'':bundledNotesHtml(t)}
   ${compact?'':`<div class="exits" onclick="event.stopPropagation()"><button class="btn small" onclick="taskDone('${t.id}')">${st.n?'まとめて完了':'今すぐ・完了'}</button><button class="btn small" onclick="taskToEvent('${t.id}')">予定にする</button><button class="btn small person" onclick="taskDelegate('${t.id}')">人に振る</button><button class="btn ghost small" onclick="openStepAdd('${t.id}')">手順を足す</button>${t.bundleTag?`<button class="btn ghost small person" onclick="openDraft('${t.id}')">返し文</button>`:''}<button class="btn ghost small" onclick="openTaskModal('${t.id}')">編集</button></div>`}
@@ -4370,8 +4388,10 @@ function evStepsHtml(e,inModal){
   const st=evStepStat(e);const pct=st.n?Math.round(st.done/st.n*100):0;
   return `<div class="steps" onclick="event.stopPropagation()">
     <div class="stbar"><span style="width:${pct}%"></span></div>
-    <div class="stlist">${s.map(x=>`<button class="stitem ${x.done?'on':''}" onclick="toggleEvStep('${e.id}','${x.id}',event)">
-      <i>${x.done?'✓':''}</i><span>${esc(x.t)}</span><b onclick="delEvStep('${e.id}','${x.id}',event)">×</b></button>`).join('')}</div></div>`;
+    <div class="stlist">${s.map((x,i)=>`<button class="stitem ${x.done?'on':''}" data-drag="${x.id}" onclick="toggleEvStep('${e.id}','${x.id}',event)">
+      ${grip('evstep',e.id,x.id)}<i>${x.done?'✓':''}</i><span>${esc(x.t)}</span>
+      <em class="mv"><u onclick="moveEvStep('${e.id}','${x.id}',-1,event)" ${i===0?'style="visibility:hidden"':''}>↑</u><u onclick="moveEvStep('${e.id}','${x.id}',1,event)" ${i===s.length-1?'style="visibility:hidden"':''}>↓</u></em>
+      <b onclick="delEvStep('${e.id}','${x.id}',event)">×</b></button>`).join('')}</div></div>`;
 }
 /** 文章からチェックリストを拾う（☑ ・ - [ ] □ 1. など） */
 function extractChecks(text){
@@ -4417,6 +4437,104 @@ function useMemoChecks(evId){
   found.forEach(f=>{if(!cur.includes(f.t))e.steps.push({id:uid(),t:f.t,done:f.done})});
   closeModal();store.save();render();toast(found.length+'件を取り込みました');
 }
+
+
+
+/* ===== ドラッグで並べ替え（つまみを長押し→上下に動かす） ===== */
+let DRAG=null;
+function dragStart(ev,kind,ownerId,itemId){
+  const el=ev.currentTarget.closest('[data-drag]');
+  if(!el)return;
+  const list=el.parentElement;
+  const start=()=>{
+    DRAG={kind,ownerId,itemId,el,list,y:0};
+    el.classList.add('dragging');
+    document.body.classList.add('nodrag-scroll');
+    const r=el.getBoundingClientRect();DRAG.h=r.height;DRAG.y0=(ev.touches?ev.touches[0].clientY:ev.clientY);
+  };
+  if(ev.touches){
+    // 長押し（250ms）で開始。指が動いたら普通のスクロールとして扱う
+    let moved=false;
+    const t0=setTimeout(()=>{if(!moved)start()},250);
+    const mv=e=>{if(!DRAG){if(Math.abs((e.touches[0].clientY)-(ev.touches[0].clientY))>8){moved=true;clearTimeout(t0)}}else{e.preventDefault();dragMove(e)}};
+    const up=()=>{clearTimeout(t0);document.removeEventListener('touchmove',mv);document.removeEventListener('touchend',up);dragEnd()};
+    document.addEventListener('touchmove',mv,{passive:false});
+    document.addEventListener('touchend',up);
+  }else{
+    ev.preventDefault();start();
+    const mv=e=>dragMove(e);
+    const up=()=>{document.removeEventListener('mousemove',mv);document.removeEventListener('mouseup',up);dragEnd()};
+    document.addEventListener('mousemove',mv);
+    document.addEventListener('mouseup',up);
+  }
+}
+function dragMove(e){
+  if(!DRAG)return;
+  const y=(e.touches?e.touches[0].clientY:e.clientY);
+  DRAG.el.style.transform='translateY('+(y-DRAG.y0)+'px)';
+  // 隣の要素の中心を越えたら入れ替える
+  const items=[...DRAG.list.children].filter(x=>x.dataset&&x.dataset.drag);
+  const idx=items.indexOf(DRAG.el);
+  const r=DRAG.el.getBoundingClientRect();
+  const cy=r.top+r.height/2;
+  if(idx>0){const p=items[idx-1].getBoundingClientRect();if(cy<p.top+p.height/2){DRAG.list.insertBefore(DRAG.el,items[idx-1]);DRAG.y0=y;DRAG.el.style.transform='';return}}
+  if(idx<items.length-1){const n=items[idx+1].getBoundingClientRect();if(cy>n.top+n.height/2){DRAG.list.insertBefore(items[idx+1],DRAG.el);DRAG.y0=y;DRAG.el.style.transform='';return}}
+}
+function dragEnd(){
+  if(!DRAG)return;
+  const {kind,ownerId,list}=DRAG;
+  DRAG.el.classList.remove('dragging');DRAG.el.style.transform='';
+  document.body.classList.remove('nodrag-scroll');
+  const ids=[...list.children].filter(x=>x.dataset&&x.dataset.drag).map(x=>x.dataset.drag);
+  DRAG=null;
+  // 画面の並びをデータに反映
+  if(kind==='task'){
+    ids.forEach((id,i)=>{const t=D.tasks.find(x=>x.id===id);if(t)t.order=i});
+  }else if(kind==='step'){
+    const t=D.tasks.find(x=>x.id===ownerId);if(t&&t.steps)t.steps.sort((a,b)=>ids.indexOf(a.id)-ids.indexOf(b.id));
+  }else if(kind==='evstep'){
+    const e=D.events.find(x=>x.id===ownerId);if(e&&e.steps)e.steps.sort((a,b)=>ids.indexOf(a.id)-ids.indexOf(b.id));
+  }
+  store.save();render();
+}
+function grip(kind,ownerId,itemId){
+  return `<span class="grip" title="長押しして動かす" onmousedown="dragStart(event,'${kind}','${ownerId}','${itemId}')" ontouchstart="dragStart(event,'${kind}','${ownerId}','${itemId}')" onclick="event.stopPropagation()">≡</span>`;
+}
+
+/* ===== 並べ替え（案件・手順） ===== */
+function moveInArray(arr,idx,dir){
+  const j=idx+dir;
+  if(idx<0||j<0||j>=arr.length)return false;
+  const t=arr[idx];arr[idx]=arr[j];arr[j]=t;return true;
+}
+/* 案件の順番：手動の並び順を持つ（無ければ従来どおり） */
+function taskOrder(t){return typeof t.order==='number'?t.order:1e9}
+function resetTaskOrder(){D.tasks.forEach(t=>delete t.order);sortMode=false;store.save();render();toast('自動の順に戻しました')}
+function moveTask(id,dir,ev){
+  if(ev&&ev.stopPropagation)ev.stopPropagation();
+  const list=openTasks().slice().sort((a,b)=>taskOrder(a)-taskOrder(b)||(a.createdAt||'').localeCompare(b.createdAt||''));
+  list.forEach((t,i)=>t.order=i);          // いったん現在の並びを確定
+  const i=list.findIndex(t=>t.id===id);
+  if(!moveInArray(list,i,dir))return;
+  list.forEach((t,k)=>t.order=k);
+  store.save();render();
+}
+/* 手順の順番 */
+function moveStep(taskId,sid,dir,ev){
+  if(ev&&ev.stopPropagation)ev.stopPropagation();
+  const t=D.tasks.find(x=>x.id===taskId);if(!t||!t.steps)return;
+  const i=t.steps.findIndex(s=>s.id===sid);
+  if(!moveInArray(t.steps,i,dir))return;
+  store.save();render();
+}
+function moveEvStep(evId,sid,dir,ev){
+  if(ev&&ev.stopPropagation)ev.stopPropagation();
+  const e=D.events.find(x=>x.id===evId);if(!e||!e.steps)return;
+  const i=e.steps.findIndex(s=>s.id===sid);
+  if(!moveInArray(e.steps,i,dir))return;
+  store.save();render();
+}
+let sortMode=false;
 
 /* ===== 案件の中の小さなTODO ===== */
 function stepsOf(t){return (t&&t.steps)||[]}
@@ -4472,8 +4590,9 @@ function stepsHtml(t,inModal){
   const pct=st.n?Math.round(st.done/st.n*100):0;
   return `<div class="steps">
     <div class="stbar"><span style="width:${pct}%"></span></div>
-    <div class="stlist">${s.map(x=>`<button class="stitem ${x.done?'on':''}" onclick="toggleStep('${t.id}','${x.id}',event)">
-      <i>${x.done?'✓':''}</i><span>${esc(x.t)}</span>
+    <div class="stlist">${s.map((x,i)=>`<button class="stitem ${x.done?'on':''}" data-drag="${x.id}" onclick="toggleStep('${t.id}','${x.id}',event)">
+      ${grip('step',t.id,x.id)}<i>${x.done?'✓':''}</i><span>${esc(x.t)}</span>
+      <em class="mv"><u onclick="moveStep('${t.id}','${x.id}',-1,event)" ${i===0?'style="visibility:hidden"':''}>↑</u><u onclick="moveStep('${t.id}','${x.id}',1,event)" ${i===s.length-1?'style="visibility:hidden"':''}>↓</u></em>
       <b onclick="delStep('${t.id}','${x.id}',event)">×</b></button>`).join('')}</div>
   </div>`;
 }
