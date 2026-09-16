@@ -892,7 +892,7 @@ const store={
         if(!j)throw err||new Error('読み込めませんでした');
         if(j&&j.ok&&j.data&&Object.keys(j.data).length){
           const remote=j.data;
-          if(!l||(remote.meta?.updatedAt||0)>=(l.meta?.updatedAt||0)){D={...D,...remote,settings:{...D.settings,...(remote.settings||{}),gasUrl:D.settings.gasUrl}};this.local.set(D)}
+          if(!l||(remote.meta?.updatedAt||0)>=(l.meta?.updatedAt||0)){D=adoptRemote(remote,l);this.local.set(D)}
           window._baseAt=remote.meta?.updatedAt||0;
         }
         setSave('ok','シートと同期');
@@ -908,7 +908,13 @@ const store={
     if(D.settings.gasUrl){
       setSave('busy','保存中');
       clearTimeout(this._t);
-      this._t=setTimeout(async()=>{
+      this._t=setTimeout(()=>this._push(),1800);
+    }else setSave(okLocal?'ok':'','この端末に保存');
+  },
+  async _push(){
+    this._t=null;
+    {
+      {
         try{
           const j=await callGas({action:'save',data:D,baseAt:window._baseAt||0,force:!!window._forceSave},
             {tries:3,timeout:90000,onRetry:(n,t)=>setSave('busy','保存し直しています '+n+'/'+t)});
@@ -922,7 +928,7 @@ const store={
             // 自分で編集していなければ、聞かずに新しい方へ合わせる
             if(!window._edited||window._silentSave){
               const remote=j.data;
-              if(remote){const gas=D.settings.gasUrl;D={...D,...remote,settings:{...DEFAULT_SETTINGS,...(remote.settings||{}),gasUrl:gas}};window._baseAt=remote.meta?.updatedAt||0;store.local.set(D);render()}
+              if(remote){D=adoptRemote(remote,D);window._baseAt=remote.meta?.updatedAt||0;store.local.set(D);render()}
               window._edited=false;setSave('ok','最新に更新しました');
               return;
             }
@@ -932,8 +938,8 @@ const store={
           if(j&&j.ok){window._baseAt=j.updatedAt||D.meta.updatedAt;window._edited=false;setSave('ok','シートに保存 '+new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}))}
           else throw new Error(j&&j.error||'unknown');
         }catch(e){setSave('err','シート保存失敗');}
-      },1800);
-    }else setSave(okLocal?'ok':'','この端末に保存');
+      }
+    }
   },
 
   async fetchEvents(silent){
@@ -951,9 +957,15 @@ const store={
         const j=await callGas({action:'fetchEvents',settings:{...D.settings,calFrom:i*chunk,calDays:Math.min(chunk,total-i*chunk),calTotal:total}},
           {onRetry:(n,t)=>setSave('busy','再試行中 '+n+'/'+t)});
         if(!j.ok)throw new Error(j.error||'取り込みに失敗しました');
+        D.eventDeleted=D.eventDeleted||[];D.eventSeen=D.eventSeen||[];
+        const delIds=D.eventDeleted;
         (j.events||[]).forEach(e=>{
           seen.add(e.gcalId);
+          if(delIds.includes(e.gcalId))return;          // 削除済みは戻さない
           const ex=D.events.find(x=>x.gcalId===e.gcalId);
+          // 以前取り込んだのに手元に無い → 削除されたものとみなす
+          if(!ex&&D.eventSeen.includes(e.gcalId)){delIds.push(e.gcalId);return}
+          if(!D.eventSeen.includes(e.gcalId))D.eventSeen.push(e.gcalId);
           if(ex){
             const changed=ex.date!==e.date||ex.start!==e.start||ex.end!==e.end;
             Object.assign(ex,{title:e.title,date:e.date,start:e.start,end:e.end,place:e.place});
@@ -1059,7 +1071,7 @@ function showConflict(j){
 }
 function conflictReload(){
   const remote=window._conflictData;
-  if(remote){const gas=D.settings.gasUrl;D={...D,...remote,settings:{...DEFAULT_SETTINGS,...(remote.settings||{}),gasUrl:gas}};window._baseAt=remote.meta?.updatedAt||0;store.local.set(D)}
+  if(remote){D=adoptRemote(remote,D);window._baseAt=remote.meta?.updatedAt||0;store.local.set(D)}
   closeModal();render();setSave('ok','向こうの内容を取り込みました');toast('最新の内容に更新しました');
 }
 function conflictOverwrite(){window._forceSave=true;closeModal();store.save();toast('こちらの内容で上書きします')}
@@ -2450,7 +2462,12 @@ function saveEvent(id,taskId){
   if(taskId){const t=D.tasks.find(x=>x.id===taskId);if(t){t.status='scheduled';t.eventId=ev.id}}
   closeModal();store.save();render();toast(id?'保存しました':'登録しました');
 }
-function delEvent(id){if(!confirm('この予定を削除しますか？'))return;D.events=D.events.filter(x=>x.id!==id);closeModal();store.save();render()}
+function delEvent(id){
+  if(!confirm('この予定を削除しますか？'))return;
+  const e=D.events.find(x=>x.id===id);
+  if(e&&e.gcalId){D.eventDeleted=D.eventDeleted||[];if(!D.eventDeleted.includes(e.gcalId))D.eventDeleted.push(e.gcalId)}
+  D.events=D.events.filter(x=>x.id!==id);closeModal();store.save();render();
+}
 function editWeekGoal(){const k=weekKey(today());const v=prompt('今週、人に使う目標時間（h）',weekGoal(today()));if(v===null)return;D.settings.weekGoals[k]=Number(v)||0;store.save();render()}
 
 /* --- メール --- */
@@ -2810,6 +2827,27 @@ function matchNew(i){
 }
 function matchSkip(i){UNK.splice(i,1);renderMatch()}
 
+
+
+/* 向こう（シート／他端末）のデータを採用するとき、手元の印と削除記録を引き継ぐ */
+function adoptRemote(remote,localSnap){
+  const l=localSnap||D;
+  const gas=D.settings.gasUrl;
+  const localEv=(l&&l.events)||[];
+  const merged={...D,...remote,settings:{...DEFAULT_SETTINGS,...(D.settings||{}),...(remote.settings||{}),gasUrl:gas}};
+  (merged.events||[]).forEach(ev=>{
+    const lv=localEv.find(x=>x.id===ev.id||(x.gcalId&&x.gcalId===ev.gcalId));
+    if(!lv)return;
+    if(lv.done&&!ev.done){ev.done=true;ev.doneAt=lv.doneAt}
+    if(lv.cancelled&&!ev.cancelled){ev.cancelled=true;ev.cancelledAt=lv.cancelledAt}
+  });
+  merged.eventDeleted=[...new Set([...((l&&l.eventDeleted)||[]),...(remote.eventDeleted||[])])];
+  merged.noteDeleted=[...new Set([...((l&&l.noteDeleted)||[]),...(remote.noteDeleted||[])])];
+  merged.eventSeen=[...new Set([...((l&&l.eventSeen)||[]),...(remote.eventSeen||[])])];
+  if(merged.eventDeleted.length)merged.events=(merged.events||[]).filter(ev=>!ev.gcalId||!merged.eventDeleted.includes(ev.gcalId));
+  if(merged.noteDeleted.length)merged.notes=(merged.notes||[]).filter(n=>!n.formKey||!merged.noteDeleted.includes(n.formKey));
+  return merged;
+}
 
 /* ===== 通信：時間がかかっても待ち、失敗したらやり直す ===== */
 async function callGas(payload,opt){
@@ -4959,6 +4997,12 @@ function resetData(){if(!confirm('すべてのデータを消します。よろ�
 function openModal(html){const m=document.getElementById('modal');m.innerHTML=html;m.scrollTop=0;document.getElementById('modal-bg').classList.add('on');document.getElementById('fab').style.visibility='hidden'}
 function closeModal(){document.getElementById('modal-bg').classList.remove('on');document.getElementById('fab').style.visibility=''}
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal()});
+// 画面を離れるときは、保存待ちがあればすぐに保存する
+function flushSave(){
+  if(store._t){clearTimeout(store._t);store._t=null;store.local.set(D);if(D.settings.gasUrl)store._push()}
+}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')flushSave()});
+window.addEventListener('pagehide',flushSave);
 // 画面に戻ってきたら、編集中でなければ静かに最新を読み直す
 document.addEventListener('visibilitychange',()=>{
   if(document.visibilityState!=='visible')return;
