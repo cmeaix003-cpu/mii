@@ -1168,6 +1168,31 @@ function nextWeekday(from,w,nextWeek){
   else if(add===0)add=7;
   return addDays(from,add);
 }
+
+/* 「◯◯さん 〜」のような行は、その人と話したいことへ */
+function parseTalkLine(s){
+  const line=String(s).trim();
+  // 名簿の名前で始まる行を探す（「山田 太郎」のように間に空白がある名前にも対応）
+  const cands=targetStaff().map(p=>({p,n:p.name,k:normName(p.name)})).sort((a,b)=>b.n.length-a.n.length);
+  for(const c of cands){
+    const forms=[c.n,c.k,c.n.split(/[\s　]/)[0]];   // フルネーム／空白なし／姓だけ
+    for(const f of forms){
+      if(!f||f.length<2)continue;
+      if(line.startsWith(f)){
+        let rest=line.slice(f.length).replace(/^(さん|くん|ちゃん)/,'');
+        const m=rest.match(/^[\s　:：、,]+(.+)$/);
+        if(!m)continue;
+        // 姓だけの一致は、同じ姓が1人のときだけ
+        if(f===c.n.split(/[\s　]/)[0]&&f!==c.n&&f!==c.k){
+          if(targetStaff().filter(q=>q.name.split(/[\s　]/)[0]===f).length!==1)continue;
+        }
+        return {kind:'talk',pid:c.p.id,name:c.p.name,title:m[1].trim(),src:s};
+      }
+    }
+  }
+  return null;
+}
+
 function parseLine(line,baseDate){
   let s=line.trim();if(!s)return null;
   const t=baseDate||today();const tt=today();let date=null,start=null,end=null,place='';
@@ -2122,6 +2147,7 @@ function render(){
   const rm=D.mails.filter(x=>x.status==='open'&&mailBucket(x)==='reply').length;const bm=document.getElementById('bd-mail');bm.textContent=rm||'';bm.style.display=rm?'':'none';
   document.getElementById('hdr-sub').textContent=D.staff.length?D.staff.length+'名':'';
   document.getElementById('fab').style.display=(view==='setting'||view==='report'||view==='guide')?'none':'';
+  try{bindTalkLongPress()}catch(e){}
 }
 function fabAction(){({today:()=>openQuickModal(new Date().getHours()>=15?'night':'morning'),inbox:()=>openTaskModal(),cal:()=>openEventModal({date:calMode==='month'?calAnchor:today()}),mail:()=>openMailModal(),people:()=>openStaffModal()}[view]||(()=>{}))()}
 
@@ -2366,7 +2392,7 @@ function vCal(){
   let h=`<div class="cal-head"><h1>${calTitle()}</h1><div class="seg">${['day','week','month','shift'].map(m=>`<button class="${calMode===m?'on':''}" onclick="calMode='${m}';render()">${{day:'日',week:'週',month:'月',shift:'勤務'}[m]}</button>`).join('')}</div></div>`;
   h+=`<div class="toolbar"><button class="btn ghost small" onclick="calMove(-1)">‹ 前</button><button class="btn ghost small" onclick="calAnchor=today();render()">今日</button><button class="btn ghost small" onclick="calMove(1)">次 ›</button><span class="sp"></span><button class="btn ghost small" onclick="openQuickModal('morning')">まとめて</button><button class="btn ghost small" onclick="store.fetchEvents()">取り込む</button></div>`;
   if(calMode==='shift'){
-    h+=`<div class="toolbar"><button class="btn ghost small" onclick="openShiftModal()">勤務表</button><button class="btn ghost small" onclick="openDutyModal()">当番表</button><span class="sp"></span><span class="small muted">タップで面談を登録</span></div>`;
+    h+=`<div class="toolbar"><button class="btn ghost small" onclick="openShiftModal()">勤務表</button><button class="btn ghost small" onclick="openDutyModal()">当番表</button><span class="sp"></span><span class="small muted">タップで面談・長押しで話したいこと</span></div>`;
     h+=dutyChips(calAnchor);
     h+=`<h2>${fmtMD(calAnchor)} の出勤</h2>`+vShiftDay(calAnchor);
     const ms=shiftMonths();
@@ -2657,7 +2683,7 @@ function cardStaff(p,big,pd){
   const code=shiftOf(p.name,pd);const off=code!==null&&isOff(code);const work=code!==null&&!off;
   const dots=[0,1,2].map(i=>{const v=c[i-(3-c.length)];const sz=i===2?14:i===1?10:7;return v?`<i class="c${v.v}" style="width:${sz}px;height:${sz}px"></i>`:`<i style="width:${sz}px;height:${sz}px"></i>`}).join('');
   const shiftTag=code===null?'':(off?`<span class="shbadge off">休</span>`:`<span class="shbadge on">${esc(code)}</span>`);
-  return `<div class="card cond${lc} ${big?'big':''} ${off?'isoff':''} ${work?'iswork':''} ${isActive(p)?'':'gone'} ${isSelf(p)?'me':''}" onclick="onCardTap('${p.id}','${pd}')">${isActive(p)?(isSelf(p)?'<span class="ren" style="background:var(--ink)">自分</span>':''):'<span class="ren" style="background:var(--gray)">退職</span>'}${ren?`<span class="ren">更新 ${r}日前</span>`:''}<div class="nmrow">${avatarTag(p)}<span class="nm">${esc(p.name)}</span>${talkOpen(p).length?`<span class="wt">話${talkOpen(p).length}</span>`:''}</div><span class="kd">${esc(p.kind)}</span>${shiftTag}<div class="dots">${dots}</div>${condSpark(p)}<div class="last ${gap!==null&&gap>target?'over':''}">${gap===null?'未接触':gap+'日前に接触'}</div>${big?`<div class="why">${esc(staffWhy(p))}</div>`:''}</div>`;
+  return `<div class="card cond${lc} ${big?'big':''} ${off?'isoff':''} ${work?'iswork':''} ${isActive(p)?'':'gone'} ${isSelf(p)?'me':''}" data-talk-pid="${p.id}" onclick="onCardTap('${p.id}','${pd}')">${isActive(p)?(isSelf(p)?'<span class="ren" style="background:var(--ink)">自分</span>':''):'<span class="ren" style="background:var(--gray)">退職</span>'}${ren?`<span class="ren">更新 ${r}日前</span>`:''}<div class="nmrow">${avatarTag(p)}<span class="nm">${esc(p.name)}</span>${talkOpen(p).length?`<span class="wt">話${talkOpen(p).length}</span>`:''}</div><span class="kd">${esc(p.kind)}</span>${shiftTag}<div class="dots">${dots}</div>${condSpark(p)}<div class="last ${gap!==null&&gap>target?'over':''}">${gap===null?'未接触':gap+'日前に接触'}</div>${big?`<div class="why">${esc(staffWhy(p))}</div>`:''}</div>`;
 }
 function onCardTap(id,pd){
   const p=D.staff.find(x=>x.id===id);
@@ -4132,6 +4158,44 @@ function talkHtml(pid,editable){
   return h;
 }
 
+
+/* 話したいことをその場で足す（小さな窓） */
+function openQuickTalk(pid){
+  const p=D.staff.find(x=>x.id===pid);if(!p)return;
+  const cur=talkOpen(p);
+  openModal('<h3>'+esc(p.name)+'さんと話したいこと</h3>'
+   +(cur.length?'<div class="hint">いま '+cur.length+'件：'+cur.slice(0,3).map(x=>esc(x.t)).join('／')+(cur.length>3?' ほか':'')+'</div>':'')
+   +'<div class="f"><textarea id="qt-t" style="min-height:70px" placeholder="1行に1つ。例：シフトの件を聞く"></textarea></div>'
+   +'<div class="foot"><button class="btn ghost" onclick="closeModal()">やめる</button>'
+   +'<button class="btn ghost" onclick="closeModal();openStaffDetail(\''+pid+'\')">詳細を開く</button>'
+   +'<button class="btn solid" onclick="doQuickTalk(\''+pid+'\')">足す</button></div>');
+  setTimeout(()=>{const e=document.getElementById('qt-t');if(e)e.focus()},50);
+}
+function doQuickTalk(pid){
+  const v=(document.getElementById('qt-t')||{}).value||'';
+  if(!v.trim()){toast('内容を入れてください');return}
+  addTalk(pid,v);closeModal();render();
+  const p=D.staff.find(x=>x.id===pid);toast((p?p.name:'')+'さんに'+v.split(/\r?\n/).filter(s=>s.trim()).length+'件足しました');
+}
+/* 長押しの共通処理：カードを長押ししたら小窓を開く */
+function bindLongPress(el,fn){
+  let t=null,moved=false;
+  const start=e=>{moved=false;t=setTimeout(()=>{t=null;if(!moved){if(navigator.vibrate)navigator.vibrate(15);fn()}},450)};
+  const cancel=()=>{if(t){clearTimeout(t);t=null}};
+  el.addEventListener('touchstart',start,{passive:true});
+  el.addEventListener('touchmove',()=>{moved=true;cancel()},{passive:true});
+  el.addEventListener('touchend',cancel);el.addEventListener('touchcancel',cancel);
+  el.addEventListener('mousedown',e=>{if(e.button!==0)return;start(e)});
+  el.addEventListener('mouseup',cancel);el.addEventListener('mouseleave',cancel);
+  el.addEventListener('contextmenu',e=>{e.preventDefault();cancel();fn()});   // 右クリックでも
+}
+function bindTalkLongPress(){
+  document.querySelectorAll('[data-talk-pid]').forEach(el=>{
+    if(el._lp)return;el._lp=true;
+    bindLongPress(el,()=>openQuickTalk(el.dataset.talkPid));
+  });
+}
+
 /* ========== 委任の記録と分析 ========== */
 function delegLog(){D.delegations=D.delegations||[];return D.delegations}
 function delegOf(name,days){
@@ -5094,7 +5158,7 @@ function vShiftDay(date){
     <div class="seg"><button class="${shiftView==='pri'?'on':''}" onclick="shiftView='pri';render()">優先順</button><button class="${shiftView==='code'?'on':''}" onclick="shiftView='code';render()">区分順</button></div></div>`;
   const chip=x=>{
     const inf=shiftInfo(x.p.name,date)||{l:x.code,s:'',p:''};
-    return `<button class="wchip ${x.over?'over':''} ${isSelf(x.p)?'self':''}" onclick="onCardTap('${x.p.id}','${date}')">
+    return `<button class="wchip ${x.over?'over':''} ${isSelf(x.p)?'self':''}" data-talk-pid="${x.p.id}" onclick="onCardTap('${x.p.id}','${date}')">
     <span class="wtxt"><span class="wn">${isSelf(x.p)?'<i class="mytag">自分</i>':''}${esc(x.p.name)}</span>${inf.p?`<span class="wp">${esc(inf.p)}</span>`:''}</span>
     <span class="wcol"><span class="wc">${esc(inf.l||x.code)}</span>${inf.s?`<span class="ws">${esc(inf.s)}</span>`:''}</span>
     ${x.over?`<span class="wg">${x.gap===null?'未':x.gap+'日'}</span>`:''}
@@ -5156,20 +5220,29 @@ function openQuickModal(mode){
   QP=[];window._qkMode=mode||'morning';
   if(window._qkMode==='night')return openNightModal();
   openModal(`<h3>今朝のメモ</h3>
-  <div class="hint">思いついたことを1行ずつ、雑に書いてください。時刻があれば予定、なければDESKの案件になります。スマホならキーボードのマイクで声のまま入れられます。</div>
-  <div class="f"><textarea id="qk-text" style="min-height:150px" placeholder="明日10時 週次会議&#10;来週火曜16時半 面談 山田さん 1時間&#10;派遣会社に人数を返答&#10;9/12 14:00〜16:00 打合せ @本社"></textarea></div>
+  <div class="hint">思いついたことを1行ずつ、雑に書いてください。時刻があれば予定、なければDESKの案件、「◯◯さん 〜」ならその人と話したいことになります。スマホならキーボードのマイクで声のまま入れられます。</div>
+  <div class="f"><textarea id="qk-text" style="min-height:150px" placeholder="明日10時 週次会議&#10;来週火曜16時半 面談 山田さん 1時間&#10;派遣会社に人数を返答&#10;三輪さん シフトの件を聞く&#10;9/12 14:00〜16:00 打合せ @本社"></textarea></div>
   <div class="foot"><button class="btn ghost" onclick="closeModal()">やめる</button><button class="btn solid" onclick="quickParse()">読み取る</button></div>`);
   setTimeout(()=>document.getElementById('qk-text').focus(),50);
 }
 function quickParse(){
   const lines=document.getElementById('qk-text').value.split(/\r?\n/);
   const base=window._qkMode==='night'?addDays(today(),1):today();
-  QP=lines.map(l=>parseLine(l,base)).filter(Boolean);
+  QP=lines.map(l=>{const t=parseTalkLine(l);if(t){t.use=true;return t}return parseLine(l,base)}).filter(Boolean);
   if(!QP.length){toast('読み取れる行がありませんでした');return}
   renderQuick();
 }
 function renderQuick(){
-  const rows=QP.map((p,i)=>`
+  const rows=QP.map((p,i)=>p.kind==='talk'?`
+  <div class="row person" style="display:block">
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
+      <label class="small" style="display:flex;align-items:center;gap:6px"><input type="checkbox" style="width:auto" ${p.use?'checked':''} onchange="QP[${i}].use=this.checked"> 登録する</label>
+      <span class="sp" style="flex:1"></span>
+      <span class="pill">${esc(p.name)}さんと話したいこと</span>
+      <button class="btn ghost xs" onclick="QP[${i}].kind='task';QP[${i}].date='';renderQuick()" title="案件として扱う">案件に</button>
+    </div>
+    <div class="f" style="margin:6px 0"><input value="${esc(p.title)}" onchange="QP[${i}].title=this.value"></div>
+  </div>`:`
   <div class="row" style="display:block">
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
       <label class="small" style="display:flex;align-items:center;gap:6px"><input type="checkbox" style="width:auto" ${p.use?'checked':''} onchange="QP[${i}].use=this.checked"> 登録する</label>
@@ -5187,12 +5260,13 @@ function renderQuick(){
   <div class="foot"><button class="btn ghost" onclick="openQuickModal()">書き直す</button><button class="btn solid" onclick="quickSave()">まとめて登録</button></div>`);
 }
 function quickSave(){
-  let ne=0,nt=0;
+  let ne=0,nt=0,nk=0;
   QP.filter(p=>p.use).forEach(p=>{
+    if(p.kind==='talk'){addTalk(p.pid,p.title,'今朝のメモ');nk++;return}
     if(p.kind==='event'){D.events.push({id:uid(),type:p.type,cat:typeCat(p.type),title:p.title,date:p.date,start:p.start,end:p.end,place:p.place||'',memo:''});ne++}
     else{D.tasks.push({id:uid(),title:p.title,due:p.date,memo:'',source:'manual',status:'open',createdAt:new Date().toISOString()});nt++}
   });
-  closeModal();store.save();render();toast('予定'+ne+'件、案件'+nt+'件をお預かりしました');
+  closeModal();store.save();render();toast('予定'+ne+'件、案件'+nt+'件'+(nk?'、話したいこと'+nk+'件':'')+'をお預かりしました');
 }
 
 /* --- 設定 --- */
