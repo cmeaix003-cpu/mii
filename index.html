@@ -336,6 +336,15 @@ h2{font-family:var(--pix);font-size:12px;color:var(--gray);margin:24px 0 8px;let
 .btn.evdone{border-color:var(--person);color:var(--person-deep);box-shadow:2px 2px 0 var(--person)}
 .btn.evdone:hover{background:var(--person);color:#fff}
 .row.evfin .btn.evdone{border-color:var(--rule);color:var(--gray);box-shadow:2px 2px 0 var(--rule)}
+/* 話したいこと */
+.stitem.talk{cursor:default}
+.stitem.talk span{display:flex;flex-direction:column;gap:1px;flex:1;min-width:0}
+.stitem.talk b{color:var(--ink);text-decoration:none;font-size:13px}
+label.stitem.talk{flex-direction:row;align-items:center}
+label.stitem.talk input{flex:none;width:18px;height:18px;margin:0 8px 0 0}
+.stitem.talk small{font-family:var(--pix);font-size:9px;color:var(--gray)}
+.stitem.talk .tx{flex:none;font-weight:400;color:var(--rule);font-size:14px;padding:0 3px;cursor:pointer}
+.wt{font-family:var(--pix);font-size:9px;background:var(--ink);color:var(--panel);border-radius:4px;padding:1px 5px;flex:none;margin-left:4px}
 /* 引き継ぎの履歴 */
 .hand{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
 .hand span{font-size:11px;background:var(--panel2);border:1px solid var(--rule);border-radius:6px;padding:2px 7px;color:var(--gray)}
@@ -1048,8 +1057,10 @@ const store={
           else body.push(r.items.length>2?it.q+'：'+it.a:it.a);
         });
         const p=from?resolveStaff(from):null;
-        D.notes.push({id:uid(),formKey:r.key,from,staffId:p?p.id:'',body:body.join('\n'),
+        const nid=uid();
+        D.notes.push({id:nid,formKey:r.key,from,staffId:p?p.id:'',body:body.join('\n'),
           via:'投稿ボックス',at:(r.at||new Date().toISOString()),read:false});
+        if(p){addTalk(p.id,'投稿の件：'+body.join(' ').slice(0,40),'投稿ボックス')}
         added++;
       });
       store.save({silent:true});render();
@@ -1130,12 +1141,14 @@ function staffScore(p){
   if(p.startDate&&diffDays(p.startDate,t)<=90)sc+=20;
   if(p.flag)sc+=50;
   if(window._sigMap&&window._sigMap[p.name])sc+=window._sigMap[p.name];
+  { const n=(p.talk||[]).filter(x=>!x.done).length; if(n>=5)sc+=30; else if(n>=3)sc+=15; }
   if(p.birthday){const b=p.birthday.slice(5);const tb=t.slice(5);const d=diffDays(t.slice(0,4)+'-'+tb,t.slice(0,4)+'-'+b);if(d>=0&&d<=7)sc+=10}
   return sc;
 }
 function renewalLead(p){return Math.min(60,(p.cycleMonths||12)*7)}
 function staffWhy(p){
   const t=today();const w=[];
+  { const n=(p.talk||[]).filter(x=>!x.done).length; if(n>=3)w.push('話したいことが'+n+'件たまっている'); }
   if(p.renewalDate){const r=diffDays(t,p.renewalDate);if(r>=0&&r<=renewalLead(p))w.push('契約更新まで'+r+'日')}
   const gap=diffDays(p.lastContact||p.startDate||t,t);const target=p.contactDays||KIND_DAYS[p.kind]||90;
   if(!p.lastContact)w.push('まだ接触記録がありません');else if(gap>target)w.push('最後に話してから'+gap+'日');
@@ -1230,6 +1243,7 @@ function saveNote(){
   const p=from?resolveStaff(from):null;
   D.notes=D.notes||[];
   D.notes.push({id:uid(),from,staffId:p?p.id:'',body,via:document.getElementById('nt-via').value.trim(),at:new Date().toISOString(),read:true});
+  if(p)addTalk(p.id,body.slice(0,40),'聞いた話');
   closeModal();store.save();render();toast('お預かりしました');
 }
 
@@ -2157,6 +2171,20 @@ function vToday(){
   }).join('');
   else h+=`<div class="empty">本日中の案件はありません。</div>`;
 
+  // 明日の面談の準備
+  {
+    const tm=addDays(t,1);
+    const mts=D.events.filter(e=>e.type==='面談'&&e.date===tm&&!e.cancelled&&!e.done);
+    if(mts.length){
+      h+=`<h2>明日の面談の準備</h2>`;
+      mts.forEach(e=>{
+        const p=D.staff.find(x=>x.id===e.staffId)||(e.staffName?resolveStaff(e.staffName):null);
+        const items=[...themeList(e).filter(x=>!x.done).map(x=>x.t),...(p?talkOpen(p).map(x=>x.t):[])];
+        const uniq=[...new Set(items)];
+        h+=`<div class="row person" onclick="${p?`openStaffDetail('${p.id}')`:''}"><div class="time">${e.start||''}</div><div class="t"><div class="ttl">${esc(e.title)}</div><div class="sub">${uniq.length?uniq.slice(0,4).map(esc).join('／')+(uniq.length>4?'　ほか'+(uniq.length-4)+'件':''):'話すことはまだ決まっていません'}</div></div></div>`;
+      });
+    }
+  }
   // ③ 気づいてほしいこと（記録忘れ・声・停滞）
   const pend=pendingReports();
   const un=unreadNotes();
@@ -2629,7 +2657,7 @@ function cardStaff(p,big,pd){
   const code=shiftOf(p.name,pd);const off=code!==null&&isOff(code);const work=code!==null&&!off;
   const dots=[0,1,2].map(i=>{const v=c[i-(3-c.length)];const sz=i===2?14:i===1?10:7;return v?`<i class="c${v.v}" style="width:${sz}px;height:${sz}px"></i>`:`<i style="width:${sz}px;height:${sz}px"></i>`}).join('');
   const shiftTag=code===null?'':(off?`<span class="shbadge off">休</span>`:`<span class="shbadge on">${esc(code)}</span>`);
-  return `<div class="card cond${lc} ${big?'big':''} ${off?'isoff':''} ${work?'iswork':''} ${isActive(p)?'':'gone'} ${isSelf(p)?'me':''}" onclick="onCardTap('${p.id}','${pd}')">${isActive(p)?(isSelf(p)?'<span class="ren" style="background:var(--ink)">自分</span>':''):'<span class="ren" style="background:var(--gray)">退職</span>'}${ren?`<span class="ren">更新 ${r}日前</span>`:''}<div class="nmrow">${avatarTag(p)}<span class="nm">${esc(p.name)}</span></div><span class="kd">${esc(p.kind)}</span>${shiftTag}<div class="dots">${dots}</div>${condSpark(p)}<div class="last ${gap!==null&&gap>target?'over':''}">${gap===null?'未接触':gap+'日前に接触'}</div>${big?`<div class="why">${esc(staffWhy(p))}</div>`:''}</div>`;
+  return `<div class="card cond${lc} ${big?'big':''} ${off?'isoff':''} ${work?'iswork':''} ${isActive(p)?'':'gone'} ${isSelf(p)?'me':''}" onclick="onCardTap('${p.id}','${pd}')">${isActive(p)?(isSelf(p)?'<span class="ren" style="background:var(--ink)">自分</span>':''):'<span class="ren" style="background:var(--gray)">退職</span>'}${ren?`<span class="ren">更新 ${r}日前</span>`:''}<div class="nmrow">${avatarTag(p)}<span class="nm">${esc(p.name)}</span>${talkOpen(p).length?`<span class="wt">話${talkOpen(p).length}</span>`:''}</div><span class="kd">${esc(p.kind)}</span>${shiftTag}<div class="dots">${dots}</div>${condSpark(p)}<div class="last ${gap!==null&&gap>target?'over':''}">${gap===null?'未接触':gap+'日前に接触'}</div>${big?`<div class="why">${esc(staffWhy(p))}</div>`:''}</div>`;
 }
 function onCardTap(id,pd){
   const p=D.staff.find(x=>x.id===id);
@@ -2692,8 +2720,10 @@ function openMeetingPicker(id,pd){
   <div class="f"><label>開始時刻（空いている時間）</label><div class="slots" id="mp-slots">${slots.map(s=>`<button class="btn small ${free.includes(s)?'':'ghost'} ${s===(slots.includes('16:00')?'16:00':slots[Math.floor(slots.length/2)])?'on':''}" data-s="${s}" onclick="pickSlot(this)">${s}${free.includes(s)?'':'×'}</button>`).join('')}</div></div>
   <div class="f2"><div class="f"><label>所要</label><select id="mp-dur">${optDurs().map((n,i)=>`<option value="${n}" ${n===60||(optDurs().indexOf(60)<0&&i===optDurs().length-1)?'selected':''}>${n>=60&&n%60===0?(n/60)+'時間':n+'分'}</option>`).join('')}</select></div>
   <div class="f"><label>場所（任意）</label><input id="mp-place" placeholder="面談室など"></div></div>
-  ${carry.length?`<div class="warn person"><b>前回、話せなかったこと</b><br>${carry.map(esc).join('<br>')}</div>`:''}
-  <div class="f"><label>話すこと（1行に1つ）</label><textarea id="mp-theme" style="min-height:64px" placeholder="例：契約更新の意向確認&#10;シフト希望&#10;最近の様子">${esc([...carry,...(p.homework&&!carry.includes(p.homework)?[p.homework]:[])].join('\n'))}</textarea>
+  ${(()=>{const items=[...carry.map(c=>({t:c,src:'前回の持ち越し'})),...(p.homework&&!carry.includes(p.homework)?[{t:p.homework,src:'前回の課題'}]:[]),...talkOpen(p).map(x=>({t:x.t,src:x.src||'話したいこと',id:x.id}))];
+    if(!items.length)return '';
+    return `<div class="f"><label>この人と話したいこと（チェックした分が今回のテーマになります）</label><div class="stlist">${items.map((x,i)=>`<label class="stitem talk" style="cursor:pointer"><input type="checkbox" class="mp-pick" data-t="${esc(x.t)}" data-tid="${x.id||''}" checked style="width:auto;margin:0 8px 0 0"><span><b>${esc(x.t)}</b><small>${esc(x.src)}</small></span></label>`).join('')}</div></div>`})()}
+  <div class="f"><label>ほかに話すこと（1行に1つ・任意）</label><textarea id="mp-theme" style="min-height:48px" placeholder="例：契約更新の意向確認&#10;シフト希望"></textarea>
   <div class="ideas">${askIdeas(p).map(x=>`<button class="btn ghost small" onclick="addTheme(this)" data-x="${esc(x)}">＋ ${esc(x)}</button>`).join('')}</div></div>
   ${D.settings.roomTo?`<div class="f"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="mp-room" checked style="width:auto"> ${esc(D.settings.roomTo)} に会議室の確保を依頼する</label></div>`:'<p class="small muted">※会議室の依頼先は設定から登録できます</p>'}
   <div id="mp-warn"></div>
@@ -2710,8 +2740,10 @@ function saveMeeting(id){
   const cand={id:null,date,start:st,end:en};
   const dup=D.events.filter(x=>overlaps(x,cand));
   if(dup.length&&!confirm('同じ時間帯に「'+dup[0].title+'」があります。それでも入れますか？'))return;
-  const theme=document.getElementById('mp-theme').value.trim();
-  const themeArr=theme.split(/\r?\n/).map(s=>s.trim()).filter(Boolean).map(s=>({id:uid(),t:s,done:false}));
+  const picked=[...document.querySelectorAll('.mp-pick:checked')].map(e=>({t:e.dataset.t,tid:e.dataset.tid||''}));
+  const extra=document.getElementById('mp-theme').value.trim().split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+  const theme=[...picked.map(x=>x.t),...extra].join('\n');
+  const themeArr=[...picked.map(x=>({id:uid(),t:x.t,done:false,talkId:x.tid})),...extra.map(s=>({id:uid(),t:s,done:false}))];
   D.events.push({id:uid(),type:'面談',cat:'人',title:'面談 '+p.name,date,start:st,end:en,place:document.getElementById('mp-place').value.trim(),staffName:p.name,staffId:p.id,theme,themes:themeArr,prevHomework:p.homework||'',memo:theme?'テーマ：'+theme:''});
   const wantRoom=document.getElementById('mp-room')?.checked;
   const place=document.getElementById('mp-place').value.trim();
@@ -2742,6 +2774,7 @@ function openStaffDetail(id){
   ${(()=>{const o=delegStats(89).by[p.name];if(!o)return '';
     return `<div class="warn person"><b>お任せした案件 ${o.n}件</b>（完了${o.done}${o.onTime!==null?'・期限内'+o.onTime+'％':''}）</div>`})()}
   ${(()=>{const n=movedOften(p.name);return n>=2?`<div class="warn"><b>面談を${n}回、こちらの都合で動かしています。</b><br>次はこちらから日を合わせにいきましょう。</div>`:''})()}
+  <div class="f"><label>話したいこと（面談のときに拾えます）</label><div id="talk-box">${talkHtml(id,true)}</div></div>
   ${(()=>{const nx=nextWorkDays(p.name,today(),4);if(!nx.length)return '';return `<div class="f"><label>次の出勤日（タップで面談を登録）</label><div class="nextdays">${nx.map(x=>`<button class="btn small person" onclick="closeModal();openMeetingPicker('${id}','${x.date}')">${fmtMD(x.date)} ${esc(x.code)}</button>`).join('')}</div></div>`})()}
   ${(()=>{const ms=shiftMonths();if(!ms.length)return '';const ym=(staffYm&&ms.includes(staffYm))?staffYm:(ms.includes(today().slice(0,7))?today().slice(0,7):ms[ms.length-1]);
     return `<h2>勤務（${ym.replace('-','年')}月）</h2>${shiftMonthNav(id,ym)}${staffMonthShift(p.name,ym,id)}`})()}
@@ -4060,6 +4093,45 @@ function vGuide(){
   return h;
 }
 
+
+/* ========== 話したいこと（スタッフごとのリスト） ========== */
+function talkList(p){if(!p)return [];p.talk=p.talk||[];return p.talk}
+function talkOpen(p){return talkList(p).filter(x=>!x.done)}
+function addTalk(pid,text,src){
+  const p=D.staff.find(x=>x.id===pid);if(!p)return;
+  const v=String(text||'').trim();if(!v)return;
+  v.split(/\r?\n/).map(s=>s.trim()).filter(Boolean).forEach(s=>{
+    if(talkList(p).some(x=>!x.done&&x.t===s))return;
+    talkList(p).push({id:uid(),t:s,at:new Date().toISOString(),src:src||'',done:false});
+  });
+  store.save();
+}
+function addTalkFromInput(pid){
+  const el=document.getElementById('tk-new');
+  if(!el||!el.value.trim()){toast('話したいことを入れてください');return}
+  addTalk(pid,el.value);el.value='';
+  const box=document.getElementById('talk-box');if(box)box.innerHTML=talkHtml(pid,true);
+  toast('足しました');
+}
+function delTalk(pid,tid,ev){
+  if(ev&&ev.stopPropagation)ev.stopPropagation();
+  const p=D.staff.find(x=>x.id===pid);if(!p)return;
+  p.talk=talkList(p).filter(x=>x.id!==tid);store.save();
+  const box=document.getElementById('talk-box');if(box)box.innerHTML=talkHtml(pid,true);else render();
+}
+function talkHtml(pid,editable){
+  const p=D.staff.find(x=>x.id===pid);if(!p)return '';
+  const open=talkOpen(p);
+  const done=talkList(p).filter(x=>x.done).slice(-5).reverse();
+  let h='';
+  if(open.length){
+    h+=`<div class="stlist">${open.map(x=>`<div class="stitem talk"><span><b>${esc(x.t)}</b><small>${x.at?fmtMD(x.at.slice(0,10)).replace(/（.）/,''):''}${x.src?'　'+esc(x.src):''}</small></span>${editable?`<b class="tx" onclick="delTalk('${pid}','${x.id}',event)">×</b>`:''}</div>`).join('')}</div>`;
+  }else h+=`<div class="empty small">まだありません。気づいたときに書き留めてください。</div>`;
+  if(editable)h+=`<div class="thadd"><input id="tk-new" placeholder="話したいことを足す" onkeydown="if(event.key==='Enter'){addTalkFromInput('${pid}');event.preventDefault()}"><button class="btn small" onclick="addTalkFromInput('${pid}')">＋</button></div>`;
+  if(done.length)h+=`<details style="margin-top:8px"><summary class="small muted">話した ${talkList(p).filter(x=>x.done).length}件</summary>${done.map(x=>`<div class="row" style="opacity:.6"><div class="time">${x.doneAt?fmtMD(x.doneAt.slice(0,10)).replace(/（.）/,''):''}</div><div class="t"><div class="sub">${esc(x.t)}</div></div></div>`).join('')}</details>`;
+  return h;
+}
+
 /* ========== 委任の記録と分析 ========== */
 function delegLog(){D.delegations=D.delegations||[];return D.delegations}
 function delegOf(name,days){
@@ -4642,6 +4714,17 @@ function saveReport(evId){
   const e=D.events.find(x=>x.id===evId);
   const body=document.getElementById('rp-body').value.trim();
   let next=document.getElementById('rp-next').value.trim();
+  // 話せたテーマは「話したいこと」から消す（記録には残す）
+  {
+    const p0=D.staff.find(x=>x.id===e.staffId)||(e.staffName?resolveStaff(e.staffName):null);
+    if(p0){
+      themeList(e).forEach(x=>{
+        const tk=talkList(p0).find(y=>(x.talkId&&y.id===x.talkId)||(!y.done&&y.t===x.t));
+        if(tk){ if(x.done){tk.done=true;tk.doneAt=new Date().toISOString();tk.evId=e.id} }
+        else if(!x.done){ talkList(p0).push({id:uid(),t:x.t,at:new Date().toISOString(),src:'話せなかった',done:false}) }
+      });
+    }
+  }
   // 話せなかったテーマは次回へ持ち越す
   const rest=themeList(e).filter(x=>!x.done).map(x=>x.t);
   e.carryOver=rest;
@@ -5015,6 +5098,7 @@ function vShiftDay(date){
     <span class="wtxt"><span class="wn">${isSelf(x.p)?'<i class="mytag">自分</i>':''}${esc(x.p.name)}</span>${inf.p?`<span class="wp">${esc(inf.p)}</span>`:''}</span>
     <span class="wcol"><span class="wc">${esc(inf.l||x.code)}</span>${inf.s?`<span class="ws">${esc(inf.s)}</span>`:''}</span>
     ${x.over?`<span class="wg">${x.gap===null?'未':x.gap+'日'}</span>`:''}
+    ${talkOpen(x.p).length?`<span class="wt">話${talkOpen(x.p).length}</span>`:''}
   </button>`};
   if(shiftView==='pri'){
     list.sort((a,b)=>{
