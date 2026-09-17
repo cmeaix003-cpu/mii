@@ -921,8 +921,15 @@ const store={
         if(!j)throw err||new Error('読み込めませんでした');
         if(j&&j.ok&&j.data&&Object.keys(j.data).length){
           const remote=j.data;
-          if(!l||(remote.meta?.updatedAt||0)>=(l.meta?.updatedAt||0)){D=adoptRemote(remote,l);this.local.set(D)}
-          window._baseAt=remote.meta?.updatedAt||0;
+          if(!l||(remote.meta?.updatedAt||0)>=(l.meta?.updatedAt||0)){
+            D=adoptRemote(remote,l);this.local.set(D);
+            window._baseAt=remote.meta?.updatedAt||0;
+            // こちらの印や追加分を混ぜて中身が変わったなら、シートにも書き戻す
+            const plain=adoptRemote(remote,{});
+            if(l&&JSON.stringify(D)!==JSON.stringify(plain)){window._forceSave=true;this.save({silent:true})}
+          }else{
+            window._baseAt=remote.meta?.updatedAt||0;
+          }
         }
         setSave('ok','シートと同期');
       }catch(e){setSave('err','シート読込失敗');}
@@ -957,7 +964,10 @@ const store={
             // 自分で編集していなければ、聞かずに新しい方へ合わせる
             if(!window._edited||window._silentSave){
               const remote=j.data;
-              if(remote){D=adoptRemote(remote,D);window._baseAt=remote.meta?.updatedAt||0;store.local.set(D);render()}
+              if(remote){D=adoptRemote(remote,D);window._baseAt=remote.meta?.updatedAt||0;store.local.set(D);render();
+                const plain=adoptRemote(remote,{});
+                if(JSON.stringify(D)!==JSON.stringify(plain)){window._forceSave=true;window._silentSave=false;store.save();return}
+              }
               window._edited=false;setSave('ok','最新に更新しました');
               return;
             }
@@ -1102,7 +1112,7 @@ function showConflict(j){
 }
 function conflictReload(){
   const remote=window._conflictData;
-  if(remote){D=adoptRemote(remote,D);window._baseAt=remote.meta?.updatedAt||0;store.local.set(D)}
+  if(remote){D=adoptRemote(remote,D);window._baseAt=remote.meta?.updatedAt||0;store.local.set(D);window._forceSave=true;store.save({silent:true})}
   closeModal();render();setSave('ok','向こうの内容を取り込みました');toast('最新の内容に更新しました');
 }
 function conflictOverwrite(){window._forceSave=true;closeModal();store.save();toast('こちらの内容で上書きします')}
@@ -4289,7 +4299,9 @@ function doQuickTalk(pid){
 /* 長押しの共通処理：カードを長押ししたら小窓を開く */
 function bindLongPress(el,fn){
   let t=null,moved=false;
-  const start=e=>{moved=false;t=setTimeout(()=>{t=null;if(!moved){if(navigator.vibrate)navigator.vibrate(15);fn()}},450)};
+  const start=e=>{moved=false;t=setTimeout(()=>{t=null;if(!moved){
+    window._suppressClick=true;setTimeout(()=>{window._suppressClick=false},900);   // 直後のタップを無効に
+    if(navigator.vibrate)navigator.vibrate(15);fn()}},450)};
   const cancel=()=>{if(t){clearTimeout(t);t=null}};
   el.addEventListener('touchstart',start,{passive:true});
   el.addEventListener('touchmove',()=>{moved=true;cancel()},{passive:true});
@@ -4298,6 +4310,8 @@ function bindLongPress(el,fn){
   el.addEventListener('mouseup',cancel);el.addEventListener('mouseleave',cancel);
   el.addEventListener('contextmenu',e=>{e.preventDefault();cancel();fn()});   // 右クリックでも
 }
+// 長押しの直後に来るクリックは飲み込む（小窓が別の画面に置き換わるのを防ぐ）
+document.addEventListener('click',e=>{if(window._suppressClick){e.stopPropagation();e.preventDefault();window._suppressClick=false}},true);
 function bindTalkLongPress(){
   document.querySelectorAll('[data-talk-pid]').forEach(el=>{
     if(el._lp)return;el._lp=true;
