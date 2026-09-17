@@ -343,6 +343,7 @@ h2{font-family:var(--pix);font-size:12px;color:var(--gray);margin:24px 0 8px;let
 label.stitem.talk{flex-direction:row;align-items:center}
 label.stitem.talk input{flex:none;width:18px;height:18px;margin:0 8px 0 0}
 .stitem.talk small{font-family:var(--pix);font-size:9px;color:var(--gray)}
+.tkedit{width:100%;font-size:13px;padding:6px 8px;border:2px solid var(--ink);border-radius:5px;background:#fff}
 .stitem.talk .tx{flex:none;font-weight:400;color:var(--rule);font-size:14px;padding:0 3px;cursor:pointer}
 .wt{font-family:var(--pix);font-size:9px;background:var(--ink);color:var(--panel);border-radius:4px;padding:1px 5px;flex:none;margin-left:4px}
 /* 引き継ぎの履歴 */
@@ -4139,6 +4140,23 @@ function addTalkFromInput(pid){
   const box=document.getElementById('talk-box');if(box)box.innerHTML=talkHtml(pid,true);
   toast('足しました');
 }
+function editTalk(pid,tid,ev){
+  if(ev&&ev.stopPropagation)ev.stopPropagation();
+  const p=D.staff.find(x=>x.id===pid);if(!p)return;
+  const x=talkList(p).find(y=>y.id===tid);if(!x)return;
+  const box=document.getElementById('talk-box');if(!box)return;
+  const el=box.querySelector('[data-talk="'+tid+'"]');if(!el)return;
+  el.innerHTML='<input class="tkedit" value="'+esc(x.t)+'" onkeydown="if(event.key===\'Enter\'){saveTalk(\''+pid+'\',\''+tid+'\',this.value)}if(event.key===\'Escape\'){renderTalkBox(\''+pid+'\')}" onblur="saveTalk(\''+pid+'\',\''+tid+'\',this.value)">';
+  const inp=el.querySelector('input');inp.focus();inp.select();
+}
+function saveTalk(pid,tid,v){
+  const p=D.staff.find(x=>x.id===pid);if(!p)return;
+  const x=talkList(p).find(y=>y.id===tid);if(!x)return;
+  v=String(v||'').trim();
+  if(v&&v!==x.t){x.t=v;store.save()}
+  renderTalkBox(pid);
+}
+function renderTalkBox(pid){const box=document.getElementById('talk-box');if(box)box.innerHTML=talkHtml(pid,true)}
 function delTalk(pid,tid,ev){
   if(ev&&ev.stopPropagation)ev.stopPropagation();
   const p=D.staff.find(x=>x.id===pid);if(!p)return;
@@ -4151,7 +4169,7 @@ function talkHtml(pid,editable){
   const done=talkList(p).filter(x=>x.done).slice(-5).reverse();
   let h='';
   if(open.length){
-    h+=`<div class="stlist">${open.map(x=>`<div class="stitem talk"><span><b>${esc(x.t)}</b><small>${x.at?fmtMD(x.at.slice(0,10)).replace(/（.）/,''):''}${x.src?'　'+esc(x.src):''}</small></span>${editable?`<b class="tx" onclick="delTalk('${pid}','${x.id}',event)">×</b>`:''}</div>`).join('')}</div>`;
+    h+=`<div class="stlist">${open.map(x=>`<div class="stitem talk" data-talk="${x.id}" ${editable?`onclick="editTalk('${pid}','${x.id}',event)" style="cursor:text"`:''}><span><b>${esc(x.t)}</b><small>${x.at?fmtMD(x.at.slice(0,10)).replace(/（.）/,''):''}${x.src?'　'+esc(x.src):''}${editable?'　タップで書き換え':''}</small></span>${editable?`<b class="tx" onclick="delTalk('${pid}','${x.id}',event)">×</b>`:''}</div>`).join('')}</div>`;
   }else h+=`<div class="empty small">まだありません。気づいたときに書き留めてください。</div>`;
   if(editable)h+=`<div class="thadd"><input id="tk-new" placeholder="話したいことを足す" onkeydown="if(event.key==='Enter'){addTalkFromInput('${pid}');event.preventDefault()}"><button class="btn small" onclick="addTalkFromInput('${pid}')">＋</button></div>`;
   if(done.length)h+=`<details style="margin-top:8px"><summary class="small muted">話した ${talkList(p).filter(x=>x.done).length}件</summary>${done.map(x=>`<div class="row" style="opacity:.6"><div class="time">${x.doneAt?fmtMD(x.doneAt.slice(0,10)).replace(/（.）/,''):''}</div><div class="t"><div class="sub">${esc(x.t)}</div></div></div>`).join('')}</details>`;
