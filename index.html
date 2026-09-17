@@ -104,7 +104,7 @@ h2{font-family:var(--pix);font-size:12px;color:var(--gray);margin:24px 0 8px;let
 .row .acts{display:flex;gap:6px;flex:none}
 .row.person{background:var(--person-tint);border-color:var(--person-deep);box-shadow:inset 0 0 0 3px var(--person-tint),inset 0 0 0 4px var(--person)}
 .row.person .time,.row.person .sub{color:var(--person-deep)}
-.row.stale .ttl::before{content:"STOP";font-family:var(--pix);font-size:9px;background:var(--ink);color:var(--panel);padding:2px 5px;margin-right:7px;vertical-align:2px}
+
 .due-today{color:var(--today);font-weight:700}
 .row.due{background:var(--today-tint);border-color:var(--today);box-shadow:inset 0 0 0 3px var(--today-tint),inset 0 0 0 4px var(--today)}
 
@@ -466,6 +466,18 @@ h2.fold .fnum{background:var(--panel2);border:1px solid var(--rule);padding:0 6p
 .dragging{opacity:.75;box-shadow:0 6px 16px rgba(34,36,31,.35);position:relative;z-index:5;transition:none}
 body.nodrag-scroll{overflow:hidden;overscroll-behavior:none}
 
+/* 止まっている印（右端） */
+.ttl{display:flex;align-items:center;flex-wrap:wrap;gap:2px}
+.stoptag{margin-left:auto;font-family:var(--pix);font-size:10px;background:var(--today);color:#fff;border-radius:4px;padding:2px 6px;flex:none}
+/* 優先度 */
+.pribtn{font-family:var(--sans);font-weight:700;font-size:12px;width:24px;height:24px;border-radius:5px;border:2px solid var(--rule);background:var(--panel);color:var(--gray);margin-right:7px;vertical-align:2px;flex:none;padding:0}
+.pribtn.pA{background:var(--today);border-color:var(--today);color:#fff}
+.pribtn.pB{background:var(--ink);border-color:var(--ink);color:var(--panel)}
+.pribtn.pC{background:var(--panel2);border-color:var(--rule);color:var(--gray)}
+.row.priC{opacity:.7}
+.row.priC .ttl{font-weight:600}
+.seg.pri button.pA.on{background:var(--today);border-color:var(--today);color:#fff}
+.seg.pri button.pC.on{background:var(--gray);border-color:var(--gray);color:#fff}
 /* 並べ替え */
 .mvbtns{display:flex;align-items:center;margin-right:8px;flex:none}
 .mvbtns .grip{width:28px;min-width:28px;max-width:28px;height:36px;font-size:18px}
@@ -2279,15 +2291,20 @@ function rowEvent(e,opt){
 /* --- DESK --- */
 function vInbox(){
   const hasOrder=openTasks().some(t=>typeof t.order==='number');
-  const open=hasOrder
-    ? openTasks().sort((a,b)=>taskOrder(a)-taskOrder(b)||(a.createdAt||'').localeCompare(b.createdAt||''))
-    : openTasks().sort((a,b)=>staleDays(b)-staleDays(a)||(a.due||'9').localeCompare(b.due||'9'));
+  const priRank={A:0,B:1,C:2};
+  const all=openTasks();
+  let open=hasOrder
+    ? all.sort((a,b)=>taskOrder(a)-taskOrder(b)||(a.createdAt||'').localeCompare(b.createdAt||''))
+    : all.sort((a,b)=>priRank[taskPri(a)]-priRank[taskPri(b)]||staleDays(b)-staleDays(a)||(a.due||'9').localeCompare(b.due||'9'));
+  const cnt={A:0,B:0,C:0};all.forEach(t=>cnt[taskPri(t)]++);
+  if(priFilter)open=open.filter(t=>taskPri(t)===priFilter);
   const deleg=D.tasks.filter(t=>t.status==='delegated');
   let h=`<h1>DESK</h1><p class="muted small">みーの机。出口は3つだけで、「後で」はありません。</p>`;
   h+=`<div class="tabs"><button class="${inboxTab==='open'?'on':''}" onclick="inboxTab='open';render()">未処理<span class="n">${open.length}</span></button><button class="${inboxTab==='deleg'?'on':''}" onclick="inboxTab='deleg';render()">依頼中<span class="n">${deleg.length}</span></button></div>`;
   if(inboxTab==='open'){
-    if(open.length)h+=`<div class="toolbar"><span class="small muted">${hasOrder?'自分で決めた順':'止まっている順・期限順'}</span><span class="sp"></span>${hasOrder?`<button class="btn ghost small" onclick="resetTaskOrder()">自動の順に戻す</button>`:''}<button class="btn ${sortMode?'':'ghost'} small" onclick="sortMode=!sortMode;render()">${sortMode?'並べ替え終了':'並べ替え'}</button></div>`;
-    h+=open.length?`<div class="draglist">${open.map(t=>rowTask(t)).join('')}</div>`:`<div class="empty"><b>机の上は空っぽです。</b><br>届いたものは右下の＋からどうぞ。</div>`;
+    if(all.length)h+=`<div class="toolbar"><div class="seg pri"><button class="${!priFilter?'on':''}" onclick="priFilter='';render()">全部 ${all.length}</button><button class="pA ${priFilter==='A'?'on':''}" onclick="priFilter='A';render()">急 ${cnt.A}</button><button class="pB ${priFilter==='B'?'on':''}" onclick="priFilter='B';render()">普 ${cnt.B}</button><button class="pC ${priFilter==='C'?'on':''}" onclick="priFilter='C';render()">後 ${cnt.C}</button></div></div>`;
+    if(open.length)h+=`<div class="toolbar"><span class="small muted">${hasOrder?'自分で決めた順':'優先度→止まっている順'}</span><span class="sp"></span>${hasOrder?`<button class="btn ghost small" onclick="resetTaskOrder()">自動の順に戻す</button>`:''}<button class="btn ${sortMode?'':'ghost'} small" onclick="sortMode=!sortMode;render()">${sortMode?'並べ替え終了':'並べ替え'}</button></div>`;
+    h+=open.length?`<div class="draglist">${open.map(t=>rowTask(t)).join('')}</div>`:(priFilter?`<div class="empty">「${PRI_LABEL[priFilter]}」の案件はありません。</div>`:`<div class="empty"><b>机の上は空っぽです。</b><br>届いたものは右下の＋からどうぞ。</div>`);
   }else{
     h+=deleg.length?deleg.map(t=>rowDelegated(t)).join(''):`<div class="empty">人に振っている案件はありません。</div>`;
   }
@@ -2304,7 +2321,8 @@ function rowTask(t,compact){
   const sortOn=sortMode&&!compact&&t.status==='open';
   const mv=sortOn?`<div class="mvbtns"><span class="grip big">≡</span></div>`:'';
   const dragAttr=sortOn?` data-drag="${t.id}" onmousedown="dragStart(event,'task','','${t.id}')" ontouchstart="dragStart(event,'task','','${t.id}')"`:'';
-  return `<div class="row ${sd>=3?'stale':''} ${due?'due':''} ${sortMode?'sorting':''}"${dragAttr}>${mv}<div class="t"${tap}><div class="ttl">${esc(t.title)}${badge}</div><div class="sub">${src?src+'から　':''}${t.due?'期限 <span class="'+(due?'due-today':'')+'">'+fmtMD(t.due)+'</span>':'期限なし'}　${sd?sd+'日経過':'今日'}</div>
+  const pri=taskPri(t);
+  return `<div class="row ${sd>=3?'stale':''} ${due?'due':''} ${sortMode?'sorting':''} pri${pri}"${dragAttr}>${mv}<div class="t"${tap}><div class="ttl"><button class="pribtn p${pri}" onclick="cyclePri('${t.id}',event)" title="タップで 急→普→後">${PRI_LABEL[pri]}</button>${esc(t.title)}${badge}${sd>=3?'<span class="stoptag">STOP</span>':''}</div><div class="sub">${src?src+'から　':''}${t.due?'期限 <span class="'+(due?'due-today':'')+'">'+fmtMD(t.due)+'</span>':'期限なし'}　${sd?sd+'日経過':'今日'}</div>
   ${show?`<div onclick="event.stopPropagation()">${stepsHtml(t)}</div>`:''}
   ${compact?'':bundledNotesHtml(t)}
   ${compact?'':`<div class="exits" onclick="event.stopPropagation()"><button class="btn small" onclick="taskDone('${t.id}')">${st.n?'まとめて完了':'今すぐ・完了'}</button><button class="btn small" onclick="taskToEvent('${t.id}')">予定にする</button><button class="btn small person" onclick="taskDelegate('${t.id}')">人に振る</button><button class="btn ghost small" onclick="openStepAdd('${t.id}')">手順を足す</button>${t.bundleTag?`<button class="btn ghost small person" onclick="openDraft('${t.id}')">返し文</button>`:''}<button class="btn ghost small" onclick="openTaskModal('${t.id}')">編集</button></div>`}
@@ -2369,12 +2387,14 @@ function doDelegate(id){
   closeModal();store.save();render();toast((p?p.name:who)+'さんにお任せしました');
 }
 function openTaskModal(id,preset){
+  window._tkPri=null;
   if(id){const t0=D.tasks.find(x=>x.id===id);
     if(t0&&t0.bundleNoteIds&&/^いただいた声 \d+件をまとめたもの/.test(t0.memo||'')){t0.memo='';store.save()}}
   const t=id?D.tasks.find(x=>x.id===id):{title:'',due:'',memo:'',...(preset||{})};
   openModal(`<h3>${id?'案件を編集':'DESKに置く'}</h3>
   <div class="f"><label>内容</label><input id="tk-title" value="${esc(t.title)}" placeholder="例：派遣会社に来月の人数を返答"></div>
   <div class="f"><label>期限（必須ではありませんが、無いと沈みます）</label><input id="tk-due" type="date" value="${t.due||''}"></div>
+  <div class="f"><label>優先度</label><div class="seg pri"><button class="pA ${taskPri(t)==='A'?'on':''}" onclick="window._tkPri='A';this.parentElement.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b===this))">急　今すぐ</button><button class="pB ${taskPri(t)==='B'?'on':''}" onclick="window._tkPri='B';this.parentElement.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b===this))">普　ふつう</button><button class="pC ${taskPri(t)==='C'?'on':''}" onclick="window._tkPri='C';this.parentElement.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b===this))">後　いつか</button></div></div>
   <div class="f"><label>メモ</label><textarea id="tk-memo">${esc(t.memo||'')}</textarea></div>
   ${(id&&t.bundleNoteIds&&t.bundleNoteIds.length)?`<div class="f"><label>束ねた声</label>${bundledNotesHtml(t,true)}</div>`:''}
   ${(id&&stepsOf(t).length)?`<div class="f"><label>手順（タップで済／未を切り替え）</label><div id="tk-stlist">${stepsHtml(t,true)}</div></div>`:''}
@@ -2391,9 +2411,9 @@ function saveTask(id){
     const prev=stepsOf(t0);
     // 同じ文言の手順は済みの印を引き継ぐ
     t0.steps=lines.map(s=>{const o=prev.find(p=>p.t===s);return o?o:{id:uid(),t:s,done:false}});
-    Object.assign(t0,{title,due,memo});
+    Object.assign(t0,{title,due,memo});if(window._tkPri)t0.pri=window._tkPri;
   }
-  else D.tasks.push({id:uid(),title,due,memo,steps:lines.map(s=>({id:uid(),t:s,done:false})),source:'manual',status:'open',createdAt:new Date().toISOString()});
+  else D.tasks.push({id:uid(),title,due,memo,pri:window._tkPri||'B',steps:lines.map(s=>({id:uid(),t:s,done:false})),source:'manual',status:'open',createdAt:new Date().toISOString()});
   closeModal();store.save();render();toast(id?'承知しました':'お預かりしました');
 }
 function delTask(id){if(!confirm('削除しますか？'))return;D.tasks=D.tasks.filter(x=>x.id!==id);closeModal();store.save();render()}
@@ -4767,6 +4787,24 @@ function dragEnd(){
 function grip(kind,ownerId,itemId){
   return `<span class="grip" title="長押しして動かす" onmousedown="dragStart(event,'${kind}','${ownerId}','${itemId}')" ontouchstart="dragStart(event,'${kind}','${ownerId}','${itemId}')" onclick="event.stopPropagation()">≡</span>`;
 }
+
+
+/* ===== 案件の優先度（A／B／C） ===== */
+const PRI_LABEL={A:'急',B:'普',C:'後'};
+function taskPri(t){return (t&&t.pri)||'B'}
+function setTaskPri(id,pri,ev){
+  if(ev&&ev.stopPropagation)ev.stopPropagation();
+  const t=D.tasks.find(x=>x.id===id);if(!t)return;
+  t.pri=pri;store.save();render();
+}
+function cyclePri(id,ev){
+  if(ev&&ev.stopPropagation)ev.stopPropagation();
+  const t=D.tasks.find(x=>x.id===id);if(!t)return;
+  const order=['A','B','C'];
+  t.pri=order[(order.indexOf(taskPri(t))+1)%3];
+  store.save();render();
+}
+let priFilter='';   // ''=全部、'A'/'B'/'C'
 
 /* ===== 並べ替え（案件・手順） ===== */
 function moveInArray(arr,idx,dir){
