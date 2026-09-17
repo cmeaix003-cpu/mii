@@ -2943,6 +2943,40 @@ function adoptRemote(remote,localSnap){
     if(lv.done&&!ev.done){ev.done=true;ev.doneAt=lv.doneAt}
     if(lv.cancelled&&!ev.cancelled){ev.cancelled=true;ev.cancelledAt=lv.cancelledAt}
   });
+  // 声：こちらで付けた既読・対応済み・タグ・束ねを引き継ぐ
+  const localNotes=(l&&l.notes)||[];
+  (merged.notes||[]).forEach(n=>{
+    const ln=localNotes.find(x=>x.id===n.id||(x.formKey&&x.formKey===n.formKey));
+    if(!ln)return;
+    if(ln.read&&!n.read)n.read=true;
+    if(ln.done&&!n.done){n.done=true;n.doneAt=ln.doneAt;n.reply=n.reply||ln.reply}
+    if(ln.reply&&!n.reply)n.reply=ln.reply;
+    if(ln.tags&&ln.tags.length&&!(n.tags&&n.tags.length))n.tags=ln.tags.slice();
+    if(ln.bundleId&&!n.bundleId)n.bundleId=ln.bundleId;
+    if(ln.tasked&&!n.tasked)n.tasked=true;
+  });
+  // 案件：こちらで完了・委任にしたものを引き継ぐ
+  const localTasks=(l&&l.tasks)||[];
+  (merged.tasks||[]).forEach(t=>{
+    const lt=localTasks.find(x=>x.id===t.id);
+    if(!lt)return;
+    if(lt.status==='done'&&t.status!=='done'){t.status='done';t.doneAt=lt.doneAt}
+    if(lt.status==='delegated'&&t.status==='open'){t.status='delegated';t.assignee=lt.assignee;t.delegId=lt.delegId;t.handoffs=lt.handoffs}
+    if(lt.steps&&t.steps){lt.steps.forEach(ls=>{const s=t.steps.find(y=>y.id===ls.id);if(s&&ls.done&&!s.done)s.done=true})}
+  });
+  // 話したいこと：こちらで足した・話した分を引き継ぐ
+  const localStaff=(l&&l.staff)||[];
+  (merged.staff||[]).forEach(p=>{
+    const lp=localStaff.find(x=>x.id===p.id);
+    if(!lp||!lp.talk)return;
+    p.talk=p.talk||[];
+    lp.talk.forEach(lt=>{
+      const x=p.talk.find(y=>y.id===lt.id);
+      if(!x)p.talk.push(lt);
+      else if(lt.done&&!x.done){x.done=true;x.doneAt=lt.doneAt}
+      else if(lt.t!==x.t&&lt.at===x.at)x.t=lt.t;
+    });
+  });
   merged.eventDeleted=[...new Set([...((l&&l.eventDeleted)||[]),...(remote.eventDeleted||[])])];
   merged.noteDeleted=[...new Set([...((l&&l.noteDeleted)||[]),...(remote.noteDeleted||[])])];
   merged.eventSeen=[...new Set([...((l&&l.eventSeen)||[]),...(remote.eventSeen||[])])];
