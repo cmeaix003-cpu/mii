@@ -878,7 +878,7 @@ const TYPES={
   '私用':{cat:'私用',fields:['place']}
 };
 const CATS=['会議','打合せ','人','作業','移動','私用'];
-const DEFAULT_SETTINGS={gasUrl:'',myEmail:'',vip:[],exclude:[],deadlineWords:['至急','本日中','〆切','締切','までに','確認願います','ご確認ください'],calDays:30,calAuto:true,nudgeOn:true,nudgeTime:'20:00',nudgeTo:'',appUrl:'https://cmeaix003-cpu.github.io/mii/',icsUrls:[],formSheetUrl:'',noteTags:['シフト','設備','人間関係','業務量','手順・ルール','待遇','感謝・良かったこと','その他'],nameAliases:{},forwardTo:'',forwardLabel:'',roomTo:'',roomCc:'',roomSubject:'【会議室のお願い】{date} {start}〜{end} 面談',roomBody:'お疲れ様です。\n\n下記のとおり面談を予定しております。会議室のご手配をお願いいたします。\n\n・日時：{date}（{dow}） {start}〜{end}\n・対象：{name} さん\n・場所：{place}\n\nお手数をおかけしますが、よろしくお願いいたします。',weeklyGoal:5,weekGoals:{},fetchDays:2};
+const DEFAULT_SETTINGS={gasUrl:'',myEmail:'',vip:[],exclude:[],deadlineWords:['至急','本日中','〆切','締切','までに','確認願います','ご確認ください'],calDays:30,calAuto:true,nudgeOn:true,nudgeTime:'20:00',dayCutoff:'05:00',nudgeTo:'',appUrl:'https://cmeaix003-cpu.github.io/mii/',icsUrls:[],formSheetUrl:'',noteTags:['シフト','設備','人間関係','業務量','手順・ルール','待遇','感謝・良かったこと','その他'],nameAliases:{},forwardTo:'',forwardLabel:'',roomTo:'',roomCc:'',roomSubject:'【会議室のお願い】{date} {start}〜{end} 面談',roomBody:'お疲れ様です。\n\n下記のとおり面談を予定しております。会議室のご手配をお願いいたします。\n\n・日時：{date}（{dow}） {start}〜{end}\n・対象：{name} さん\n・場所：{place}\n\nお手数をおかけしますが、よろしくお願いいたします。',weeklyGoal:5,weekGoals:{},fetchDays:2};
 
 let D={events:[],tasks:[],mails:[],staff:[],shifts:{},duty:{},settings:{...DEFAULT_SETTINGS},meta:{updatedAt:0}};
 let view='today', calMode='week', calAnchor=today(), peopleFilter='全', mailTab='reply', inboxTab='open', peopleDate=null;
@@ -1767,9 +1767,9 @@ function resetList(key){
 
 /* ========== 自分のコンディション ========== */
 function myLog(){D.me=D.me||{};D.me.log=D.me.log||[];return D.me.log}
-function myToday(){return myLog().find(x=>x.d===today())||null}
+function myToday(){return myLog().find(x=>x.d===reflectDate())||null}
 function setMyCond(v,note){
-  const l=myLog(), t=today();
+  const l=myLog(), t=reflectDate();
   const ix=l.findIndex(x=>x.d===t);
   const rec={d:t,v:Number(v),note:note!==undefined?note:(ix>=0?l[ix].note:'')};
   if(ix>=0)l[ix]=rec;else l.push(rec);
@@ -2987,8 +2987,17 @@ function adoptRemote(remote,localSnap){
 
 
 /* ===== 夕方の振り返り ===== */
+/** 振り返りの対象日（切り替え時刻より前なら前日） */
+function reflectDate(){
+  const [hh,mm]=String(D.settings.dayCutoff||'05:00').split(':').map(Number);
+  const now=new Date();
+  const cut=(hh||0)*60+(mm||0);
+  if(now.getHours()*60+now.getMinutes()<cut)return addDays(today(),-1);
+  return today();
+}
 function nudgeTimeToday(){
-  const t=today();
+  const t=reflectDate();
+  if(t!==today()){const d=new Date();d.setHours(0,0,0,0);return d}   // 日付をまたいでいる＝もう声かけの時間
   const [hh,mm]=String(D.settings.nudgeTime||'20:00').split(':').map(Number);
   let when=new Date();when.setHours(hh||20,mm||0,0,0);
   let last=null;
@@ -3001,12 +3010,12 @@ function nudgeTimeToday(){
   return when;
 }
 function openReflect(){
-  const t=today();
+  const t=reflectDate();
   const ev=eventsOn(t).filter(e=>!e.cancelled);
   const doneN=ev.filter(e=>e.done).length;
   const cur=myToday();
   openModal('<h3>今日のご自身は、いかがでしたか</h3>'
-   +'<div class="hint">お疲れ様でございました。'+(ev.length?'本日はご予定'+ev.length+'件（済 '+doneN+'件）。':'')+'</div>'
+   +'<div class="hint">お疲れ様でございました。'+(t!==today()?fmtMD(t)+'の分として記録します。':'')+(ev.length?'ご予定'+ev.length+'件（済 '+doneN+'件）。':'')+'</div>'
    +'<div class="f">'+myCondPicker()+'</div>'
    +'<div class="f"><label>ひとこと（任意）</label><input id="rf-note" value="'+esc(cur?cur.note||'':'')+'" placeholder="よく眠れた／会議が続いた など"></div>'
    +'<div class="f"><label>明日のこと</label><button class="btn" onclick="closeModal();openQuickModal(\'night\')">帰宅メモを書く</button></div>'
@@ -3024,7 +3033,7 @@ function nudgeTick(){
   try{
     if(D.settings.nudgeOn===false)return;
     if(myToday())return;
-    if(localStorage.getItem('mii-nudged')===today())return;
+    if(localStorage.getItem('mii-nudged')===reflectDate())return;
     if(document.getElementById('modal-bg').classList.contains('on'))return;
     if(new Date()<nudgeTimeToday())return;
     openReflect();
@@ -5390,6 +5399,8 @@ function vSetting(){
   <div class="f2"><div class="f"><label>予定がない日の時刻</label><input id="s-nudgetime" type="time" value="${esc(s.nudgeTime||'20:00')}"></div>
   <div class="f"><label>通知メールの宛先（空欄なら自分）</label><input id="s-nudgeto" value="${esc(s.nudgeTo||'')}" placeholder="example@gmail.com"></div></div>
   <div class="f"><label>みーのURL（メールのリンクに使います）</label><input id="s-appurl" value="${esc(s.appUrl||'')}"></div>
+  <div class="f"><label>「今日」の切り替え時刻</label><input id="s-cutoff" type="time" value="${esc(s.dayCutoff||'05:00')}"></div>
+  <p class="small muted">この時刻までは前日として扱います。夜勤で日付をまたいでも、帰りに「今日の振り返り」として記録できます。</p>
   <p class="small muted">アプリを開いていればみーが声をかけます。開いていなければメールが届きます（毎朝7時の自動処理で当日分を予約）。</p>
   <h2>自分は誰か</h2>
   <div class="f"><label>名簿の中から自分を選ぶ</label>
