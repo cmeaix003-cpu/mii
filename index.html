@@ -878,7 +878,7 @@ const TYPES={
   '私用':{cat:'私用',fields:['place']}
 };
 const CATS=['会議','打合せ','人','作業','移動','私用'];
-const DEFAULT_SETTINGS={gasUrl:'',myEmail:'',vip:[],exclude:[],deadlineWords:['至急','本日中','〆切','締切','までに','確認願います','ご確認ください'],calDays:30,calAuto:true,icsUrls:[],formSheetUrl:'',noteTags:['シフト','設備','人間関係','業務量','手順・ルール','待遇','感謝・良かったこと','その他'],nameAliases:{},forwardTo:'',forwardLabel:'',roomTo:'',roomCc:'',roomSubject:'【会議室のお願い】{date} {start}〜{end} 面談',roomBody:'お疲れ様です。\n\n下記のとおり面談を予定しております。会議室のご手配をお願いいたします。\n\n・日時：{date}（{dow}） {start}〜{end}\n・対象：{name} さん\n・場所：{place}\n\nお手数をおかけしますが、よろしくお願いいたします。',weeklyGoal:5,weekGoals:{},fetchDays:2};
+const DEFAULT_SETTINGS={gasUrl:'',myEmail:'',vip:[],exclude:[],deadlineWords:['至急','本日中','〆切','締切','までに','確認願います','ご確認ください'],calDays:30,calAuto:true,nudgeOn:true,nudgeTime:'20:00',nudgeTo:'',appUrl:'https://cmeaix003-cpu.github.io/mii/',icsUrls:[],formSheetUrl:'',noteTags:['シフト','設備','人間関係','業務量','手順・ルール','待遇','感謝・良かったこと','その他'],nameAliases:{},forwardTo:'',forwardLabel:'',roomTo:'',roomCc:'',roomSubject:'【会議室のお願い】{date} {start}〜{end} 面談',roomBody:'お疲れ様です。\n\n下記のとおり面談を予定しております。会議室のご手配をお願いいたします。\n\n・日時：{date}（{dow}） {start}〜{end}\n・対象：{name} さん\n・場所：{place}\n\nお手数をおかけしますが、よろしくお願いいたします。',weeklyGoal:5,weekGoals:{},fetchDays:2};
 
 let D={events:[],tasks:[],mails:[],staff:[],shifts:{},duty:{},settings:{...DEFAULT_SETTINGS},meta:{updatedAt:0}};
 let view='today', calMode='week', calAnchor=today(), peopleFilter='全', mailTab='reply', inboxTab='open', peopleDate=null;
@@ -2984,6 +2984,54 @@ function adoptRemote(remote,localSnap){
   if(merged.noteDeleted.length)merged.notes=(merged.notes||[]).filter(n=>!n.formKey||!merged.noteDeleted.includes(n.formKey));
   return merged;
 }
+
+
+/* ===== 夕方の振り返り ===== */
+function nudgeTimeToday(){
+  const t=today();
+  const [hh,mm]=String(D.settings.nudgeTime||'20:00').split(':').map(Number);
+  let when=new Date();when.setHours(hh||20,mm||0,0,0);
+  let last=null;
+  eventsOn(t).forEach(e=>{
+    if(e.cancelled||e.cat==='私用'||!e.end)return;
+    const d=new Date();const p=e.end.split(':');d.setHours(+p[0],+p[1],0,0);
+    if(!last||d>last)last=d;
+  });
+  if(last){const c=new Date(last.getTime()+15*60000);const f=new Date();f.setHours(17,0,0,0);if(c>=f)when=c}
+  return when;
+}
+function openReflect(){
+  const t=today();
+  const ev=eventsOn(t).filter(e=>!e.cancelled);
+  const doneN=ev.filter(e=>e.done).length;
+  const cur=myToday();
+  openModal('<h3>今日のご自身は、いかがでしたか</h3>'
+   +'<div class="hint">お疲れ様でございました。'+(ev.length?'本日はご予定'+ev.length+'件（済 '+doneN+'件）。':'')+'</div>'
+   +'<div class="f">'+myCondPicker()+'</div>'
+   +'<div class="f"><label>ひとこと（任意）</label><input id="rf-note" value="'+esc(cur?cur.note||'':'')+'" placeholder="よく眠れた／会議が続いた など"></div>'
+   +'<div class="f"><label>明日のこと</label><button class="btn" onclick="closeModal();openQuickModal(\'night\')">帰宅メモを書く</button></div>'
+   +'<div class="foot"><button class="btn ghost" onclick="closeModal()">あとで</button><button class="btn solid" onclick="saveReflect()">記録して閉じる</button></div>');
+  localStorage.setItem('mii-nudged',t);
+}
+function saveReflect(){
+  const cur=myToday();
+  const note=(document.getElementById('rf-note')||{}).value||'';
+  if(!cur){toast('今日の調子を1〜5で選んでください');return}
+  setMyCond(cur.v,note.trim());closeModal();toast('お疲れ様でございました');
+}
+/* アプリを開いているときの声かけ（1分ごとに確認） */
+function nudgeTick(){
+  try{
+    if(D.settings.nudgeOn===false)return;
+    if(myToday())return;
+    if(localStorage.getItem('mii-nudged')===today())return;
+    if(document.getElementById('modal-bg').classList.contains('on'))return;
+    if(new Date()<nudgeTimeToday())return;
+    openReflect();
+    if('Notification' in window&&Notification.permission==='granted')try{new Notification('みー',{body:'今日のご自身は、いかがでしたか'})}catch(e){}
+  }catch(e){}
+}
+setInterval(nudgeTick,60000);
 
 /* ===== 通信：時間がかかっても待ち、失敗したらやり直す ===== */
 async function callGas(payload,opt){
@@ -5337,6 +5385,12 @@ function vSetting(){
   <p class="small muted">投稿ボックスの通知など、Gmailのフィルタでラベルを付けたメールを最上位で拾います。転送できない場合はこちらをお使いください。</p>
   <div class="f"><label>期限を示す語句（1行に1つ）</label><textarea id="s-dw">${esc(s.deadlineWords.join('\n'))}</textarea></div>
   <div class="f2"><div class="f"><label>メール：過去何日分</label><input id="s-fd" type="number" value="${s.fetchDays}"></div><div class="f"><label>カレンダー：先何日分</label><input id="s-cd2" type="number" value="${s.calDays||30}"></div></div>
+  <h2>夕方の振り返り</h2>
+  <div class="f"><label><input type="checkbox" id="s-nudge" ${s.nudgeOn!==false?'checked':''} style="width:auto;margin-right:8px">最後の予定が終わったころ（または下の時刻）に、振り返りを促す</label></div>
+  <div class="f2"><div class="f"><label>予定がない日の時刻</label><input id="s-nudgetime" type="time" value="${esc(s.nudgeTime||'20:00')}"></div>
+  <div class="f"><label>通知メールの宛先（空欄なら自分）</label><input id="s-nudgeto" value="${esc(s.nudgeTo||'')}" placeholder="example@gmail.com"></div></div>
+  <div class="f"><label>みーのURL（メールのリンクに使います）</label><input id="s-appurl" value="${esc(s.appUrl||'')}"></div>
+  <p class="small muted">アプリを開いていればみーが声をかけます。開いていなければメールが届きます（毎朝7時の自動処理で当日分を予約）。</p>
   <h2>自分は誰か</h2>
   <div class="f"><label>名簿の中から自分を選ぶ</label>
     <select onchange="if(this.value)setSelf(this.value); else {const m=selfStaff();if(m)clearSelf(m.id)}">
@@ -5403,6 +5457,11 @@ function resetData(){if(!confirm('すべてのデータを消します。よろ�
 function openModal(html){const m=document.getElementById('modal');m.innerHTML=html;m.scrollTop=0;document.getElementById('modal-bg').classList.add('on');document.getElementById('fab').style.visibility='hidden'}
 function closeModal(){document.getElementById('modal-bg').classList.remove('on');document.getElementById('fab').style.visibility=''}
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal()});
+// 通知メールのリンクから開いたとき
+if(/[?&]ask=me\b/.test(location.search)){
+  setTimeout(()=>{if(!myToday())openReflect()},1200);
+  try{history.replaceState(null,'',location.pathname)}catch(e){}
+}
 // 画面を離れるときは、保存待ちがあればすぐに保存する
 function flushSave(){
   if(store._t){clearTimeout(store._t);store._t=null;store.local.set(D);if(D.settings.gasUrl)store._push()}
