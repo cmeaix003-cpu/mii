@@ -1295,6 +1295,14 @@ function saveNote(){
   closeModal();store.save();render();toast('お預かりしました');
 }
 
+/** 投稿の日時表示：9/14（月）22:35 */
+function fmtDT(iso){
+  if(!iso)return '';
+  const s=String(iso);
+  const d=s.slice(0,10);
+  const m=s.match(/T(\d{2}):(\d{2})/);
+  return fmtMD(d)+(m?' '+m[1]+':'+m[2]:'');
+}
 /* ========== 声のタグ付け・束ね・傾向 ========== */
 const TAG_HINTS={
   'シフト':/シフト|勤務|休み|出勤|遅番|早番|夜勤|希望|入れ|連勤|時間帯/,
@@ -1375,7 +1383,7 @@ function bundledNotesHtml(t,full){
   const show=full||isOpen('b-'+t.id,true);
   let h=`<div class="bundle" onclick="event.stopPropagation()">
     <div class="bhd" onclick="toggleFold('b-${t.id}',true)"><span class="fmark">${show?'−':'＋'}</span>束ねた声 <b>${list.length}</b>件${t.bundleTag?`<span class="pill">${esc(t.bundleTag)}</span>`:''}</div>`;
-  if(show)h+=`<div class="blist">${list.map(n=>`<div class="bitem" onclick="openNoteModal('${n.id}')"><span class="bfrom">${esc(n.from||'匿名')}</span><span class="bbody">${esc(n.body||'')}</span>${n.at?`<span class="bwhen">${fmtMD(n.at.slice(0,10)).replace(/（.）/,'')}</span>`:''}${t.status!=='done'?`<b class="bx" onclick="removeFromBundle('${n.id}','${t.id}',event)">×</b>`:''}</div>`).join('')}
+  if(show)h+=`<div class="blist">${list.map(n=>`<div class="bitem" onclick="openNoteModal('${n.id}')"><span class="bfrom">${esc(n.from||'匿名')}</span><span class="bbody">${esc(n.body||'')}</span>${n.at?`<span class="bwhen">${fmtDT(n.at).replace(/（.）/,'')}</span>`:''}${t.status!=='done'?`<b class="bx" onclick="removeFromBundle('${n.id}','${t.id}',event)">×</b>`:''}</div>`).join('')}
     ${t.status!=='done'?`<button class="btn ghost small" style="align-self:flex-start" onclick="openAddNotesToTask('${t.id}')">＋ 声を足す</button>`:''}</div>`;
   h+=`</div>`;
   return h;
@@ -1561,7 +1569,7 @@ function replyNote(id,ev){
   if(ev&&ev.stopPropagation)ev.stopPropagation();
   const n=(D.notes||[]).find(x=>x.id===id);if(!n)return;
   openModal('<h3>この声への対応</h3>'
-   +'<div class="hint">'+esc(n.from||'匿名')+(n.via?'　'+esc(n.via):'')+'</div>'
+   +'<div class="hint">'+esc(n.from||'匿名')+(n.at?'　'+esc(fmtDT(n.at)):'')+(n.via?'　'+esc(n.via):'')+'</div>'
    +'<div class="warn" style="white-space:pre-wrap">'+esc(n.body)+'</div>'
    +'<div class="f"><label>どう対応しましたか</label><textarea id="nr-t" style="min-height:90px" placeholder="例：椅子を交換した／総務に依頼した／次の朝礼で伝える">'+esc(n.reply||'')+'</textarea></div>'
    +'<div class="foot"><button class="btn ghost" onclick="closeModal()">やめる</button>'
@@ -1624,7 +1632,7 @@ function vNotes(){
       ${n.read||n.done?'':'<span class="warnpill">未読</span>'}
       ${n.tasked?'<span class="pill">案件化</span>':''}
       <span class="sp"></span>
-      <span class="nwhen">${n.at?fmtMD(n.at.slice(0,10)).replace(/（.）/,''):''}${n.via?'　'+esc(n.via):''}</span></div>
+      <span class="nwhen">${fmtDT(n.at)}${n.via?'　'+esc(n.via):''}</span></div>
     <div class="nbody">${esc(n.body||'')}</div>
     ${tagChips(n,!n.done)}
     ${n.bundleId?`<div class="small" style="margin-top:6px"><button class="btn ghost small" onclick="event.stopPropagation();openTaskModal('${n.bundleId}')">→ 束ねた案件：${esc((D.tasks.find(t=>t.id===n.bundleId)||{}).title||'')}</button></div>`:''}
@@ -2241,7 +2249,7 @@ function vToday(){
   if(pend.length)bits.push(`<div class="row person" onclick="openReport('${pend[0].id}')"><div class="t"><div class="ttl">面談の記録が${pend.length}件たまっています</div><div class="sub">最も古いのは ${fmtMD(pend[pend.length-1].date)}</div></div><div class="acts"><button class="btn person small">記録</button></div></div>`);
   if(un.length){
     bits.push(`<div class="row due"><div class="t" onclick="repTab='notes';go('report')" style="cursor:pointer"><div class="ttl">いただいた声が${un.length}件</div><div class="sub">タップしてすべて見る</div></div><div class="acts"><button class="btn small" onclick="repTab='notes';go('report')">一覧</button></div></div>`);
-    un.slice(0,3).forEach(n=>bits.push(`<div class="row" onclick="openNoteModal('${n.id}')"><div class="t"><div class="ttl">${esc(n.from||'匿名')}</div><div class="sub">${esc(String(n.body||'').slice(0,60))}${String(n.body||'').length>60?'…':''}</div></div></div>`));
+    un.slice(0,3).forEach(n=>bits.push(`<div class="row" onclick="openNoteModal('${n.id}')"><div class="t"><div class="ttl">${esc(n.from||'匿名')}<span class="pill">${esc(fmtDT(n.at).replace(/（.）/,''))}</span></div><div class="sub">${esc(String(n.body||'').slice(0,60))}${String(n.body||'').length>60?'…':''}</div></div></div>`));
     if(un.length>3)bits.push(`<div class="row" onclick="repTab='notes';go('report')"><div class="t"><div class="sub">ほか ${un.length-3}件</div></div></div>`);
   }
   if(stale)bits.push(`<div class="row" onclick="go('inbox')"><div class="t"><div class="ttl">机に${stale}件、3日以上止まっています</div><div class="sub">出口を決めてしまいましょう</div></div><div class="acts"><button class="btn small">机を見る</button></div></div>`);
