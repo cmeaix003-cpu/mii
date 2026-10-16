@@ -61,6 +61,9 @@ header .mark span{display:none}
 #savestate.ok i{background:var(--person)}
 #savestate.err i{background:var(--today)}
 #savestate.busy i{background:var(--gray)}
+header .mark{white-space:nowrap;min-width:0}
+@media(max-width:479px){#savestate>span{display:none}header .right{gap:4px}header .right .btn.small{padding-left:9px;padding-right:9px}}
+.prow b{flex-basis:7.5em}
 main{position:relative;z-index:1;padding:8px 18px calc(var(--nav) + 28px);max-width:720px;width:100%;margin:0 auto}
 
 /* nav：筐体のボタン列 */
@@ -477,6 +480,14 @@ body.nodrag-scroll{overflow:hidden;overscroll-behavior:none}
 .airow b{display:inline-block;font-size:11px;color:var(--gray);margin-right:8px;font-weight:600}
 .aibox .btn{margin:6px 6px 0 0}
 .aisub b{font-size:10px;color:var(--gray);margin-right:4px}
+.aiweek{white-space:pre-wrap;font-size:13px;line-height:1.8}
+.srout{max-height:60vh;overflow:auto}
+.srout mark{background:var(--good-bg,#e1ead0);color:inherit;padding:0 1px;border-radius:2px}
+.prep{border:2px solid var(--ink);border-radius:8px;padding:6px 12px;background:var(--panel)}
+.prow{display:flex;gap:10px;padding:7px 0;border-bottom:1px dashed var(--rule);font-size:13px;line-height:1.6}
+.prow:last-child{border-bottom:0}
+.prow b{flex:0 0 108px;font-size:11px;color:var(--gray);font-weight:600;padding-top:2px}
+.prow span{flex:1;min-width:0}
 /* 優先度 */
 .pribtn{font-family:var(--sans);font-weight:700;font-size:12px;width:24px;height:24px;border-radius:5px;border:2px solid var(--rule);background:var(--panel);color:var(--gray);margin-right:7px;vertical-align:2px;flex:none;padding:0}
 .pribtn.pA{background:var(--today);border-color:var(--today);color:#fff}
@@ -645,7 +656,7 @@ details[open] summary{margin-bottom:10px}
 <div id="app">
   <header>
     <div class="mark"><img class="mii" id="mii-hdr" alt="">しツジの「みー」さん<span id="hdr-sub"></span></div>
-    <div class="right"><span id="savestate"><i></i><span>未保存</span></span><button class="btn ghost small" onclick="go('guide')">?</button><button class="btn ghost small" onclick="go('setting')">設定</button></div>
+    <div class="right"><span id="savestate"><i></i><span>未保存</span></span><button class="btn ghost small" onclick="openSearch()" title="探す">探す</button><button class="btn ghost small" onclick="go('guide')">?</button><button class="btn ghost small" onclick="go('setting')">設定</button></div>
   </header>
   <nav>
     <button data-v="today" onclick="go('today')"><b>今</b>TODAY</button>
@@ -1173,6 +1184,7 @@ function staffScore(p){
   if(p.flag)sc+=50;
   if(window._sigMap&&window._sigMap[p.name])sc+=window._sigMap[p.name];
   { const n=(p.talk||[]).filter(x=>!x.done).length; if(n>=5)sc+=30; else if(n>=3)sc+=15; }
+  if(p.startDate){const m=[1,3,6,12,24,36,48,60].map(k=>addMonthsDay(p.startDate,k)).find(d=>d>=t&&diffDays(t,d)<=7);if(m)sc+=20}
   if(p.birthday){const b=p.birthday.slice(5);const tb=t.slice(5);const d=diffDays(t.slice(0,4)+'-'+tb,t.slice(0,4)+'-'+b);if(d>=0&&d<=7)sc+=10}
   return sc;
 }
@@ -1186,6 +1198,8 @@ function staffWhy(p){
   const c=p.conditions||[];if(c.length>=2&&c[c.length-1].v>c[c.length-2].v)w.push('コンディションが下降');
   if(p.startDate&&diffDays(p.startDate,t)<=90)w.push('就業'+diffDays(p.startDate,t)+'日目');
   if(p.flag)w.push('気になる印あり');
+  if(praiseUsed()&&p.lastContact){const lp=lastPraise(p);if(!lp||diffDays(lp,t)>60)w.push(lp?'良かったことを伝えて'+diffDays(lp,t)+'日':'良かったことを伝えた記録なし')}
+  { const m=milestonesIn(t,addDays(t,7)).find(x=>x.p.id===p.id); if(m)w.push(m.label+'（'+fmtMD(m.date)+'）'); }
   return w.join('／');
 }
 function lastCond(p){const c=p.conditions||[];return c.length?c[c.length-1].v:0}
@@ -1633,7 +1647,7 @@ function vNotes(){
   if(noteFilter&&noteFilter!=='（未分類）'&&by[noteFilter]&&by[noteFilter].open>=2){
     h+=`<div class="warn person"><b>「${esc(noteFilter)}」の声が${by[noteFilter].open}件たまっています。</b><div style="margin-top:8px"><button class="btn small" onclick="bundleNotes('${esc(noteFilter)}')">束ねて案件にする</button></div></div>`;
   }
-  h+=`<div class="toolbar"><span class="small muted">未対応 ${open.length}件　対応済み ${done.length}件</span><span class="sp"></span>${D.settings.formSheetUrl?`<button class="btn ghost small" onclick="store.fetchForm()">取り込む</button>`:''}<button class="btn small" onclick="openNoteModal()">書き留める</button></div>`;
+  h+=`<div class="toolbar"><span class="small muted">未対応 ${open.length}件　対応済み ${done.length}件</span><span class="sp"></span>${D.settings.aiOn&&open.some(n=>!n.ai)?`<button class="btn ghost small" onclick="aiNoteReadAll()">まとめて読み解く</button>`:''}${D.settings.formSheetUrl?`<button class="btn ghost small" onclick="store.fetchForm()">取り込む</button>`:''}<button class="btn small" onclick="openNoteModal()">書き留める</button></div>`;
   if(!all.length)return h+`<div class="empty">まだ何もありません。<br><span class="small">現場で聞いた一言を残しておくと、面談のときに効いてきます。</span></div>`;
   const card=n=>`<div class="notecard ${n.done?'fin':''} ${n.read||n.done?'':'unread'}">
     <div class="nhd"><span class="nfrom">${esc(n.from||'匿名')}</span>
@@ -1642,6 +1656,7 @@ function vNotes(){
       <span class="sp"></span>
       <span class="nwhen">${fmtDT(n.at)}${n.via?'　'+esc(n.via):''}</span></div>
     <div class="nbody">${esc(n.body||'')}</div>
+    ${aiNoteHtml(n)}
     ${tagChips(n,!n.done)}
     ${n.bundleId?`<div class="small" style="margin-top:6px"><button class="btn ghost small" onclick="event.stopPropagation();openTaskModal('${n.bundleId}')">→ 束ねた案件：${esc((D.tasks.find(t=>t.id===n.bundleId)||{}).title||'')}</button></div>`:''}
     ${n.reply?`<div class="nreply"><b>対応</b>　${esc(n.reply)}</div>`:''}
@@ -2236,6 +2251,16 @@ function vToday(){
   }).join('');
   else h+=`<div class="empty">本日中の案件はありません。</div>`;
 
+  // この1週間の節目
+  {
+    const ms=milestonesIn(t,addDays(t,7));
+    if(ms.length){
+      h+=`<h2>この1週間の節目</h2>`;
+      ms.slice(0,6).forEach(m=>{
+        h+=`<div class="row person" onclick="openStaffDetail('${m.p.id}')"><div class="time">${fmtMD(m.date).replace(/（.）/,'')}</div><div class="t"><div class="ttl">${esc(m.p.name)}</div><div class="sub">${esc(m.label)}</div></div><div class="acts" onclick="event.stopPropagation()"><button class="btn ghost small" onclick="msToTalk('${m.p.id}','${esc(m.label).replace(/'/g,'')}')">話したいことに</button></div></div>`;
+      });
+    }
+  }
   // 明日の面談の準備
   {
     const tm=addDays(t,1);
@@ -2246,7 +2271,7 @@ function vToday(){
         const p=D.staff.find(x=>x.id===e.staffId)||(e.staffName?resolveStaff(e.staffName):null);
         const items=[...themeList(e).filter(x=>!x.done).map(x=>x.t),...(p?talkOpen(p).map(x=>x.t):[])];
         const uniq=[...new Set(items)];
-        h+=`<div class="row person" onclick="${p?`openStaffDetail('${p.id}')`:''}"><div class="time">${e.start||''}</div><div class="t"><div class="ttl">${esc(e.title)}</div><div class="sub">${uniq.length?uniq.slice(0,4).map(esc).join('／')+(uniq.length>4?'　ほか'+(uniq.length-4)+'件':''):'話すことはまだ決まっていません'}</div></div></div>`;
+        h+=`<div class="row person" onclick="${p?`openPrep('${p.id}')`:''}"><div class="time">${e.start||''}</div><div class="t"><div class="ttl">${esc(e.title)}</div><div class="sub">${uniq.length?uniq.slice(0,4).map(esc).join('／')+(uniq.length>4?'　ほか'+(uniq.length-4)+'件':''):'話すことはまだ決まっていません'}</div></div></div>`;
       });
     }
   }
@@ -2316,6 +2341,7 @@ function vInbox(){
   if(priFilter)open=open.filter(t=>taskPri(t)===priFilter);
   const deleg=D.tasks.filter(t=>t.status==='delegated');
   let h=`<h1>DESK</h1><p class="muted small">みーの机。出口は3つだけで、「後で」はありません。</p>`;
+  if(D.settings.aiOn)h+=`<div class="toolbar" style="margin-bottom:6px"><span class="sp"></span><button class="btn ghost small" onclick="openMinutes()">議事録からToDo</button></div>`;
   h+=`<div class="tabs"><button class="${inboxTab==='open'?'on':''}" onclick="inboxTab='open';render()">未処理<span class="n">${open.length}</span></button><button class="${inboxTab==='deleg'?'on':''}" onclick="inboxTab='deleg';render()">依頼中<span class="n">${deleg.length}</span></button></div>`;
   if(inboxTab==='open'){
     if(all.length)h+=`<div class="toolbar"><div class="seg pri"><button class="${!priFilter?'on':''}" onclick="priFilter='';render()">全部 ${all.length}</button><button class="pA ${priFilter==='A'?'on':''}" onclick="priFilter='A';render()">急 ${cnt.A}</button><button class="pB ${priFilter==='B'?'on':''}" onclick="priFilter='B';render()">普 ${cnt.B}</button><button class="pC ${priFilter==='C'?'on':''}" onclick="priFilter='C';render()">後 ${cnt.C}</button></div></div>`;
@@ -2533,10 +2559,11 @@ function openEventModal(e){
   ${(!isNew&&evSteps(e).length)?`<div class="f"><label>手順（タップで済／未を切り替え）</label><div id="ev-stlist">${evStepsHtml(e,true)}</div></div>`:''}
   <div class="f"><label>${(!isNew&&evSteps(e).length)?'手順を書き換える':'手順（1行に1つ・任意）'}</label><textarea id="ev-steps" style="min-height:70px" placeholder="資料を印刷する&#10;前回の議事録を確認">${esc(evSteps(e).map(x=>x.t).join('\n'))}</textarea>
   ${(!isNew&&extractChecks(e.memo||'').length)?`<div style="margin-top:6px"><button class="btn ghost small" onclick="useMemoChecks('${e.id}')">メモの中のリスト${extractChecks(e.memo||'').length}件を取り込む</button></div>`:''}</div>
+  ${(!isNew&&e.decisions&&e.decisions.length)?`<div class="f"><label>決定事項</label><div class="warn" style="white-space:pre-wrap">${e.decisions.map(d=>'・'+esc(d)).join('\n')}</div></div>`:''}
   <div id="ev-warn"></div>
   ${(!isNew&&e.cancelled&&e.cancelBy==='self')?`<div class="warn"><b>キャンセル</b>：${esc(e.cancelReason||'')}　<button class="btn ghost small" onclick="uncancel('${e.id}');closeModal()">戻す</button></div>`:''}
   ${(!isNew&&e.cancelled&&e.cancelBy!=='self')?`<div class="warn"><b>カレンダー側で消えています</b>（${e.cancelledAt?fmtMD(e.cancelledAt.slice(0,10)):''}に確認）<br>記録として残しています。<button class="btn ghost small" style="margin-top:6px" onclick="uncancel('${e.id}');closeModal()">取り消しを解除</button></div>`:''}
-  <div class="foot">${isNew?'':`<button class="btn ghost" onclick="openCancelEvent('${e.id}','delete')">削除</button><button class="btn ghost" onclick="openCancelEvent('${e.id}','cancel')">キャンセル</button><button class="btn ghost" onclick="openReschedule('event','${e.id}')">組み直す</button>`}<button class="btn ghost" onclick="closeModal()">やめる</button><button class="btn solid" onclick="saveEvent('${e.id||''}','${e.taskId||''}')">${isNew?'登録':'保存'}</button></div>
+  <div class="foot">${isNew?'':`<button class="btn ghost" onclick="openCancelEvent('${e.id}','delete')">削除</button><button class="btn ghost" onclick="openCancelEvent('${e.id}','cancel')">キャンセル</button><button class="btn ghost" onclick="openReschedule('event','${e.id}')">組み直す</button>${(e.cat==='会議'||e.cat==='打合せ')&&D.settings.aiOn?`<button class="btn ghost" onclick="openMinutes('${e.id}')">議事録からToDo</button>`:''}${e.cat==='人'&&(e.staffId||e.staffName)?`<button class="btn ghost person" onclick="openPrep('${e.staffId||((resolveStaff(e.staffName)||{}).id||'')}')">面談前の一枚</button>`:''}`}<button class="btn ghost" onclick="closeModal()">やめる</button><button class="btn solid" onclick="saveEvent('${e.id||''}','${e.taskId||''}')">${isNew?'登録':'保存'}</button></div>
   <datalist id="staff-list">${staffOpts}</datalist>`);
   window._evExtra=e;evTypeChange();
   const es=document.getElementById('ev-start'),ee=document.getElementById('ev-end');
@@ -2889,6 +2916,8 @@ function openStaffDetail(id){
   <div class="small muted" style="margin:-4px 0 8px">${photoOf(id)?`<button class="btn ghost small" onclick="pickPhoto('${id}')">写真を変える</button> <button class="btn ghost small" onclick="delPhoto('${id}')">写真を消す</button>`:`<button class="btn ghost small" onclick="pickPhoto('${id}')">顔写真を登録</button>`}　<span style="font-size:11px">写真はこの端末にだけ保存され、シートには送られません</span></div>
   <div class="hint">${p.dept?esc(p.dept)+'　':''}就業 ${p.startDate||'未登録'}　${p.renewalDate?'次回更新 '+p.renewalDate+'（'+(p.cycleMonths||'?')+'か月）':''}</div>
   ${staffWhy(p)?`<div class="warn person">${esc(staffWhy(p))}</div>`:''}
+  ${(()=>{const m=nextMilestone(p);const lp=lastPraise(p);
+    return `<div class="small muted" style="margin:-2px 0 8px">${m?'次の節目：<b>'+esc(m.label)+'</b>（'+fmtMD(m.date)+'）　':''}${lp?'良かったことを伝えた：'+fmtMD(lp):''}</div>`})()}
   ${(()=>{const s=(shiftSignals()||[]).find(x=>x.p.id===id);return s?`<div class="warn"><b>勤務の変化</b><br>${s.reasons.map(esc).join('<br>')}</div>`:''})()}
   ${(()=>{const o=delegStats(89).by[p.name];if(!o)return '';
     return `<div class="warn person"><b>お任せした案件 ${o.n}件</b>（完了${o.done}${o.onTime!==null?'・期限内'+o.onTime+'％':''}）</div>`})()}
@@ -2904,7 +2933,7 @@ function openStaffDetail(id){
   ${p.homework?`<div class="warn">前回の宿題：${esc(p.homework)}</div>`:''}
   ${isActive(p)?'':`<div class="warn"><b>退職として記録されています</b>（${esc(p.retiredAt||'')}）<br>集計や提案の対象から外れています。</div>`}
   ${isSelf(p)?`<div class="warn"><b>「自分」として登録されています</b><br>面談の提案や、話せていない人の集計からは外れます。勤務表の出勤者には表示されます。</div>`:''}
-  <div class="foot">${isSelf(p)?`<button class="btn ghost" onclick="clearSelf('${id}');closeModal()">自分の登録を外す</button>`:`<button class="btn ghost" onclick="setSelf('${id}');closeModal()">自分として登録</button>`}${isActive(p)?`<button class="btn ghost" onclick="askRetire('${id}')">退職として記録</button>`:`<button class="btn ghost" onclick="setReturned('${id}');closeModal()">在籍に戻す</button>`}<button class="btn ghost" onclick="openStaffModal('${id}')">情報を編集</button><button class="btn ghost" onclick="toggleFlag('${id}')">${p.flag?'気になる印を外す':'気になる印'}</button><button class="btn solid" onclick="logContact('${id}')">記録する</button></div>
+  <div class="foot">${isSelf(p)?`<button class="btn ghost" onclick="clearSelf('${id}');closeModal()">自分の登録を外す</button>`:`<button class="btn ghost" onclick="setSelf('${id}');closeModal()">自分として登録</button>`}${isActive(p)?`<button class="btn ghost" onclick="askRetire('${id}')">退職として記録</button>`:`<button class="btn ghost" onclick="setReturned('${id}');closeModal()">在籍に戻す</button>`}<button class="btn ghost" onclick="openStaffModal('${id}')">情報を編集</button><button class="btn ghost" onclick="toggleFlag('${id}')">${p.flag?'気になる印を外す':'気になる印'}</button><button class="btn ghost person" onclick="openPrep('${id}')">面談前の一枚</button><button class="btn person" onclick="closeModal();openPraise('${id}')">良かったことを伝えた</button><button class="btn solid" onclick="logContact('${id}')">記録する</button></div>
   ${(p.conditions||[]).length>=2?`<h2>コンディションの推移</h2><div class="sparkbig">${condSpark(p,280,72)}<div class="sparkax"><span>良好</span><span>要注意</span></div></div>`:''}
   ${(()=>{const ns=notesOf(id,p.name).slice(0,3);if(!ns.length)return '';return `<h2>いただいた声</h2>`+ns.map(n=>`<div class="row" onclick="closeModal();openNoteModal('${n.id}')"><div class="time">${n.at?fmtMD(n.at.slice(0,10)).replace(/（.）/,''):''}</div><div class="t"><div class="ttl">${esc(n.body.slice(0,40))}${n.body.length>40?'…':''}</div></div></div>`).join('')})()}
   ${(()=>{const ms=meetingsOf(id).slice(0,6);if(!ms.length)return '';return `<h2>面談の記録</h2>`+ms.map(e=>`<div class="row" onclick="openReport('${e.id}')"><div class="time">${fmtMD(e.date).replace(/（.）/,'')}</div><div class="t"><div class="ttl">${e.report?esc(e.report.slice(0,40))+(e.report.length>40?'…':''):'<span class="muted">未記録</span>'}</div><div class="sub">${e.theme?'テーマ：'+esc(e.theme):''}${e.nextTask?'　→ '+esc(e.nextTask.slice(0,30)):''}</div></div></div>`).join('')})()}
@@ -3046,6 +3075,7 @@ function adoptRemote(remote,localSnap){
     if(ln.tags&&ln.tags.length&&!(n.tags&&n.tags.length))n.tags=ln.tags.slice();
     if(ln.bundleId&&!n.bundleId)n.bundleId=ln.bundleId;
     if(ln.tasked&&!n.tasked)n.tasked=true;
+    if(ln.ai&&!n.ai)n.ai=ln.ai;
   });
   // メール：こちらで取った要約・出口を引き継ぐ
   const localMails=(l&&l.mails)||[];
@@ -3068,6 +3098,7 @@ function adoptRemote(remote,localSnap){
   const localStaff=(l&&l.staff)||[];
   (merged.staff||[]).forEach(p=>{
     const lp=localStaff.find(x=>x.id===p.id);
+    if(lp&&lp.praise){p.praise=p.praise||[];lp.praise.forEach(x=>{if(!p.praise.some(y=>y.d===x.d&&y.t===x.t&&String(y.k)===String(x.k)))p.praise.push(x)});p.praise.sort((a,b)=>a.d.localeCompare(b.d))}
     if(!lp||!lp.talk)return;
     p.talk=p.talk||[];
     lp.talk.forEach(lt=>{
@@ -3077,6 +3108,8 @@ function adoptRemote(remote,localSnap){
       else if(lt.t!==x.t&&lt.at===x.at)x.t=lt.t;
     });
   });
+  {const ld=(l&&l.decisions)||[];merged.decisions=[...(remote.decisions||[])];ld.forEach(d=>{if(!merged.decisions.some(x=>x.id===d.id))merged.decisions.push(d)})}
+  merged.weekNotes={...((l&&l.weekNotes)||{}),...(remote.weekNotes||{})};
   merged.eventDeleted=[...new Set([...((l&&l.eventDeleted)||[]),...(remote.eventDeleted||[])])];
   merged.noteDeleted=[...new Set([...((l&&l.noteDeleted)||[]),...(remote.noteDeleted||[])])];
   merged.eventSeen=[...new Set([...((l&&l.eventSeen)||[]),...(remote.eventSeen||[])])];
@@ -3742,7 +3775,19 @@ function meetingStats(from,to){
   });
   return {byKind,byName,total,count:evs.length};
 }
+function vPraiseBias(){
+  if(!praiseUsed())return `<h2>良かったことを伝えた記録</h2><div class="empty small">まだ記録がありません。スタッフの詳細の「伝えた」から残せます。</div>`;
+  const t=today();const from=addDays(t,-59);
+  const n60=D.staff.reduce((s,p)=>s+praiseList(p).filter(x=>x.d>=from).length,0);
+  const gaps=praiseGaps(60);const talked=gaps.filter(x=>x.talked);
+  let h=`<h2>良かったことを伝えた記録（60日）</h2><div class="condbox"><div class="cnums"><div><b>${n60}</b><span>伝えた回数</span></div><div><b>${targetStaff().length-gaps.length}</b><span>伝えられた人</span></div><div><b>${talked.length}</b><span>話したのに未伝達</span></div></div></div>`;
+  if(talked.length)h+=`<p class="small muted">この60日、話してはいるのに良かったことを伝えていない人です。</p>`+talked.slice(0,8).map(x=>`<div class="row person" onclick="openPraise('${x.p.id}')"><div class="t"><div class="ttl">${esc(x.p.name)}<span class="pill">${esc(x.p.kind)}</span></div><div class="sub">${x.lp?'前回 '+fmtMD(x.lp):'まだ一度も記録なし'}</div></div><div class="acts"><button class="btn ghost small">伝えた</button></div></div>`).join('');
+  return h;
+}
 function vBias(){
+  return vBias0()+vPraiseBias();
+}
+function vBias0(){
   const to=today(),from=addDays(to,-29);
   const s=meetingStats(from,to);
   let h=`<h2>この30日の偏り</h2>`;
@@ -3838,6 +3883,11 @@ function vReview(){
     <div><b>${b.met}</b><span>話せた人数 ${arrow(b.met,a.met)}</span></div>
     </div></div>`;
   if(a.mt&&a.reported<a.mt)h+=`<div class="warn">先週の面談${a.mt}件のうち、${a.mt-a.reported}件が未記録です。</div>`;
+  if(D.settings.aiOn||(D.weekNotes||{})[a.ws]){
+    const wn=(D.weekNotes||{})[a.ws];
+    h+=`<h2>みーのふりかえり</h2><div id="aiweek">${wn?`<div class="aibox"><div class="ailabel">${fmtMD(a.ws)}〜の週</div><div class="aiweek">${esc(wn.text)}</div></div>`:''}
+      ${D.settings.aiOn?`<button class="btn ${wn?'ghost':''} small" onclick="aiWeekWrite('${a.ws}')">${wn?'書き直してもらう':'みーに文章でまとめてもらう'}</button>`:''}</div>`;
+  }
   return h;
 }
 
@@ -4279,6 +4329,10 @@ const GUIDE=[
    {t:'いまの状態',d:'人・捌き・返信・余裕の4つと、先週との比較',go:"repTab='status';go('report')"},
    {t:'自分のこと',d:'コンディションの記録、連続勤務、私用の時間',go:"repTab='me';go('report')"},
    {t:'先週のふりかえり',d:'人に使えた時間、片付けた案件、会議の量',go:"repTab='review';go('report')"},
+   {t:'探す',d:'面談記録・話したいこと・声・案件・決定事項をまたいで探す',go:"openSearch()"},
+   {t:'面談前の一枚',d:'話したいこと・前回の課題・節目など、事実だけを1枚に',go:"go('people')"},
+   {t:'議事録からToDo',d:'会議のメモを貼ると、担当・期限つきの案件に分ける（AI）',go:"go('inbox')"},
+   {t:'引き継ぎメモ',d:'休む・異動するときに状況を1枚にまとめる',go:"openHandover()"},
    {t:'やめられそうなこと',d:'成果の出ていない会議、放置された案件を名指し',go:"repTab='sub';go('report')"},
    {t:'沈黙の分布',d:'誰と何日話せていないか、全体の偏りを一枚で',go:"repTab='silence';go('report')"},
    {t:'勤務からの予兆',d:'出勤が減った人、シフトが変わった人に気づく',go:"repTab='signal';go('report')"},
@@ -4377,6 +4431,8 @@ function openQuickTalk(pid){
    +'<div class="f"><textarea id="qt-t" style="min-height:70px" placeholder="1行に1つ。例：シフトの件を聞く"></textarea></div>'
    +'<div class="foot"><button class="btn ghost" onclick="closeModal()">やめる</button>'
    +'<button class="btn ghost" onclick="closeModal();openStaffDetail(\''+pid+'\')">詳細を開く</button>'
+   +'<button class="btn ghost person" onclick="closeModal();openPraise(\''+pid+'\')">伝えた</button>'
+   +'<button class="btn ghost person" onclick="closeModal();openPraise(\''+pid+'\')">伝えた</button>'
    +'<button class="btn solid" onclick="doQuickTalk(\''+pid+'\')">足す</button></div>');
   setTimeout(()=>{const e=document.getElementById('qt-t');if(e)e.focus()},50);
 }
@@ -4407,6 +4463,329 @@ function bindTalkLongPress(){
     if(el._lp)return;el._lp=true;
     bindLongPress(el,()=>openQuickTalk(el.dataset.talkPid));
   });
+}
+
+
+/* ========== 承認の記録（良かったことを伝えた） ========== */
+const PRAISE_CHIPS=['仕事ぶり','助けてもらった','成長','気配り','頑張り'];
+function praiseList(p){return (p&&p.praise)||[]}
+function lastPraise(p){const a=praiseList(p);return a.length?a[a.length-1].d:''}
+function praiseUsed(){return D.staff.some(p=>praiseList(p).length)}
+function openPraise(pid){
+  const p=D.staff.find(x=>x.id===pid);if(!p)return;
+  const lp=lastPraise(p);
+  openModal('<h3>'+esc(p.name)+'さんに伝えた</h3>'
+   +'<div class="hint">褒めた・感謝を伝えたことを残します。'+(lp?'前回：'+fmtMD(lp):'まだ記録がありません')+'</div>'
+   +'<div class="f"><label>どんなことを（任意）</label><div class="rsreason">'+PRAISE_CHIPS.map(c=>'<button class="btn ghost small" onclick="this.classList.toggle(\'on\')">'+c+'</button>').join('')+'</div></div>'
+   +'<div class="f"><label>ひとこと（任意）</label><input id="pr-note" placeholder="例：急な代わりを引き受けてくれた"></div>'
+   +'<div class="foot"><button class="btn ghost" onclick="closeModal()">やめる</button><button class="btn solid" onclick="savePraise(\''+pid+'\')">記録する</button></div>');
+}
+function savePraise(pid){
+  const p=D.staff.find(x=>x.id===pid);if(!p)return;
+  const kinds=[...document.querySelectorAll('.rsreason .btn.on')].map(b=>b.textContent);
+  const note=(document.getElementById('pr-note')||{}).value||'';
+  p.praise=p.praise||[];
+  p.praise.push({d:today(),k:kinds,t:note.trim()});
+  p.lastContact=today();
+  closeModal();store.save();render();toast(p.name+'さんへの一言、残しました');
+}
+/* 伝えられていない人：話してはいるのに、良かったことを伝えていない */
+function praiseGaps(days){
+  days=days||60;const t=today();
+  return targetStaff().map(p=>{
+    const lp=lastPraise(p);const gap=lp?diffDays(lp,t):null;
+    return {p,lp,gap,talked:!!p.lastContact&&diffDays(p.lastContact,t)<=days};
+  }).filter(x=>x.gap===null||x.gap>days).sort((a,b)=>(b.talked-a.talked)||((b.gap??9999)-(a.gap??9999)));
+}
+
+/* ========== 節目の先回り ========== */
+/** 日付を保ったままnか月後（月末は丸める） */
+function addMonthsDay(s,n){
+  const y=+s.slice(0,4),m=+s.slice(5,7)-1,d=+s.slice(8,10);
+  const t=new Date(y,m+n,1);const last=new Date(t.getFullYear(),t.getMonth()+1,0).getDate();
+  t.setDate(Math.min(d,last));return ymd(t);
+}
+function milestonesIn(from,to){
+  const out=[];
+  targetStaff().forEach(p=>{
+    if(p.startDate){
+      [[1,'就業1か月'],[3,'就業3か月'],[6,'就業半年']].forEach(([m,l])=>{const d=addMonthsDay(p.startDate,m);if(d>=from&&d<=to)out.push({p,date:d,label:l,kind:'start'})});
+      for(let y=1;y<=40;y++){const d=addMonthsDay(p.startDate,12*y);if(d>to)break;if(d>=from)out.push({p,date:d,label:'就業'+y+'年',kind:'start'})}
+    }
+    if(p.renewalDate){
+      const pre=addDays(p.renewalDate,-30);
+      if(pre>=from&&pre<=to)out.push({p,date:pre,label:'契約更新の1か月前（'+fmtMD(p.renewalDate).replace(/（.）/,'')+'更新）',kind:'renew'});
+    }
+  });
+  return out.sort((a,b)=>a.date.localeCompare(b.date));
+}
+function nextMilestone(p){
+  const t=today();const l=milestonesIn(t,addDays(t,400)).filter(x=>x.p.id===p.id);
+  return l[0]||null;
+}
+function msToTalk(pid,label){addTalk(pid,label+'の一言',"節目");render();toast('話したいことに足しました')}
+
+/* ========== AI：声の読み解き ========== */
+async function aiNoteRead(id,quiet){
+  const n=(D.notes||[]).find(x=>x.id===id);if(!n)return false;
+  if(!D.settings.aiOn){if(!quiet)toast('設定で「AIを使う」をオンにしてください');return false}
+  if(!quiet){const b=document.getElementById('nai-'+id);if(b)b.innerHTML='<span class="small muted">読み解いています…</span>'}
+  try{
+    const j=await callGas({action:'aiNote',noteId:id,noteBody:n.body||''},{tries:1,timeout:90000});
+    if(!j.ok)throw new Error(j.error||'失敗');
+    n.ai=j.ai;store.save();if(!quiet)render();return true;
+  }catch(e){if(!quiet)toast('読み解けませんでした：'+e.message);return false}
+}
+async function aiNoteReadAll(){
+  const list=(D.notes||[]).filter(n=>!n.done&&!n.ai).slice(0,10);
+  if(!list.length){toast('読み解いていない声はありません');return}
+  let ok=0;
+  for(let i=0;i<list.length;i++){setSave('busy','読み解き '+(i+1)+'/'+list.length);if(await aiNoteRead(list[i].id,true))ok++}
+  setSave('ok','読み解き完了');render();toast(ok+'件を読み解きました');
+}
+function aiAdoptTags(id,ev){
+  if(ev&&ev.stopPropagation)ev.stopPropagation();
+  const n=(D.notes||[]).find(x=>x.id===id);if(!n||!n.ai)return;
+  n.tags=[...new Set([...(n.tags||[]),...(n.ai.tags||[])])];store.save();render();
+}
+function aiNoteHtml(n){
+  if(!n.ai)return D.settings.aiOn&&!n.done?`<div id="nai-${n.id}" style="margin-top:6px"><button class="btn ghost small" onclick="aiNoteRead('${n.id}')">みーに読み解いてもらう</button></div>`:'';
+  const a=n.ai;const notAdopted=(a.tags||[]).some(t=>!(n.tags||[]).includes(t));
+  return `<div class="aibox" id="nai-${n.id}">
+    <div class="ailabel">みーの読み解き${a.urgent?'　<span class="warnpill">急ぎの対応を</span>':''}</div>
+    <div class="airow"><b>表面</b>${esc(a.surface)}</div>
+    <div class="airow"><b>根っこ</b>${esc(a.root)}</div>
+    <div class="airow"><b>次の一手</b>${esc(a.next)}</div>
+    ${notAdopted&&a.tags.length?`<button class="btn ghost xs" onclick="aiAdoptTags('${n.id}',event)">タグ「${a.tags.map(esc).join('・')}」を付ける</button>`:''}
+  </div>`;
+}
+
+/* ========== AI：週の振り返り文 ========== */
+function weekDigest(ws){
+  const we=addDays(ws,6);const a=weekReview(ws);
+  const L=[];
+  L.push('期間：'+ws+'〜'+we);
+  L.push('人に使えた時間：'+a.hrs.toFixed(1)+'時間（目標'+a.goal+'時間）');
+  L.push('話せた人数：'+a.met+'名／面談'+a.mt+'件（記録済み'+a.reported+'件）');
+  L.push('会議：'+a.meetN+'件、'+a.mh.toFixed(1)+'時間');
+  L.push('片付けた案件：'+a.doneT+'件／人に振っている案件：'+a.deleg+'件／3日以上止まっている案件：'+a.stale+'件');
+  const ml=(D.me&&D.me.log||[]).filter(x=>x.d>=ws&&x.d<=we);
+  if(ml.length)L.push('自分のコンディション（1=絶好調〜5=限界）：'+ml.map(x=>x.d.slice(5)+'='+x.v+(x.note?'（'+x.note+'）':'')).join('、'));
+  const cx=(D.cancels||[]).filter(x=>(x.at||'').slice(0,10)>=ws&&(x.at||'').slice(0,10)<=we);
+  if(cx.length)L.push('取りやめた予定：'+cx.map(x=>(x.kind==='delete'?'削除':'キャンセル')+'「'+x.reason+'」').join('、'));
+  const ns=(D.notes||[]).filter(n=>(n.at||'').slice(0,10)>=ws&&(n.at||'').slice(0,10)<=we);
+  if(ns.length){const by={};ns.forEach(n=>(n.tags&&n.tags.length?n.tags:['未分類']).forEach(t=>by[t]=(by[t]||0)+1));L.push('届いた声：'+ns.length+'件（'+Object.keys(by).map(k=>k+' '+by[k]).join('、')+'）')}
+  const pr=D.staff.reduce((s,p)=>s+praiseList(p).filter(x=>x.d>=ws&&x.d<=we).length,0);
+  if(praiseUsed())L.push('良かったことを伝えた回数：'+pr+'回');
+  const gaps=targetStaff().filter(p=>{const g=diffDays(p.lastContact||p.startDate||today(),today());return g>(p.contactDays||KIND_DAYS[p.kind]||90)}).length;
+  L.push('しばらく話せていない人：'+gaps+'名（全'+targetStaff().length+'名中）');
+  return L.join('\n');
+}
+async function aiWeekWrite(ws){
+  if(!D.settings.aiOn){toast('設定で「AIを使う」をオンにしてください');return}
+  const box=document.getElementById('aiweek');if(box)box.innerHTML='<div class="small muted">文章にしています…</div>';
+  try{
+    const j=await callGas({action:'aiWeek',digest:weekDigest(ws)},{tries:1,timeout:90000});
+    if(!j.ok)throw new Error(j.error||'失敗');
+    D.weekNotes=D.weekNotes||{};D.weekNotes[ws]={text:j.text,at:new Date().toISOString()};
+    store.save();render();
+  }catch(e){if(box)box.innerHTML='<div class="warn">まとめられませんでした：'+esc(e.message)+'</div>'}
+}
+
+
+/* ========== 探す（面談記録・話したいこと・声・案件をまたいで） ========== */
+function openSearch(q){
+  openModal(`<h3>探す</h3>
+  <div class="f"><input id="sr-q" value="${esc(q||'')}" placeholder="言葉や名前で探す（例：残業／三輪）" oninput="runSearch()" onkeydown="if(event.key==='Enter')event.preventDefault()"></div>
+  <div id="sr-out" class="srout"></div>
+  <div class="foot"><button class="btn ghost" onclick="closeModal()">閉じる</button></div>`);
+  setTimeout(()=>{const e=document.getElementById('sr-q');if(e){e.focus();if(q)runSearch()}},50);
+}
+function searchAll(q){
+  q=String(q||'').trim();if(q.length<1)return [];
+  const words=q.split(/[\s　]+/).filter(Boolean).map(w=>w.toLowerCase());
+  const hit=s=>{const t=String(s||'').toLowerCase();return words.every(w=>t.includes(w))};
+  const out=[];
+  // 面談記録
+  D.events.filter(e=>e.cat==='人').forEach(e=>{
+    const txt=[e.title,e.staffName,e.theme,e.report,e.nextTask,(themeList(e)||[]).map(x=>x.t).join(' ')].join(' ');
+    if(hit(txt))out.push({k:'面談',date:e.date,ttl:(e.staffName||e.title)+'との面談',sub:e.report||e.theme||'',open:`openReport('${e.id}')`});
+  });
+  // 話したいこと・伝えた記録・コンディションのメモ
+  D.staff.forEach(p=>{
+    (p.talk||[]).forEach(x=>{if(hit(p.name+' '+x.t))out.push({k:x.done?'話した':'話したいこと',date:(x.doneAt||x.at||'').slice(0,10),ttl:p.name,sub:x.t,open:`openStaffDetail('${p.id}')`})});
+    (p.praise||[]).forEach(x=>{const s=(x.k||[]).join('・')+(x.t?'　'+x.t:'');if(hit(p.name+' 伝えた '+s))out.push({k:'伝えた',date:x.d,ttl:p.name,sub:s||'良かったことを伝えた',open:`openStaffDetail('${p.id}')`})});
+    (p.conditions||[]).forEach(c=>{if(c.note&&hit(p.name+' '+c.note))out.push({k:'記録',date:c.d,ttl:p.name,sub:c.note,open:`openStaffDetail('${p.id}')`})});
+    if(p.homework&&hit(p.name+' '+p.homework))out.push({k:'宿題',date:'',ttl:p.name,sub:p.homework,open:`openStaffDetail('${p.id}')`});
+  });
+  // 声
+  (D.notes||[]).forEach(n=>{if(hit([n.from,n.body,n.reply,(n.tags||[]).join(' ')].join(' ')))out.push({k:'声',date:(n.at||'').slice(0,10),ttl:n.from||'匿名',sub:n.body,open:`repTab='notes';go('report')`})});
+  // 案件
+  D.tasks.forEach(t=>{if(hit([t.title,t.memo,t.assignee,(t.steps||[]).map(s=>s.t).join(' ')].join(' ')))out.push({k:t.status==='done'?'案件（済）':t.status==='delegated'?'依頼中':'案件',date:(t.doneAt||t.createdAt||'').slice(0,10),ttl:t.title,sub:t.memo||'',open:`openTaskModal('${t.id}')`})});
+  // 会議の決定事項
+  D.events.filter(e=>e.decisions&&e.decisions.length).forEach(e=>{e.decisions.forEach(d=>{if(hit(e.title+' '+d))out.push({k:'決定事項',date:e.date,ttl:e.title,sub:d,open:`openEventModal(D.events.find(x=>x.id==='${e.id}'))`})})});
+  (D.decisions||[]).forEach(d=>{if(hit(d.src+' '+d.t))out.push({k:'決定事項',date:d.d,ttl:d.src||'議事録',sub:d.t,open:''})});
+  return out.sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+}
+function runSearch(){
+  const q=(document.getElementById('sr-q')||{}).value||'';
+  const box=document.getElementById('sr-out');if(!box)return;
+  if(!q.trim()){box.innerHTML='<div class="small muted">面談記録・話したいこと・伝えた記録・声・案件・決定事項から探します。言葉を空白で区切ると、すべてを含むものに絞れます。</div>';return}
+  const r=searchAll(q);
+  const mark=s=>{let t=esc(String(s||'').slice(0,90));q.split(/[\s　]+/).filter(Boolean).forEach(w=>{const ew=esc(w).replace(/[.*+?^${}()|[\]\\]/g,'\\$&');t=t.replace(new RegExp(ew,'gi'),m=>'<mark>'+m+'</mark>')});return t};
+  box.innerHTML=r.length?`<div class="small muted" style="margin-bottom:6px">${r.length}件</div>`+r.slice(0,60).map(x=>`<div class="row" ${x.open?`onclick="closeModal();${x.open.replace(/"/g,'&quot;')}"`:''}><div class="time">${x.date?fmtMD(x.date).replace(/（.）/,''):''}</div><div class="t"><div class="ttl"><span class="pill">${esc(x.k)}</span>${mark(x.ttl)}</div>${x.sub?`<div class="sub">${mark(x.sub)}</div>`:''}</div></div>`).join(''):'<div class="empty small">見つかりませんでした。</div>';
+}
+
+/* ========== 引き継ぎメモ ========== */
+function handoverText(opt){
+  opt=opt||{};const t=today();const L=[];
+  L.push('■ 引き継ぎメモ（'+fmtMD(t)+' 作成）');
+  if(opt.from||opt.to)L.push('期間：'+(opt.from?fmtMD(opt.from):'')+'〜'+(opt.to?fmtMD(opt.to):''));
+  if(opt.note)L.push('ひとこと：'+opt.note);
+  L.push('');
+  // 依頼中
+  const dg=D.tasks.filter(x=>x.status==='delegated');
+  L.push('【人に任せている案件】'+(dg.length?'':'なし'));
+  dg.forEach(x=>L.push('・'+x.title+'　→ '+(x.assignee||'')+(x.due?'（期限 '+fmtMD(x.due)+'）':'')));
+  L.push('');
+  // 未処理の案件
+  const pr={A:0,B:1,C:2};
+  const op=openTasks().slice().sort((a,b)=>pr[taskPri(a)]-pr[taskPri(b)]||(a.due||'9').localeCompare(b.due||'9'));
+  L.push('【手元の案件】'+(op.length?op.length+'件':'なし'));
+  op.forEach(x=>{
+    L.push('・['+PRI_LABEL[taskPri(x)]+'] '+x.title+(x.due?'（期限 '+fmtMD(x.due)+'）':''));
+    const st=(x.steps||[]).filter(s=>!s.done);if(st.length)L.push('　　残りの手順：'+st.map(s=>s.t).join('／'));
+  });
+  L.push('');
+  // 予定
+  const to=opt.to||addDays(t,14);
+  const ev=D.events.filter(e=>e.date>=t&&e.date<=to&&!e.cancelled&&!e.done&&e.cat!=='私用').sort((a,b)=>(a.date+(a.start||'')).localeCompare(b.date+(b.start||'')));
+  L.push('【この先の予定（'+fmtMD(to).replace(/（.）/,'')+'まで）】'+(ev.length?'':'なし'));
+  ev.forEach(e=>L.push('・'+fmtMD(e.date)+' '+(e.start||'')+'　'+e.title+(e.place?'　@'+e.place:'')));
+  L.push('');
+  // スタッフ
+  const st=targetStaff().map(p=>({p,sc:staffScore(p)})).sort((a,b)=>b.sc-a.sc);
+  L.push('【スタッフの状況】（気にかけたい順）');
+  st.forEach(({p})=>{
+    const talk=talkOpen(p);const m=nextMilestone(p);const why=staffWhy(p);
+    const lines=[];
+    if(why)lines.push(why);
+    if(talk.length)lines.push('話したいこと：'+talk.map(x=>x.t).join('／'));
+    if(p.homework)lines.push('宿題：'+p.homework);
+    if(m&&diffDays(t,m.date)<=60)lines.push('節目：'+m.label+'（'+fmtMD(m.date)+'）');
+    if(!lines.length&&!opt.all)return;
+    L.push('◇ '+p.name+'（'+p.kind+'）'+(p.lastContact?'　最後に話した日 '+fmtMD(p.lastContact):''));
+    lines.forEach(s=>L.push('　'+s));
+  });
+  L.push('');
+  // 未対応の声
+  const ns=(D.notes||[]).filter(n=>!n.done);
+  if(ns.length){L.push('【未対応の声】'+ns.length+'件');ns.slice(0,10).forEach(n=>L.push('・'+(n.from||'匿名')+'：'+String(n.body||'').replace(/\s+/g,' ').slice(0,60)))}
+  return L.join('\n');
+}
+function openHandover(){
+  openModal(`<h3>引き継ぎメモ</h3>
+  <div class="hint">休む・異動するときに、状況を1枚にまとめます。面談の会話の内容は含めません。</div>
+  <div class="f2"><div class="f"><label>不在の期間（任意）</label><input id="hv-from" type="date"></div><div class="f"><label>〜</label><input id="hv-to" type="date"></div></div>
+  <div class="f"><label>ひとこと（任意）</label><input id="hv-note" placeholder="例：急ぎは山田さんへ"></div>
+  <div class="f"><label><input type="checkbox" id="hv-all" style="width:auto;margin-right:6px">特記事項のない人も載せる</label></div>
+  <div class="f"><button class="btn small" onclick="makeHandover()">作る</button></div>
+  <div class="f"><textarea id="hv-text" style="min-height:240px;font-size:12px" placeholder="「作る」を押すとここに出ます。手で書き足せます。"></textarea></div>
+  <div class="foot"><button class="btn ghost" onclick="closeModal()">閉じる</button><button class="btn ghost" onclick="copyHandover()">コピー</button><button class="btn solid" onclick="saveHandoverFile()">ファイルで保存</button></div>`);
+}
+function makeHandover(){
+  const g=i=>(document.getElementById(i)||{}).value||'';
+  document.getElementById('hv-text').value=handoverText({from:g('hv-from'),to:g('hv-to'),note:g('hv-note').trim(),all:document.getElementById('hv-all').checked});
+}
+function copyHandover(){const v=document.getElementById('hv-text').value;if(!v){toast('先に「作る」を押してください');return}try{navigator.clipboard.writeText(v);toast('コピーしました')}catch(e){toast('コピーできませんでした')}}
+function saveHandoverFile(){
+  const v=document.getElementById('hv-text').value;if(!v){toast('先に「作る」を押してください');return}
+  const b=new Blob([v],{type:'text/plain;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='引き継ぎメモ_'+today()+'.txt';a.click();
+}
+
+/* ========== 面談前の一枚（事実の整理だけ。記録の要約はしない） ========== */
+function prepFacts(pid){
+  const p=D.staff.find(x=>x.id===pid);if(!p)return null;const t=today();
+  const ms=meetingsOf(pid);
+  const past=ms.filter(e=>e.date<t||(e.date===t&&e.report));
+  const lastMt=past[0]||null;
+  const nextMt=ms.filter(e=>e.date>=t&&!e.report&&!e.cancelled).sort((a,b)=>a.date.localeCompare(b.date))[0]||null;
+  const rest=lastMt?themeList(lastMt).filter(x=>!x.done).map(x=>x.t):[];
+  return {p,lastMt,nextMt,rest,
+    talk:talkOpen(p),homework:lastMt&&lastMt.nextTask?lastMt.nextTask:(p.homework||''),
+    milestone:nextMilestone(p),lastPraise:lastPraise(p),
+    notes:notesOf(pid,p.name).filter(n=>!n.done).length,
+    deleg:D.tasks.filter(x=>x.status==='delegated'&&x.assignee===p.name),
+    shift:nextWorkDays(p.name,t,3)};
+}
+function openPrep(pid){
+  const f=prepFacts(pid);if(!f)return;const p=f.p;const t=today();
+  const row=(k,v)=>v?`<div class="prow"><b>${k}</b><span>${v}</span></div>`:'';
+  openModal(`<h3>面談前の一枚</h3>
+  <div class="hint"><b>${esc(p.name)}</b>さん（${esc(p.kind)}）${f.nextMt?'　次の面談 '+fmtMD(f.nextMt.date)+' '+(f.nextMt.start||''):''}</div>
+  <div class="prep">
+    ${row('前回の面談',f.lastMt?fmtMD(f.lastMt.date)+'（'+diffDays(f.lastMt.date,t)+'日前）':'まだありません')}
+    ${row('最後に話した日',p.lastContact?fmtMD(p.lastContact)+'（'+diffDays(p.lastContact,t)+'日前）':'記録なし')}
+    ${row('前回の課題',esc(f.homework))}
+    ${row('前回話せなかったこと',f.rest.map(esc).join('<br>'))}
+    ${row('話したいこと',f.talk.length?f.talk.map(x=>'・'+esc(x.t)).join('<br>'):'')}
+    ${row('次の節目',f.milestone?esc(f.milestone.label)+'（'+fmtMD(f.milestone.date)+'）':'')}
+    ${row('契約更新',p.renewalDate?fmtMD(p.renewalDate)+'（あと'+diffDays(t,p.renewalDate)+'日）':'')}
+    ${row('良かったことを伝えた',f.lastPraise?fmtMD(f.lastPraise)+'（'+diffDays(f.lastPraise,t)+'日前）':(praiseUsed()?'まだ記録なし':''))}
+    ${row('任せている案件',f.deleg.map(x=>'・'+esc(x.title)).join('<br>'))}
+    ${row('本人からの未対応の声',f.notes?f.notes+'件':'')}
+    ${row('この先の出勤',f.shift.map(x=>fmtMD(x.date).replace(/（.）/,'')+' '+esc(x.code)).join('　'))}
+  </div>
+  <p class="small muted">会話の内容は載せていません。必要なら面談の記録を開いてください。</p>
+  <div class="foot"><button class="btn ghost" onclick="closeModal()">閉じる</button>${f.lastMt?`<button class="btn ghost" onclick="openReport('${f.lastMt.id}')">前回の記録</button>`:''}<button class="btn ghost" onclick="openStaffDetail('${pid}')">詳細</button>${f.nextMt?`<button class="btn solid" onclick="openReport('${f.nextMt.id}')">面談を始める</button>`:''}</div>`);
+}
+
+/* ========== 議事録からToDo（AI） ========== */
+function openMinutes(evId){
+  if(!D.settings.aiOn){toast('設定で「AIを使う」をオンにしてください');return}
+  window._minEv=evId||'';
+  const e=evId?D.events.find(x=>x.id===evId):null;
+  openModal(`<h3>議事録からToDoを抜き出す</h3>
+  <div class="hint">${e?esc(e.title)+'　'+fmtMD(e.date)+'<br>':''}会議のメモを貼ってください。名前は伏せ字にしてから送ります。</div>
+  <div class="f"><textarea id="mn-text" style="min-height:180px" placeholder="例：&#10;・来月のシフト案 → 山田さんが来週金曜までに作成&#10;・休憩室の椅子 → 自分が総務に依頼&#10;・決定：18時以降は3人体制">${esc(e&&e.memo||'')}</textarea></div>
+  <div id="mn-out"></div>
+  <div class="foot"><button class="btn ghost" onclick="closeModal()">やめる</button><button class="btn solid" id="mn-go" onclick="runMinutes()">抜き出す</button></div>`);
+}
+async function runMinutes(){
+  const text=(document.getElementById('mn-text')||{}).value||'';
+  if(!text.trim()){toast('議事録を貼ってください');return}
+  const out=document.getElementById('mn-out');out.innerHTML='<div class="small muted">読んでいます…</div>';
+  try{
+    const j=await callGas({action:'aiMinutes',text},{tries:1,timeout:120000});
+    if(!j.ok)throw new Error(j.error||'失敗');
+    window._minRes=j;
+    const me=selfStaff();
+    out.innerHTML=(j.todos.length?`<label class="small muted">ToDo（チェックしたものを案件にします）</label>`+j.todos.map((x,i)=>{
+      const isMe=!x.owner||x.owner==='自分'||(me&&x.owner.includes(me.name));
+      return `<div class="row"><div class="t"><label style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" class="mn-pick" data-i="${i}" checked style="width:auto;margin-top:4px"><span><b>${esc(x.title)}</b><br><span class="small muted">${isMe?'自分':'担当：'+esc(x.owner)}${x.due?'　期限 '+fmtMD(x.due):''}</span></span></label></div></div>`}).join(''):'<div class="small muted">ToDoは見つかりませんでした。</div>')
+      +(j.decisions.length?`<label class="small muted" style="display:block;margin-top:10px">決定事項（検索できるよう残します）</label>`+j.decisions.map(d=>`<div class="row"><div class="t"><div class="sub" style="color:var(--ink)">・${esc(d)}</div></div></div>`).join(''):'');
+    const b=document.getElementById('mn-go');if(b){b.textContent='登録する';b.setAttribute('onclick','saveMinutes()')}
+  }catch(e){out.innerHTML='<div class="warn">抜き出せませんでした：'+esc(e.message)+'</div>'}
+}
+function saveMinutes(){
+  const j=window._minRes;if(!j)return;
+  const evId=window._minEv;const e=evId?D.events.find(x=>x.id===evId):null;
+  const src=e?e.title+'（'+fmtMD(e.date).replace(/（.）/,'')+'）':'議事録（'+fmtMD(today()).replace(/（.）/,'')+'）';
+  const me=selfStaff();let n=0,dg=0;
+  document.querySelectorAll('.mn-pick:checked').forEach(c=>{
+    const x=j.todos[+c.dataset.i];if(!x)return;
+    const isMe=!x.owner||x.owner==='自分'||(me&&x.owner.includes(me.name));
+    const p=!isMe?resolveStaff(x.owner):null;
+    const t={id:uid(),title:x.title,due:x.due||'',memo:'出どころ：'+src+(isMe?'':'\n担当：'+x.owner),pri:'B',source:'minutes',status:'open',createdAt:new Date().toISOString()};
+    if(!isMe){t.status='delegated';t.assignee=p?p.name:x.owner;t.handoffs=[{from:'自分',to:t.assignee,at:new Date().toISOString()}];t.delegId=uid();
+      delegLog().push({id:t.delegId,taskId:t.id,at:new Date().toISOString(),to:t.assignee,staffId:p?p.id:'',title:t.title,due:t.due,doneAt:''});dg++}
+    D.tasks.push(t);n++;
+  });
+  if(j.decisions&&j.decisions.length){
+    if(e){e.decisions=[...(e.decisions||[]),...j.decisions]}
+    else{D.decisions=D.decisions||[];j.decisions.forEach(d=>D.decisions.push({id:uid(),d:today(),src,t:d}))}
+  }
+  closeModal();store.save();render();toast('案件'+(n-dg)+'件、依頼中'+dg+'件'+(j.decisions.length?'、決定事項'+j.decisions.length+'件':'')+'を登録しました');
 }
 
 /* ========== 委任の記録と分析 ========== */
@@ -5524,6 +5903,8 @@ function vSetting(){
   <div class="f"><label>使うモデル</label><select id="s-aimodel">${['claude-haiku-5-5','claude-sonnet-5-5'].map(m=>`<option ${ (s.aiModel||'claude-haiku-5-5')===m?'selected':''}>${m}</option>`).join('')}</select></div>
   <div class="hint"><b>安全のための仕組み</b><br>・APIキーはこのアプリには置かず、シート側（Apps Scriptのスクリプト プロパティ）にだけ保管します<br>・送る前に、名簿の名前・メールアドレス・電話番号を [S01] のような記号に置き換え、戻ってきた結果を手元で名前に戻します<br>・名簿にない人の名前（署名など）は伏せきれないことがあります</div>
   <div class="f"><button class="btn ghost small" onclick="aiCheck()">接続を確かめる</button> <span id="ai-status" class="small muted"></span></div>
+  <h2>引き継ぎメモ</h2>
+  <div class="f"><button class="btn ghost small" onclick="openHandover()">引き継ぎメモを作る</button> <span class="small muted">休む・異動するときに、案件・予定・スタッフの状況を1枚にまとめます</span></div>
   <h2>夕方の振り返り</h2>
   <div class="f"><label><input type="checkbox" id="s-nudge" ${s.nudgeOn!==false?'checked':''} style="width:auto;margin-right:8px">最後の予定が終わったころ（または下の時刻）に、振り返りを促す</label></div>
   <div class="f2"><div class="f"><label>予定がない日の時刻</label><input id="s-nudgetime" type="time" value="${esc(s.nudgeTime||'20:00')}"></div>
