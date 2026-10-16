@@ -469,6 +469,14 @@ body.nodrag-scroll{overflow:hidden;overscroll-behavior:none}
 /* 止まっている印（右端） */
 .ttl{display:flex;align-items:center;flex-wrap:wrap;gap:2px}
 .stoptag{margin-left:auto;font-family:var(--pix);font-size:10px;background:var(--today);color:#fff;border-radius:4px;padding:2px 6px;flex:none}
+/* AIの読み取り */
+.aibox{border:2px solid var(--ink);border-radius:8px;padding:10px 12px;margin:8px 0 12px;background:var(--panel)}
+.ailabel{font-family:var(--pix);font-size:10px;color:var(--gray);margin-bottom:4px}
+.aipt{font-weight:700;font-size:14px;margin-bottom:6px}
+.airow{font-size:13px;margin:4px 0;line-height:1.6}
+.airow b{display:inline-block;font-size:11px;color:var(--gray);margin-right:8px;font-weight:600}
+.aibox .btn{margin:6px 6px 0 0}
+.aisub b{font-size:10px;color:var(--gray);margin-right:4px}
 /* 優先度 */
 .pribtn{font-family:var(--sans);font-weight:700;font-size:12px;width:24px;height:24px;border-radius:5px;border:2px solid var(--rule);background:var(--panel);color:var(--gray);margin-right:7px;vertical-align:2px;flex:none;padding:0}
 .pribtn.pA{background:var(--today);border-color:var(--today);color:#fff}
@@ -890,7 +898,7 @@ const TYPES={
   '私用':{cat:'私用',fields:['place']}
 };
 const CATS=['会議','打合せ','人','作業','移動','私用'];
-const DEFAULT_SETTINGS={gasUrl:'',myEmail:'',vip:[],exclude:[],deadlineWords:['至急','本日中','〆切','締切','までに','確認願います','ご確認ください'],calDays:30,calAuto:true,nudgeOn:true,nudgeTime:'20:00',dayCutoff:'05:00',nudgeTo:'',appUrl:'https://cmeaix003-cpu.github.io/mii/',icsUrls:[],formSheetUrl:'',noteTags:['シフト','設備','人間関係','業務量','手順・ルール','待遇','感謝・良かったこと','その他'],nameAliases:{},forwardTo:'',forwardLabel:'',roomTo:'',roomCc:'',roomSubject:'【会議室のお願い】{date} {start}〜{end} 面談',roomBody:'お疲れ様です。\n\n下記のとおり面談を予定しております。会議室のご手配をお願いいたします。\n\n・日時：{date}（{dow}） {start}〜{end}\n・対象：{name} さん\n・場所：{place}\n\nお手数をおかけしますが、よろしくお願いいたします。',weeklyGoal:5,weekGoals:{},fetchDays:2};
+const DEFAULT_SETTINGS={gasUrl:'',myEmail:'',vip:[],exclude:[],deadlineWords:['至急','本日中','〆切','締切','までに','確認願います','ご確認ください'],calDays:30,calAuto:true,aiOn:false,aiAutoMail:false,aiAutoMailMax:8,aiMonthlyLimit:300,aiModel:'claude-haiku-5-5',nudgeOn:true,nudgeTime:'20:00',dayCutoff:'05:00',nudgeTo:'',appUrl:'https://cmeaix003-cpu.github.io/mii/',icsUrls:[],formSheetUrl:'',noteTags:['シフト','設備','人間関係','業務量','手順・ルール','待遇','感謝・良かったこと','その他'],nameAliases:{},forwardTo:'',forwardLabel:'',roomTo:'',roomCc:'',roomSubject:'【会議室のお願い】{date} {start}〜{end} 面談',roomBody:'お疲れ様です。\n\n下記のとおり面談を予定しております。会議室のご手配をお願いいたします。\n\n・日時：{date}（{dow}） {start}〜{end}\n・対象：{name} さん\n・場所：{place}\n\nお手数をおかけしますが、よろしくお願いいたします。',weeklyGoal:5,weekGoals:{},fetchDays:2};
 
 let D={events:[],tasks:[],mails:[],staff:[],shifts:{},duty:{},settings:{...DEFAULT_SETTINGS},meta:{updatedAt:0}};
 let view='today', calMode='week', calAnchor=today(), peopleFilter='全', mailTab='reply', inboxTab='open', peopleDate=null;
@@ -2623,9 +2631,54 @@ function vMail(){
 function rowMail(m,compact){
   const sd=mailStaleDays(m);const rep=m.needsReply;
   return `<div class="row ${rep?'due':''} ${sd>=3&&rep?'stale':''}"><div class="t" onclick="openMailDetail('${m.id}')" style="cursor:pointer"><div class="ttl">${m.flagged?'<span class="fwd">自分で送信</span>':''}${esc(m.subject||'（件名なし）')}</div><div class="sub">${esc(m.from)}${m.to==='CC'?'<span class="pill">CC</span>':''}　${m.date?fmtMD(m.date.slice(0,10)):''}${rep?'　<span class="'+(sd>=3?'due-today':'')+'">'+(sd?sd+'日返信なし':'返信待ち')+'</span>':''}　<span class="score">${mailScore(m)}点</span></div>
-  ${m.snippet?`<div class="sub" style="margin-top:4px;color:var(--ink)">${esc(m.snippet.slice(0,120))}${m.snippet.length>120?'…':''}</div>`:''}
+  ${m.ai?`<div class="sub aisub" style="margin-top:4px"><b>要点</b> ${esc(m.ai.point)}${m.ai.ask?'<br><b>対応</b> '+esc(m.ai.ask):''}</div>`:(m.snippet?`<div class="sub" style="margin-top:4px;color:var(--ink)">${esc(m.snippet.slice(0,120))}${m.snippet.length>120?'…':''}</div>`:'')}
   ${compact?'':`<div class="exits" onclick="event.stopPropagation()"><button class="btn small" onclick="mailExit('${m.id}','replied')">返信した</button><button class="btn small" onclick="mailToTask('${m.id}')">タスク化</button><button class="btn ghost small" onclick="mailExit('${m.id}','ignored')">対応不要</button>${m.link?`<a class="btn ghost small" href="${esc(m.link)}" target="_blank" rel="noopener">Gmailで開く</a>`:''}</div>`}
   </div>${compact?`<div class="acts mini" onclick="event.stopPropagation()"><button class="btn ghost xs" onclick="mailToTask('${m.id}')" title="タスク化">＋</button><button class="btn small" onclick="mailExit('${m.id}','replied')">返信</button></div>`:''}</div>`;
+}
+
+
+/* ===== AI（Claude API・シート経由） ===== */
+async function aiCheck(){
+  const el=document.getElementById('ai-status');
+  if(!D.settings.gasUrl){if(el)el.textContent='先にシートの接続先を登録してください';return}
+  if(el)el.textContent='確かめています…';
+  try{
+    const st=await callGas({action:'aiStatus'},{tries:1,timeout:30000});
+    if(!st.ok)throw new Error(st.error||'失敗');
+    if(!st.hasKey){if(el)el.innerHTML='<b style="color:var(--today)">APIキーが未設定です</b>（スクリプト プロパティ ANTHROPIC_API_KEY）';return}
+    const t=await callGas({action:'aiTest'},{tries:1,timeout:60000});
+    if(!t.ok)throw new Error(t.error||'失敗');
+    if(el)el.innerHTML='つながりました。今月 '+t.usage.calls+'回／上限'+st.limit+'回<br>送った文：'+esc(t.sent)+'<br>戻った文：'+esc(t.reply);
+  }catch(e){if(el)el.innerHTML='<b style="color:var(--today)">'+esc(e.message)+'</b>'}
+}
+async function aiMailSummary(id){
+  const m=D.mails.find(x=>x.id===id);if(!m)return;
+  if(!D.settings.aiOn){toast('設定で「AIを使う」をオンにしてください');return}
+  if(!m.threadId||String(m.threadId).startsWith('manual-')){toast('手で登録したメールは要約できません');return}
+  const box=document.getElementById('ai-box');if(box)box.innerHTML='<div class="small muted">読んでいます…</div>';
+  try{
+    const j=await callGas({action:'aiMail',threadId:m.threadId},{tries:1,timeout:90000});
+    if(!j.ok)throw new Error(j.error||'失敗');
+    m.ai=j.ai;store.save();
+    if(box)box.innerHTML=aiMailHtml(m);
+  }catch(e){if(box)box.innerHTML='<div class="warn">要約できませんでした：'+esc(e.message)+'</div>'}
+}
+function aiMailHtml(m){
+  const a=m.ai;if(!a)return '';
+  return `<div class="aibox">
+    <div class="ailabel">みーの読み取り</div>
+    <div class="aipt">${esc(a.point)}</div>
+    ${a.ask?`<div class="airow"><b>求められていること</b>${esc(a.ask)}</div>`:''}
+    ${a.due?`<div class="airow"><b>期限</b>${fmtMD(a.due)}</div>`:''}
+    ${a.reply?`<div class="airow"><b>返信案</b><span id="ai-reply-${m.id}">${esc(a.reply)}</span></div><button class="btn ghost xs" onclick="aiCopyReply('${m.id}')">返信案をコピー</button>`:''}
+    ${a.ask?`<button class="btn ghost xs" onclick="aiMailToTask('${m.id}')">求められていることを案件に</button>`:''}
+  </div>`;
+}
+function aiCopyReply(id){const m=D.mails.find(x=>x.id===id);if(!m||!m.ai)return;try{navigator.clipboard.writeText(m.ai.reply);toast('コピーしました')}catch(e){toast('コピーできませんでした')}}
+function aiMailToTask(id){
+  const m=D.mails.find(x=>x.id===id);if(!m||!m.ai)return;
+  D.tasks.push({id:uid(),title:m.ai.ask.slice(0,60),due:m.ai.due||'',memo:'メール：'+(m.subject||'')+'\n'+(m.ai.point||''),source:'mail',mailId:id,pri:m.needsReply?'A':'B',status:'open',createdAt:new Date().toISOString()});
+  m.status='tasked';closeModal();store.save();render();toast('机に入れました');
 }
 
 /* ===== メールの中身を見る ===== */
@@ -2636,6 +2689,7 @@ function openMailDetail(id){
    +'<div class="hint">'+esc(m.from||'')+(m.to==='CC'?'（CC）':'')+'　'+(m.date?fmtMD(m.date.slice(0,10)):'')
    +(m.needsReply?'　<b style="color:var(--today)">'+(sd?sd+'日返信なし':'返信待ち')+'</b>':'')+'　'+mailScore(m)+'点</div>'
    +(m.flagged?'<div class="warn person">自分で送った（転送・投稿ボックス）</div>':'')
+   +(D.settings.aiOn||m.ai?'<div id="ai-box">'+(m.ai?aiMailHtml(m):'<button class="btn small" onclick="aiMailSummary(\''+id+'\')">みーに要約してもらう</button>')+'</div>':'')
    +'<div class="f"><label>本文</label><div class="mailbody">'+(m.snippet?esc(m.snippet):'<span class="muted">本文は取り込まれていません</span>')+'</div></div>'
    +(m.link?'<div class="f"><a class="btn ghost small" href="'+esc(m.link)+'" target="_blank" rel="noopener">Gmailで開く</a></div>':'')
    +'<div class="foot">'
@@ -2992,6 +3046,14 @@ function adoptRemote(remote,localSnap){
     if(ln.tags&&ln.tags.length&&!(n.tags&&n.tags.length))n.tags=ln.tags.slice();
     if(ln.bundleId&&!n.bundleId)n.bundleId=ln.bundleId;
     if(ln.tasked&&!n.tasked)n.tasked=true;
+  });
+  // メール：こちらで取った要約・出口を引き継ぐ
+  const localMails=(l&&l.mails)||[];
+  (merged.mails||[]).forEach(m=>{
+    const lm=localMails.find(x=>x.id===m.id||(x.threadId&&x.threadId===m.threadId));
+    if(!lm)return;
+    if(lm.ai&&!m.ai)m.ai=lm.ai;
+    if(lm.status&&lm.status!=='open'&&(!m.status||m.status==='open'))m.status=lm.status;
   });
   // 案件：こちらで完了・委任にしたものを引き継ぐ
   const localTasks=(l&&l.tasks)||[];
@@ -5454,6 +5516,14 @@ function vSetting(){
   <p class="small muted">投稿ボックスの通知など、Gmailのフィルタでラベルを付けたメールを最上位で拾います。転送できない場合はこちらをお使いください。</p>
   <div class="f"><label>期限を示す語句（1行に1つ）</label><textarea id="s-dw">${esc(s.deadlineWords.join('\n'))}</textarea></div>
   <div class="f2"><div class="f"><label>メール：過去何日分</label><input id="s-fd" type="number" value="${s.fetchDays}"></div><div class="f"><label>カレンダー：先何日分</label><input id="s-cd2" type="number" value="${s.calDays||30}"></div></div>
+  <h2>AIの読み取り（Claude API）</h2>
+  <div class="f"><label><input type="checkbox" id="s-aion" ${s.aiOn?'checked':''} style="width:auto;margin-right:8px">AIを使う</label></div>
+  <div class="f"><label><input type="checkbox" id="s-aiauto" ${s.aiAutoMail?'checked':''} style="width:auto;margin-right:8px">毎朝7時に、要返信・今日読むメールを自動で要約しておく</label></div>
+  <div class="f2"><div class="f"><label>朝の自動要約（1日の最大件数）</label><input id="s-aimax" type="number" min="1" max="30" value="${s.aiAutoMailMax||8}"></div>
+  <div class="f"><label>1か月の上限回数</label><input id="s-ailimit" type="number" min="10" value="${s.aiMonthlyLimit||300}"></div></div>
+  <div class="f"><label>使うモデル</label><select id="s-aimodel">${['claude-haiku-5-5','claude-sonnet-5-5'].map(m=>`<option ${ (s.aiModel||'claude-haiku-5-5')===m?'selected':''}>${m}</option>`).join('')}</select></div>
+  <div class="hint"><b>安全のための仕組み</b><br>・APIキーはこのアプリには置かず、シート側（Apps Scriptのスクリプト プロパティ）にだけ保管します<br>・送る前に、名簿の名前・メールアドレス・電話番号を [S01] のような記号に置き換え、戻ってきた結果を手元で名前に戻します<br>・名簿にない人の名前（署名など）は伏せきれないことがあります</div>
+  <div class="f"><button class="btn ghost small" onclick="aiCheck()">接続を確かめる</button> <span id="ai-status" class="small muted"></span></div>
   <h2>夕方の振り返り</h2>
   <div class="f"><label><input type="checkbox" id="s-nudge" ${s.nudgeOn!==false?'checked':''} style="width:auto;margin-right:8px">最後の予定が終わったころ（または下の時刻）に、振り返りを促す</label></div>
   <div class="f2"><div class="f"><label>予定がない日の時刻</label><input id="s-nudgetime" type="time" value="${esc(s.nudgeTime||'20:00')}"></div>
@@ -5517,7 +5587,9 @@ async function checkFormSheet(){
 }
 function saveSettings(){
   const g=i=>document.getElementById(i).value;const lines=i=>g(i).split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
-  Object.assign(D.settings,{gasUrl:g('s-gas').trim(),myEmail:g('s-me').trim(),vip:lines('s-vip'),exclude:lines('s-ex'),deadlineWords:lines('s-dw'),icsUrls:lines('s-ics'),formSheetUrl:g('s-fsheet').trim(),forwardTo:g('s-fwd').trim(),forwardLabel:g('s-flabel').trim(),roomTo:g('s-rto').trim(),roomCc:g('s-rcc').trim(),roomSubject:g('s-rsub'),roomBody:g('s-rbody'),fetchDays:Number(g('s-fd'))||2,calDays:Number(g('s-cd2'))||30,weeklyGoal:Number(g('s-goal'))||0});
+  Object.assign(D.settings,{gasUrl:g('s-gas').trim(),myEmail:g('s-me').trim(),vip:lines('s-vip'),exclude:lines('s-ex'),deadlineWords:lines('s-dw'),icsUrls:lines('s-ics'),formSheetUrl:g('s-fsheet').trim(),forwardTo:g('s-fwd').trim(),forwardLabel:g('s-flabel').trim(),roomTo:g('s-rto').trim(),roomCc:g('s-rcc').trim(),roomSubject:g('s-rsub'),roomBody:g('s-rbody'),fetchDays:Number(g('s-fd'))||2,calDays:Number(g('s-cd2'))||30,weeklyGoal:Number(g('s-goal'))||0,
+    nudgeOn:document.getElementById('s-nudge').checked,nudgeTime:g('s-nudgetime')||'20:00',nudgeTo:g('s-nudgeto').trim(),appUrl:g('s-appurl').trim(),dayCutoff:g('s-cutoff')||'05:00',
+    aiOn:document.getElementById('s-aion').checked,aiAutoMail:document.getElementById('s-aiauto').checked,aiAutoMailMax:Number(g('s-aimax'))||8,aiMonthlyLimit:Number(g('s-ailimit'))||300,aiModel:g('s-aimodel')||'claude-haiku-5-5'});
   store.save();
 }
 function exportData(){const b=new Blob([JSON.stringify(D,null,1)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='mii-'+today()+'.json';a.click()}
